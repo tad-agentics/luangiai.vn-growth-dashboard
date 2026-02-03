@@ -195,9 +195,6 @@ class CRMDashboard {
             connectionModal.classList.add('hidden');
         }
 
-        // Show loading state in the main dashboard
-        this.showStatus('Connecting to FluentCRM...', 'info');
-
         // Auto-connect using hardcoded CONFIG credentials
         this.connectWithCredentials(CONFIG.siteUrl, CONFIG.username, CONFIG.password, false);
     }
