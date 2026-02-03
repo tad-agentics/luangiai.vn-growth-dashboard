@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luangiai.vn - CRM Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: #111827;
+            min-height: 100vh;
+        }
+
+        /* Tab Styles */
+        .tab-btn {
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .tab-btn:not(.active):hover {
+            background-color: #374151;
+            color: white;
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+        }
+
+        /* Persona Cards */
+        .persona-card {
+            border-left-width: 4px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .persona-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Loading */
+        .loading-skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Gradient accents */
+        .gradient-purple {
+            background: linear-gradient(135deg, #312e81 0%, #581c87 100%);
+        }
+        .gradient-blue {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0d47a1 100%);
+        }
+        .gradient-green {
+            background: linear-gradient(135deg, #14532d 0%, #166534 100%);
+        }
+
+        /* Progress bars */
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+
+        /* Metric cards */
+        .metric-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+        }
+        .metric-card.purple::before { background: #8b5cf6; }
+        .metric-card.blue::before { background: #3b82f6; }
+        .metric-card.green::before { background: #22c55e; }
+        .metric-card.orange::before { background: #f97316; }
+        .metric-card.cyan::before { background: #06b6d4; }
+
+        /* Status badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .badge-green { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .badge-yellow { background: rgba(234, 179, 8, 0.2); color: #facc15; }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .badge-gray { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
+
+        /* Data freshness indicator */
+        .freshness-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .freshness-live { background: #22c55e; }
+        .freshness-stale { background: #eab308; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Growth period buttons */
+        .growth-period-btn.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+
+        /* Mini sparkline container */
+        .sparkline-container {
+            height: 40px;
+        }
+    </style>
+</head>
+<body class="text-white p-4">
+    <!-- Connection Modal -->
+    <div id="connectionModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="card p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-plug text-indigo-400 text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-2">Connect to FluentCRM</h2>
+                <p class="text-gray-400 text-sm">Enter your WordPress site URL and API credentials</p>
+            </div>
+
+            <form id="connectionForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">WordPress Site URL</label>
+                    <input type="url" id="siteUrl" placeholder="https://yoursite.com"
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-gray-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">API Username</label>
+                    <input type="text" id="apiUsername" placeholder="your-username"
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-gray-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Application Password</label>
+                    <input type="password" id="apiPassword" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-gray-500">
+                    <p class="text-xs text-gray-500 mt-1">Generate in WordPress > Users > Application Passwords</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="rememberCredentials" class="rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500">
+                    <label for="rememberCredentials" class="text-sm text-gray-400">Remember credentials (stored locally)</label>
+                </div>
+                <button type="submit" id="connectBtn"
+                    class="w-full py-3 bg-indigo-600 rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
+                    <span id="connectBtnText">Connect to Dashboard</span>
+                    <i id="connectSpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                </button>
+                <p id="connectionError" class="text-red-400 text-sm text-center hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold">Luangiai.vn CRM Dashboard</h1>
+                <p class="text-gray-400 text-sm mt-1">Real-time contact monitoring & NRU segmentation</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 text-xs text-gray-400">
+                    <span class="freshness-indicator freshness-live" id="freshnessIndicator"></span>
+                    <span>Last sync: <span id="lastUpdate">-</span></span>
+                </div>
+                <button onclick="refreshData()" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+                <button onclick="disconnect()" class="px-3 py-2 bg-red-900/50 hover:bg-red-900 text-red-400 rounded-lg text-sm transition-colors">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Disconnect
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 mb-6 bg-gray-800 p-1 rounded-lg w-fit flex-wrap">
+            <button onclick="setTab('overview')" class="tab-btn active px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="overview">
+                Overview
+            </button>
+            <button onclick="setTab('growth')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="growth">
+                Growth Analytics
+            </button>
+            <button onclick="setTab('personas')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="personas">
+                NRU Personas
+            </button>
+        </div>
+
+        <!-- ==================== OVERVIEW TAB ==================== -->
+        <div id="tab-overview" class="tab-content space-y-6">
+            <!-- Key Metrics Row -->
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <div class="card metric-card purple p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Total Contacts</div>
+                    <div class="text-2xl font-bold text-white" id="metricTotal">-</div>
+                    <div class="text-purple-400 text-xs mt-1" id="metricTotalTrend">-</div>
+                </div>
+                <div class="card metric-card green p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Converted</div>
+                    <div class="text-2xl font-bold text-green-400" id="metricConverted">-</div>
+                    <div class="text-green-400 text-xs mt-1" id="metricCVR">-</div>
+                </div>
+                <div class="card metric-card orange p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Subscribed</div>
+                    <div class="text-2xl font-bold text-yellow-400" id="metricSubscribed">-</div>
+                    <div class="text-gray-500 text-xs mt-1" id="metricSubscribedPct">-</div>
+                </div>
+                <div class="card metric-card cyan p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Pending</div>
+                    <div class="text-2xl font-bold text-cyan-400" id="metricPending">-</div>
+                    <div class="text-gray-500 text-xs mt-1" id="metricPendingPct">-</div>
+                </div>
+                <div class="card metric-card blue p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Lists</div>
+                    <div class="text-2xl font-bold text-blue-400" id="metricLists">-</div>
+                    <div class="text-gray-500 text-xs mt-1">Active segments</div>
+                </div>
+                <div class="card metric-card cyan p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Tags</div>
+                    <div class="text-2xl font-bold text-cyan-400" id="metricTags">-</div>
+                    <div class="text-gray-500 text-xs mt-1">For targeting</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Status Distribution -->
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Contact Status Distribution</h3>
+                    <div class="h-64">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Persona Distribution -->
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">NRU Persona Distribution</h3>
+                    <div class="h-64">
+                        <canvas id="personaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Quality Insights -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Data Quality Insights</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="dataQualityGrid">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Top Lists & Tags -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Top Lists</h3>
+                    <div id="topListsContainer" class="space-y-3">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Top Tags</h3>
+                    <div id="topTagsContainer" class="space-y-3">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== GROWTH ANALYTICS TAB ==================== -->
+        <div id="tab-growth" class="tab-content space-y-6 hidden">
+            <!-- Key Growth Metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Total Leads</div>
+                    <div class="text-2xl font-bold text-blue-400" id="metricLeads">-</div>
+                    <div class="text-gray-500 text-xs mt-1" id="metricLeadsPct">-</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Customers</div>
+                    <div class="text-2xl font-bold text-green-400" id="metricCustomers">-</div>
+                    <div class="text-green-400 text-xs mt-1" id="metricCustomerCVR">-</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Avg Time to Convert</div>
+                    <div class="text-2xl font-bold text-purple-400" id="metricAvgTTC">-</div>
+                    <div class="text-gray-500 text-xs mt-1">days</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">This Week New</div>
+                    <div class="text-2xl font-bold text-cyan-400" id="metricWeekNew">-</div>
+                    <div class="text-xs mt-1" id="metricWeekTrend">-</div>
+                </div>
+            </div>
+
+            <!-- Acquisition Sources -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Acquisition Sources</h3>
+                    <div class="h-64">
+                        <canvas id="sourceChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Source Performance</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                    <th class="text-left py-2">Source</th>
+                                    <th class="text-right py-2">Leads</th>
+                                    <th class="text-right py-2">Customers</th>
+                                    <th class="text-right py-2">CVR</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sourceTable">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cohort Analysis -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <div>
+                        <h3 class="text-white font-bold">Weekly Cohort Analysis</h3>
+                        <p class="text-gray-400 text-sm mt-1">Registration week vs conversion rate</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-2">Week</th>
+                                <th class="text-right py-2">New Leads</th>
+                                <th class="text-right py-2">Converted</th>
+                                <th class="text-right py-2">CVR</th>
+                                <th class="py-2 w-1/4">Conversion Bar</th>
+                                <th class="text-right py-2">Avg Days to Convert</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cohortTable">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Conversion Timeline & Source by Persona -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Conversion Timeline</h3>
+                    <p class="text-gray-400 text-xs mb-4">Distribution of days from lead to customer</p>
+                    <div class="h-48">
+                        <canvas id="conversionTimelineChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Source by Persona</h3>
+                    <p class="text-gray-400 text-xs mb-4">Which channels bring which personas</p>
+                    <div id="sourceByPersona" class="space-y-3">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Registrations Chart -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Daily New Registrations (Last 30 Days)</h3>
+                <div class="h-64">
+                    <canvas id="dailyRegistrationsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Activity & Engagement -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Engagement Status</h3>
+                <p class="text-gray-400 text-xs mb-4">Based on last activity date</p>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="engagementGrid">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== NRU PERSONAS TAB ==================== -->
+        <div id="tab-personas" class="tab-content space-y-6 hidden">
+            <!-- Persona Summary -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <div>
+                        <h3 class="text-white font-bold">NRU Persona Distribution</h3>
+                        <p class="text-gray-400 text-sm mt-1">Segmented by Age (DOB) + Device Type</p>
+                    </div>
+                    <div class="mt-2 md:mt-0 text-xs text-gray-500">
+                        <span id="dataCompleteness">-</span> contacts with complete data
+                    </div>
+                </div>
+
+                <!-- Categorization Rules Legend -->
+                <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                    <div class="text-xs text-gray-400 mb-2 font-medium">Categorization Rules:</div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-orange-500"></span> Gen Z: 18-24</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Career: 25-34 + Mobile</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-purple-500"></span> Desktop: 25-44 + Desktop</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-cyan-500"></span> Life: 35-44 + Mobile</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-green-500"></span> Established: 45+</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-gray-500"></span> Mystery: Unknown</span>
+                    </div>
+                </div>
+
+                <!-- Persona Overview Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Persona</th>
+                                <th class="text-right py-3">Count</th>
+                                <th class="text-right py-3">%</th>
+                                <th class="py-3 w-1/5">Distribution</th>
+                                <th class="text-right py-3">Converted</th>
+                                <th class="text-right py-3">CVR</th>
+                                <th class="text-center py-3">Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personaTable">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-gray-500 text-xs mt-2">* CVR based on tags: paid, purchased, customer, buyer, converted, order, subscription, premium, pro, vip</p>
+            </div>
+
+            <!-- Persona Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="personaCards">
+                <!-- Populated dynamically -->
+            </div>
+
+            <!-- Persona Growth Chart -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <div>
+                        <h3 class="text-white font-bold">Persona Growth Over Time</h3>
+                        <p class="text-gray-400 text-sm mt-1">Daily contact count by persona (last 30 days)</p>
+                    </div>
+                    <div class="flex gap-2 mt-2 md:mt-0">
+                        <button onclick="setGrowthPeriod(7)" class="growth-period-btn px-3 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-days="7">7 days</button>
+                        <button onclick="setGrowthPeriod(14)" class="growth-period-btn px-3 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-days="14">14 days</button>
+                        <button onclick="setGrowthPeriod(30)" class="growth-period-btn active px-3 py-1 text-xs rounded bg-indigo-600 text-white" data-days="30">30 days</button>
+                    </div>
+                </div>
+                <div class="h-80">
+                    <canvas id="personaGrowthChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Individual Persona Growth Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="personaGrowthCards">
+                <!-- Populated dynamically -->
+            </div>
+
+            <!-- Age & Device Breakdown -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Age Distribution</h3>
+                    <div class="h-64">
+                        <canvas id="ageChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Device Distribution</h3>
+                    <div class="h-64">
+                        <canvas id="deviceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Targeting Recommendations -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Targeting Recommendations</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Persona</th>
+                                <th class="text-left py-3">Best Channel</th>
+                                <th class="text-left py-3">Recommended Offer</th>
+                                <th class="text-left py-3">Nurture Strategy</th>
+                            </tr>
+                        </thead>
+                        <tbody id="targetingTable">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 pt-4 border-t border-gray-800 text-center text-gray-500 text-xs">
+            Luangiai.vn CRM Dashboard | Connected to FluentCRM | Auto-refreshes every 5 minutes
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
