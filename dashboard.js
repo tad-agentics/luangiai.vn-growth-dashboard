@@ -1,8 +1,15 @@
 // Luangiai.vn CRM Dashboard - FluentCRM Integration
 // ==================================================
 
-// Hardcoded credentials for team access (no login required)
-const CONFIG = {
+// Supabase Configuration
+const SUPABASE_URL = 'https://qktiedjahvbeuznpjubv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrdGllZGphaHZiZXV6bnBqdWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMTg1MDMsImV4cCI6MjA4NTY5NDUwM30.cpoTuuYlqHRgfJWnGIMnnyY7w2vPcLjRALb7X3Qm-Mo';
+
+// Initialize Supabase client
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Fallback credentials (used if Supabase is unavailable)
+const FALLBACK_CONFIG = {
     siteUrl: 'https://luangiai.vn',
     username: 'dominhthai94@gmail.com',
     password: 'p3Jb 1Z6G JOde MAaS qtvt DK9D'
@@ -188,15 +195,77 @@ class CRMDashboard {
         this.init();
     }
 
-    init() {
-        // Hide the connection modal immediately - using hardcoded credentials
+    async init() {
+        // Hide the connection modal immediately
         const connectionModal = document.getElementById('connectionModal');
         if (connectionModal) {
             connectionModal.classList.add('hidden');
         }
 
-        // Auto-connect using hardcoded CONFIG credentials
-        this.connectWithCredentials(CONFIG.siteUrl, CONFIG.username, CONFIG.password, false);
+        // Load credentials from Supabase
+        let config = FALLBACK_CONFIG;
+        try {
+            const { data, error } = await supabase
+                .from('config')
+                .select('value')
+                .eq('key', 'fluentcrm')
+                .single();
+
+            if (data && !error) {
+                config = data.value;
+                console.log('Loaded credentials from Supabase');
+            } else {
+                console.log('Using fallback credentials:', error?.message);
+            }
+        } catch (e) {
+            console.log('Supabase unavailable, using fallback:', e.message);
+        }
+
+        // Log dashboard access to audit log
+        this.logAuditEvent('dashboard_load', { source: 'init' });
+
+        // Auto-connect using loaded credentials
+        this.connectWithCredentials(config.siteUrl, config.username, config.password, false);
+    }
+
+    // Log events to Supabase audit log
+    async logAuditEvent(action, details = {}) {
+        try {
+            await supabase.from('audit_log').insert({
+                action,
+                details,
+                user_agent: navigator.userAgent
+            });
+        } catch (e) {
+            // Silently fail - audit logging is non-critical
+        }
+    }
+
+    // Save daily metrics snapshot to Supabase
+    async saveDailyMetrics() {
+        const today = new Date().toISOString().split('T')[0];
+        const metrics = {
+            date: today,
+            total_contacts: this.data.contacts.length,
+            subscribed: this.data.contacts.filter(c => c.status === 'subscribed').length,
+            pending: this.data.contacts.filter(c => c.status === 'pending').length,
+            unsubscribed: this.data.contacts.filter(c => c.status === 'unsubscribed').length,
+            bounced: this.data.contacts.filter(c => c.status === 'bounced').length,
+            total_lists: this.data.lists.length,
+            total_tags: this.data.tags.length,
+            total_campaigns: this.data.campaigns.length,
+            leads: this.data.contacts.filter(c => c.contact_type === 'lead').length,
+            customers: this.data.contacts.filter(c => c.contact_type === 'customer').length,
+            personas: this.data.personas || {},
+            sources: this.data.growthAnalytics?.sourceBreakdown || {}
+        };
+
+        try {
+            await supabase.from('daily_metrics').upsert(metrics, { onConflict: 'date' });
+            console.log('Saved daily metrics to Supabase');
+        } catch (e) {
+            console.log('Failed to save metrics:', e.message);
+        }
     }
 
     async handleConnect() {
@@ -327,6 +396,9 @@ class CRMDashboard {
             this.calculateGrowthAnalytics();
             this.savePersonaHistory();
             this.updateDashboard();
+
+            // Save daily metrics to Supabase
+            this.saveDailyMetrics();
 
             document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 
