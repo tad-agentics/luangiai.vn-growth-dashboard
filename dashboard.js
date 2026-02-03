@@ -1,6 +1,13 @@
 // Luangiai.vn CRM Dashboard - FluentCRM Integration
 // ==================================================
 
+// Hardcoded credentials for team access (no login required)
+const CONFIG = {
+    siteUrl: 'https://luangiai.vn',
+    username: 'dominhthai94@gmail.com',
+    password: 'p3Jb 1Z6G JOde MAaS qtvt DK9D'
+};
+
 // Conversion Tags - Tags that indicate a user has converted/purchased
 // Customize this array based on your FluentCRM tag structure
 const CONVERSION_TAGS = [
@@ -182,33 +189,17 @@ class CRMDashboard {
     }
 
     init() {
-        const savedCreds = localStorage.getItem('fluentcrm_credentials');
-        if (savedCreds) {
-            try {
-                const creds = JSON.parse(savedCreds);
-                // Show auto-login status in the modal
-                const btnText = document.getElementById('connectBtnText');
-                const spinner = document.getElementById('connectSpinner');
-                if (btnText) btnText.textContent = 'Auto-connecting...';
-                if (spinner) spinner.classList.remove('hidden');
-
-                // Pre-fill the form fields
-                document.getElementById('siteUrl').value = creds.siteUrl || '';
-                document.getElementById('apiUsername').value = creds.username || '';
-                document.getElementById('apiPassword').value = creds.password || '';
-                document.getElementById('rememberCredentials').checked = true;
-
-                this.connectWithCredentials(creds.siteUrl, creds.username, creds.password, true);
-            } catch (e) {
-                console.error('Failed to parse saved credentials:', e);
-                localStorage.removeItem('fluentcrm_credentials');
-            }
+        // Hide the connection modal immediately - using hardcoded credentials
+        const connectionModal = document.getElementById('connectionModal');
+        if (connectionModal) {
+            connectionModal.classList.add('hidden');
         }
 
-        document.getElementById('connectionForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleConnect();
-        });
+        // Show loading state in the main dashboard
+        this.showStatus('Connecting to FluentCRM...', 'info');
+
+        // Auto-connect using hardcoded CONFIG credentials
+        this.connectWithCredentials(CONFIG.siteUrl, CONFIG.username, CONFIG.password, false);
     }
 
     async handleConnect() {
