@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://qktiedjahvbeuznpjubv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrdGllZGphaHZiZXV6bnBqdWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMTg1MDMsImV4cCI6MjA4NTY5NDUwM30.cpoTuuYlqHRgfJWnGIMnnyY7w2vPcLjRALb7X3Qm-Mo';
 
 // Initialize Supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Fallback credentials (used if Supabase is unavailable)
 const FALLBACK_CONFIG = {
@@ -205,7 +205,7 @@ class CRMDashboard {
         // Load credentials from Supabase
         let config = FALLBACK_CONFIG;
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('config')
                 .select('value')
                 .eq('key', 'fluentcrm')
@@ -231,7 +231,7 @@ class CRMDashboard {
     // Log events to Supabase audit log
     async logAuditEvent(action, details = {}) {
         try {
-            await supabase.from('audit_log').insert({
+            await supabaseClient.from('audit_log').insert({
                 action,
                 details,
                 user_agent: navigator.userAgent
@@ -261,7 +261,7 @@ class CRMDashboard {
         };
 
         try {
-            await supabase.from('daily_metrics').upsert(metrics, { onConflict: 'date' });
+            await supabaseClient.from('daily_metrics').upsert(metrics, { onConflict: 'date' });
             console.log('Saved daily metrics to Supabase');
         } catch (e) {
             console.log('Failed to save metrics:', e.message);
