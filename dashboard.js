@@ -184,8 +184,25 @@ class CRMDashboard {
     init() {
         const savedCreds = localStorage.getItem('fluentcrm_credentials');
         if (savedCreds) {
-            const creds = JSON.parse(savedCreds);
-            this.connectWithCredentials(creds.siteUrl, creds.username, creds.password, false);
+            try {
+                const creds = JSON.parse(savedCreds);
+                // Show auto-login status in the modal
+                const btnText = document.getElementById('connectBtnText');
+                const spinner = document.getElementById('connectSpinner');
+                if (btnText) btnText.textContent = 'Auto-connecting...';
+                if (spinner) spinner.classList.remove('hidden');
+
+                // Pre-fill the form fields
+                document.getElementById('siteUrl').value = creds.siteUrl || '';
+                document.getElementById('apiUsername').value = creds.username || '';
+                document.getElementById('apiPassword').value = creds.password || '';
+                document.getElementById('rememberCredentials').checked = true;
+
+                this.connectWithCredentials(creds.siteUrl, creds.username, creds.password, true);
+            } catch (e) {
+                console.error('Failed to parse saved credentials:', e);
+                localStorage.removeItem('fluentcrm_credentials');
+            }
         }
 
         document.getElementById('connectionForm').addEventListener('submit', (e) => {
@@ -241,6 +258,8 @@ class CRMDashboard {
 
         } catch (error) {
             this.showError(`Connection failed: ${error.message}`);
+            // Clear invalid saved credentials
+            localStorage.removeItem('fluentcrm_credentials');
             if (connectBtn) {
                 connectBtn.disabled = false;
                 spinner.classList.add('hidden');
