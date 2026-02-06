@@ -178,23 +178,30 @@ function parseGender(genderValue) {
     return 'Unknown';
 }
 
-// Zodiac sign definitions with date ranges and symbols
+// Vietnamese Eastern Zodiac (12 con giáp / Tử Vi) - based on birth year
+// Each animal corresponds to a year in a 12-year cycle
+// Order: Tý(Rat), Sửu(Buffalo), Dần(Tiger), Mão(Cat), Thìn(Dragon), Tị(Snake),
+//        Ngọ(Horse), Mùi(Goat), Thân(Monkey), Dậu(Rooster), Tuất(Dog), Hợi(Pig)
 const ZODIAC_SIGNS = {
-    'Aries': { symbol: '♈', start: [3, 21], end: [4, 19], element: 'Fire', color: '#ef4444' },
-    'Taurus': { symbol: '♉', start: [4, 20], end: [5, 20], element: 'Earth', color: '#22c55e' },
-    'Gemini': { symbol: '♊', start: [5, 21], end: [6, 20], element: 'Air', color: '#eab308' },
-    'Cancer': { symbol: '♋', start: [6, 21], end: [7, 22], element: 'Water', color: '#3b82f6' },
-    'Leo': { symbol: '♌', start: [7, 23], end: [8, 22], element: 'Fire', color: '#f97316' },
-    'Virgo': { symbol: '♍', start: [8, 23], end: [9, 22], element: 'Earth', color: '#84cc16' },
-    'Libra': { symbol: '♎', start: [9, 23], end: [10, 22], element: 'Air', color: '#ec4899' },
-    'Scorpio': { symbol: '♏', start: [10, 23], end: [11, 21], element: 'Water', color: '#8b5cf6' },
-    'Sagittarius': { symbol: '♐', start: [11, 22], end: [12, 21], element: 'Fire', color: '#f43f5e' },
-    'Capricorn': { symbol: '♑', start: [12, 22], end: [1, 19], element: 'Earth', color: '#6b7280' },
-    'Aquarius': { symbol: '♒', start: [1, 20], end: [2, 18], element: 'Air', color: '#06b6d4' },
-    'Pisces': { symbol: '♓', start: [2, 19], end: [3, 20], element: 'Water', color: '#a855f7' }
+    'Tý': { symbol: '🐀', animal: 'Chuột', element: 'Thủy', color: '#3b82f6', index: 0 },
+    'Sửu': { symbol: '🐂', animal: 'Trâu', element: 'Thổ', color: '#8b5cf6', index: 1 },
+    'Dần': { symbol: '🐅', animal: 'Hổ', element: 'Mộc', color: '#f97316', index: 2 },
+    'Mão': { symbol: '🐇', animal: 'Mèo', element: 'Mộc', color: '#ec4899', index: 3 },
+    'Thìn': { symbol: '🐉', animal: 'Rồng', element: 'Thổ', color: '#eab308', index: 4 },
+    'Tị': { symbol: '🐍', animal: 'Rắn', element: 'Hỏa', color: '#ef4444', index: 5 },
+    'Ngọ': { symbol: '🐎', animal: 'Ngựa', element: 'Hỏa', color: '#f43f5e', index: 6 },
+    'Mùi': { symbol: '🐐', animal: 'Dê', element: 'Thổ', color: '#a855f7', index: 7 },
+    'Thân': { symbol: '🐒', animal: 'Khỉ', element: 'Kim', color: '#6b7280', index: 8 },
+    'Dậu': { symbol: '🐓', animal: 'Gà', element: 'Kim', color: '#fbbf24', index: 9 },
+    'Tuất': { symbol: '🐕', animal: 'Chó', element: 'Thổ', color: '#22c55e', index: 10 },
+    'Hợi': { symbol: '🐖', animal: 'Lợn', element: 'Thủy', color: '#06b6d4', index: 11 }
 };
 
-// Helper: Get zodiac sign from DOB
+// Zodiac sign order for year calculation
+const ZODIAC_ORDER = ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tị', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi'];
+
+// Helper: Get Vietnamese zodiac sign from DOB (based on birth year)
+// The cycle repeats every 12 years. 2020 = Tý (Rat), 2021 = Sửu, etc.
 function getZodiacSign(dob) {
     if (!dob) return null;
     try {
@@ -216,26 +223,11 @@ function getZodiacSign(dob) {
 
         if (isNaN(birthDate.getTime())) return null;
 
-        const month = birthDate.getMonth() + 1;
-        const day = birthDate.getDate();
-
-        for (const [sign, data] of Object.entries(ZODIAC_SIGNS)) {
-            const [startMonth, startDay] = data.start;
-            const [endMonth, endDay] = data.end;
-
-            // Handle Capricorn which spans year boundary
-            if (sign === 'Capricorn') {
-                if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) {
-                    return sign;
-                }
-            } else if (
-                (month === startMonth && day >= startDay) ||
-                (month === endMonth && day <= endDay)
-            ) {
-                return sign;
-            }
-        }
-        return null;
+        const year = birthDate.getFullYear();
+        // 2020 is year of the Rat (Tý), index 0
+        // Formula: (year - 2020) mod 12, adjusted for negative years
+        const index = ((year - 2020) % 12 + 12) % 12;
+        return ZODIAC_ORDER[index];
     } catch (e) {
         return null;
     }
@@ -1149,7 +1141,7 @@ class CRMDashboard {
             zodiacSigns: {},
             genderDistribution: { Male: 0, Female: 0, Unknown: 0 },
             birthtimePeriods: { 'Morning (5-12)': 0, 'Afternoon (12-17)': 0, 'Evening (17-21)': 0, 'Night (21-5)': 0 },
-            elements: { Fire: 0, Earth: 0, Air: 0, Water: 0 },
+            elements: { Kim: 0, Mộc: 0, Thủy: 0, Hỏa: 0, Thổ: 0 },
             genderByPersona: {},
             zodiacCVR: {},
             genderCVR: { Male: { total: 0, customers: 0 }, Female: { total: 0, customers: 0 }, Unknown: { total: 0, customers: 0 } }
@@ -1567,16 +1559,16 @@ class CRMDashboard {
             });
         }
 
-        // Element Chart
+        // Element Chart (Ngũ Hành - 5 elements)
         const elementCtx = document.getElementById('elementChart')?.getContext('2d');
         if (elementCtx) {
             this.charts.element = new Chart(elementCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Fire 🔥', 'Earth 🌍', 'Air 💨', 'Water 💧'],
+                    labels: ['Kim 🪙', 'Mộc 🌳', 'Thủy 💧', 'Hỏa 🔥', 'Thổ 🌍'],
                     datasets: [{
-                        data: [0, 0, 0, 0],
-                        backgroundColor: ['#ef4444', '#22c55e', '#eab308', '#3b82f6'],
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: ['#fbbf24', '#22c55e', '#3b82f6', '#ef4444', '#8b5cf6'],
                         borderWidth: 0
                     }]
                 },
@@ -2376,14 +2368,15 @@ class CRMDashboard {
             this.charts.birthtime.update();
         }
 
-        // Update Element Chart
+        // Update Element Chart (Ngũ Hành)
         if (this.charts.element) {
             const elementData = stats.elements || {};
             this.charts.element.data.datasets[0].data = [
-                elementData.Fire || 0,
-                elementData.Earth || 0,
-                elementData.Air || 0,
-                elementData.Water || 0
+                elementData.Kim || 0,
+                elementData.Mộc || 0,
+                elementData.Thủy || 0,
+                elementData.Hỏa || 0,
+                elementData.Thổ || 0
             ];
             this.charts.element.update();
         }
@@ -2403,10 +2396,11 @@ class CRMDashboard {
                 const topGender = data.male > data.female ? 'Male' : data.female > data.male ? 'Female' : 'Even';
                 const topGenderColor = topGender === 'Male' ? 'text-blue-400' : topGender === 'Female' ? 'text-pink-400' : 'text-gray-400';
                 const elementColor = {
-                    'Fire': 'text-red-400',
-                    'Earth': 'text-green-400',
-                    'Air': 'text-yellow-400',
-                    'Water': 'text-blue-400'
+                    'Kim': 'text-yellow-400',
+                    'Mộc': 'text-green-400',
+                    'Thủy': 'text-blue-400',
+                    'Hỏa': 'text-red-400',
+                    'Thổ': 'text-purple-400'
                 }[zodiacInfo.element];
 
                 return `
