@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS config (
 INSERT INTO config (key, value) VALUES
 ('fluentcrm', '{
     "siteUrl": "https://luangiai.vn",
-    "username": "dominhthai94@gmail.com",
-    "password": "p3Jb 1Z6G JOde MAaS qtvt DK9D"
+    "username": "tad@accel3.com",
+    "password": "dbC0 SxeB RRJ3 ANhK aZqj n3z3"
 }'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 

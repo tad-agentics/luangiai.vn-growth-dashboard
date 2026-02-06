@@ -11,8 +11,8 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // Fallback credentials (used if Supabase is unavailable)
 const FALLBACK_CONFIG = {
     siteUrl: 'https://luangiai.vn',
-    username: 'dominhthai94@gmail.com',
-    password: 'p3Jb 1Z6G JOde MAaS qtvt DK9D'
+    username: 'tad@accel3.com',
+    password: 'dbC0 SxeB RRJ3 ANhK aZqj n3z3'
 };
 
 // Conversion Tags - Tags that indicate a user has converted/purchased
