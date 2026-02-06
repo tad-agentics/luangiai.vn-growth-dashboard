@@ -547,6 +547,11 @@ class CRMDashboard {
     }
 
     checkConversion(subscriber) {
+        // Primary check: contact_type field (most reliable)
+        if (subscriber.contact_type === 'customer') {
+            return true;
+        }
+
         // Check subscriber tags for conversion indicators
         const tags = subscriber.tags || [];
 
