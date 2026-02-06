@@ -171,6 +171,99 @@ function assignPersona(ageGroup, deviceType) {
     return 'mystery_visitor';
 }
 
+// Helper: Parse gender (1 = Male, -1 = Female in your data)
+function parseGender(genderValue) {
+    if (genderValue === '1' || genderValue === 1) return 'Male';
+    if (genderValue === '-1' || genderValue === -1) return 'Female';
+    return 'Unknown';
+}
+
+// Zodiac sign definitions with date ranges and symbols
+const ZODIAC_SIGNS = {
+    'Aries': { symbol: '♈', start: [3, 21], end: [4, 19], element: 'Fire', color: '#ef4444' },
+    'Taurus': { symbol: '♉', start: [4, 20], end: [5, 20], element: 'Earth', color: '#22c55e' },
+    'Gemini': { symbol: '♊', start: [5, 21], end: [6, 20], element: 'Air', color: '#eab308' },
+    'Cancer': { symbol: '♋', start: [6, 21], end: [7, 22], element: 'Water', color: '#3b82f6' },
+    'Leo': { symbol: '♌', start: [7, 23], end: [8, 22], element: 'Fire', color: '#f97316' },
+    'Virgo': { symbol: '♍', start: [8, 23], end: [9, 22], element: 'Earth', color: '#84cc16' },
+    'Libra': { symbol: '♎', start: [9, 23], end: [10, 22], element: 'Air', color: '#ec4899' },
+    'Scorpio': { symbol: '♏', start: [10, 23], end: [11, 21], element: 'Water', color: '#8b5cf6' },
+    'Sagittarius': { symbol: '♐', start: [11, 22], end: [12, 21], element: 'Fire', color: '#f43f5e' },
+    'Capricorn': { symbol: '♑', start: [12, 22], end: [1, 19], element: 'Earth', color: '#6b7280' },
+    'Aquarius': { symbol: '♒', start: [1, 20], end: [2, 18], element: 'Air', color: '#06b6d4' },
+    'Pisces': { symbol: '♓', start: [2, 19], end: [3, 20], element: 'Water', color: '#a855f7' }
+};
+
+// Helper: Get zodiac sign from DOB
+function getZodiacSign(dob) {
+    if (!dob) return null;
+    try {
+        let birthDate;
+        if (typeof dob === 'string') {
+            const parts = dob.split(/[\/\-]/);
+            if (parts.length === 3) {
+                if (parseInt(parts[0]) > 31) {
+                    birthDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                } else {
+                    birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+            } else {
+                birthDate = new Date(dob);
+            }
+        } else {
+            birthDate = new Date(dob);
+        }
+
+        if (isNaN(birthDate.getTime())) return null;
+
+        const month = birthDate.getMonth() + 1;
+        const day = birthDate.getDate();
+
+        for (const [sign, data] of Object.entries(ZODIAC_SIGNS)) {
+            const [startMonth, startDay] = data.start;
+            const [endMonth, endDay] = data.end;
+
+            // Handle Capricorn which spans year boundary
+            if (sign === 'Capricorn') {
+                if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) {
+                    return sign;
+                }
+            } else if (
+                (month === startMonth && day >= startDay) ||
+                (month === endMonth && day <= endDay)
+            ) {
+                return sign;
+            }
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Helper: Parse birthtime to time period
+function parseBirthTimePeriod(birthtime) {
+    if (!birthtime) return 'Unknown';
+    try {
+        let hour;
+        if (typeof birthtime === 'string') {
+            const parts = birthtime.split(':');
+            hour = parseInt(parts[0]);
+        } else {
+            hour = birthtime;
+        }
+
+        if (isNaN(hour)) return 'Unknown';
+
+        if (hour >= 5 && hour < 12) return 'Morning (5-12)';
+        if (hour >= 12 && hour < 17) return 'Afternoon (12-17)';
+        if (hour >= 17 && hour < 21) return 'Evening (17-21)';
+        return 'Night (21-5)';
+    } catch (e) {
+        return 'Unknown';
+    }
+}
+
 class CRMDashboard {
     constructor() {
         this.apiBase = '';
@@ -186,7 +279,8 @@ class CRMDashboard {
             personas: {},
             categorizationStats: {},
             personaHistory: {}, // Store historical persona data
-            growthAnalytics: {} // Store growth metrics
+            growthAnalytics: {}, // Store growth metrics
+            astrologyStats: {} // Store zodiac, gender, birthtime data
         };
         this.charts = {};
         this.refreshInterval = null;
@@ -394,6 +488,7 @@ class CRMDashboard {
             this.categorizePersonas();
             this.calculatePersonaGrowth();
             this.calculateGrowthAnalytics();
+            this.calculateAstrologyStats();
             this.savePersonaHistory();
             this.updateDashboard();
 
@@ -1045,6 +1140,119 @@ class CRMDashboard {
         return d;
     }
 
+    calculateAstrologyStats() {
+        const subscribers = this.data.subscribers;
+        const stats = {
+            withDOB: 0,
+            withBirthtime: 0,
+            withGender: 0,
+            zodiacSigns: {},
+            genderDistribution: { Male: 0, Female: 0, Unknown: 0 },
+            birthtimePeriods: { 'Morning (5-12)': 0, 'Afternoon (12-17)': 0, 'Evening (17-21)': 0, 'Night (21-5)': 0 },
+            elements: { Fire: 0, Earth: 0, Air: 0, Water: 0 },
+            genderByPersona: {},
+            zodiacCVR: {},
+            genderCVR: { Male: { total: 0, customers: 0 }, Female: { total: 0, customers: 0 }, Unknown: { total: 0, customers: 0 } }
+        };
+
+        // Initialize zodiac signs
+        Object.keys(ZODIAC_SIGNS).forEach(sign => {
+            stats.zodiacSigns[sign] = { total: 0, customers: 0, male: 0, female: 0 };
+        });
+
+        // Initialize gender by persona
+        Object.keys(PERSONA_DEFINITIONS).forEach(personaKey => {
+            stats.genderByPersona[personaKey] = {
+                Male: { total: 0, customers: 0 },
+                Female: { total: 0, customers: 0 },
+                Unknown: { total: 0, customers: 0 }
+            };
+        });
+
+        // Process each subscriber
+        subscribers.forEach(subscriber => {
+            // Get DOB
+            const dob = subscriber.custom_fields?.dob ||
+                        subscriber.custom_fields?.date_of_birth ||
+                        subscriber.custom_fields?.birthday ||
+                        subscriber.date_of_birth ||
+                        subscriber.dob ||
+                        null;
+
+            // Get gender
+            const genderRaw = subscriber.custom_fields?.gender ||
+                              subscriber.gender ||
+                              subscriber.custom_fields?.gioi_tinh ||
+                              null;
+            const gender = parseGender(genderRaw);
+
+            // Get birthtime
+            const birthtime = subscriber.custom_fields?.birthtime ||
+                              subscriber.custom_fields?.birth_time ||
+                              subscriber.custom_fields?.gio_sinh ||
+                              subscriber.birthtime ||
+                              null;
+
+            // Is customer?
+            const isCustomer = subscriber.contact_type === 'customer';
+
+            // Count DOB
+            if (dob) {
+                stats.withDOB++;
+
+                // Get zodiac sign
+                const zodiac = getZodiacSign(dob);
+                if (zodiac && stats.zodiacSigns[zodiac]) {
+                    stats.zodiacSigns[zodiac].total++;
+                    if (isCustomer) stats.zodiacSigns[zodiac].customers++;
+                    if (gender === 'Male') stats.zodiacSigns[zodiac].male++;
+                    if (gender === 'Female') stats.zodiacSigns[zodiac].female++;
+
+                    // Count elements
+                    const element = ZODIAC_SIGNS[zodiac].element;
+                    stats.elements[element]++;
+                }
+            }
+
+            // Count birthtime
+            if (birthtime) {
+                stats.withBirthtime++;
+                const period = parseBirthTimePeriod(birthtime);
+                if (stats.birthtimePeriods[period] !== undefined) {
+                    stats.birthtimePeriods[period]++;
+                }
+            }
+
+            // Count gender
+            if (gender !== 'Unknown') {
+                stats.withGender++;
+            }
+            stats.genderDistribution[gender]++;
+            stats.genderCVR[gender].total++;
+            if (isCustomer) stats.genderCVR[gender].customers++;
+
+            // Gender by persona
+            const age = parseAge(dob);
+            const ageGroup = getAgeBucket(age);
+            const deviceType = getDeviceType(subscriber);
+            const personaKey = assignPersona(ageGroup, deviceType);
+
+            if (stats.genderByPersona[personaKey]) {
+                stats.genderByPersona[personaKey][gender].total++;
+                if (isCustomer) {
+                    stats.genderByPersona[personaKey][gender].customers++;
+                }
+            }
+        });
+
+        // Calculate CVR for zodiac signs
+        Object.entries(stats.zodiacSigns).forEach(([sign, data]) => {
+            stats.zodiacCVR[sign] = data.total > 0 ? (data.customers / data.total * 100) : 0;
+        });
+
+        this.data.astrologyStats = stats;
+    }
+
     initCharts() {
         // Status Chart
         const statusCtx = document.getElementById('statusChart')?.getContext('2d');
@@ -1283,6 +1491,104 @@ class CRMDashboard {
                 }
             });
         }
+
+        // ========== ASTROLOGY CHARTS ==========
+
+        // Zodiac Chart
+        const zodiacCtx = document.getElementById('zodiacChart')?.getContext('2d');
+        if (zodiacCtx) {
+            const zodiacColors = Object.values(ZODIAC_SIGNS).map(z => z.color);
+            this.charts.zodiac = new Chart(zodiacCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(ZODIAC_SIGNS),
+                    datasets: [{
+                        label: 'Contacts',
+                        data: [],
+                        backgroundColor: zodiacColors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                        y: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                    }
+                }
+            });
+        }
+
+        // Gender Chart
+        const genderCtx = document.getElementById('genderChart')?.getContext('2d');
+        if (genderCtx) {
+            this.charts.gender = new Chart(genderCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Male', 'Female', 'Unknown'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#3b82f6', '#ec4899', '#6b7280'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 15 } }
+                    }
+                }
+            });
+        }
+
+        // Birthtime Chart
+        const birthtimeCtx = document.getElementById('birthtimeChart')?.getContext('2d');
+        if (birthtimeCtx) {
+            this.charts.birthtime = new Chart(birthtimeCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Morning (5-12)', 'Afternoon (12-17)', 'Evening (17-21)', 'Night (21-5)'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#fbbf24', '#f97316', '#8b5cf6', '#1e3a8a'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 10 } }
+                    }
+                }
+            });
+        }
+
+        // Element Chart
+        const elementCtx = document.getElementById('elementChart')?.getContext('2d');
+        if (elementCtx) {
+            this.charts.element = new Chart(elementCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Fire 🔥', 'Earth 🌍', 'Air 💨', 'Water 💧'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#ef4444', '#22c55e', '#eab308', '#3b82f6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 10 } }
+                    }
+                }
+            });
+        }
     }
 
     setGrowthPeriod(days) {
@@ -1305,6 +1611,7 @@ class CRMDashboard {
         this.updateOverviewTab();
         this.updateGrowthTab();
         this.updatePersonasTab();
+        this.updateAstrologyTab();
     }
 
     updateGrowthTab() {
@@ -2002,6 +2309,181 @@ class CRMDashboard {
                 this.drawSparkline(`sparkline-${p.key}`, p.sparklineData, p.color);
             });
         }, 50);
+    }
+
+    updateAstrologyTab() {
+        const stats = this.data.astrologyStats || {};
+        const total = this.data.subscribers.length || 1;
+
+        // Summary cards
+        document.getElementById('astroWithDOB').textContent = this.formatNumber(stats.withDOB || 0);
+        document.getElementById('astroWithDOBPct').textContent = `${((stats.withDOB || 0) / total * 100).toFixed(1)}% of contacts`;
+
+        document.getElementById('astroWithBirthtime').textContent = this.formatNumber(stats.withBirthtime || 0);
+        document.getElementById('astroWithBirthtimePct').textContent = `${((stats.withBirthtime || 0) / total * 100).toFixed(1)}% of contacts`;
+
+        // Top zodiac sign
+        const zodiacSigns = stats.zodiacSigns || {};
+        const sortedZodiac = Object.entries(zodiacSigns)
+            .filter(([, data]) => data.total > 0)
+            .sort((a, b) => b[1].total - a[1].total);
+
+        if (sortedZodiac.length > 0) {
+            const [topSign, topData] = sortedZodiac[0];
+            const zodiacInfo = ZODIAC_SIGNS[topSign];
+            document.getElementById('astroTopZodiac').textContent = `${zodiacInfo.symbol} ${topSign}`;
+            document.getElementById('astroTopZodiacPct').textContent = `${this.formatNumber(topData.total)} contacts`;
+        }
+
+        // Best converting zodiac sign
+        const zodiacCVR = stats.zodiacCVR || {};
+        const sortedByCVR = Object.entries(zodiacCVR)
+            .filter(([sign]) => (zodiacSigns[sign]?.total || 0) >= 10) // Min 10 contacts
+            .sort((a, b) => b[1] - a[1]);
+
+        if (sortedByCVR.length > 0) {
+            const [bestSign, bestCVR] = sortedByCVR[0];
+            const zodiacInfo = ZODIAC_SIGNS[bestSign];
+            document.getElementById('astroBestCVR').textContent = `${zodiacInfo.symbol} ${bestSign}`;
+            document.getElementById('astroBestCVRPct').textContent = `${bestCVR.toFixed(2)}% CVR`;
+        }
+
+        // Update Zodiac Chart
+        if (this.charts.zodiac) {
+            const labels = Object.keys(ZODIAC_SIGNS).map(sign => `${ZODIAC_SIGNS[sign].symbol} ${sign}`);
+            const data = Object.keys(ZODIAC_SIGNS).map(sign => zodiacSigns[sign]?.total || 0);
+
+            this.charts.zodiac.data.labels = labels;
+            this.charts.zodiac.data.datasets[0].data = data;
+            this.charts.zodiac.update();
+        }
+
+        // Update Gender Chart
+        if (this.charts.gender) {
+            const genderData = stats.genderDistribution || { Male: 0, Female: 0, Unknown: 0 };
+            this.charts.gender.data.datasets[0].data = [genderData.Male, genderData.Female, genderData.Unknown];
+            this.charts.gender.update();
+        }
+
+        // Update Birthtime Chart
+        if (this.charts.birthtime) {
+            const birthtimeData = stats.birthtimePeriods || {};
+            this.charts.birthtime.data.datasets[0].data = [
+                birthtimeData['Morning (5-12)'] || 0,
+                birthtimeData['Afternoon (12-17)'] || 0,
+                birthtimeData['Evening (17-21)'] || 0,
+                birthtimeData['Night (21-5)'] || 0
+            ];
+            this.charts.birthtime.update();
+        }
+
+        // Update Element Chart
+        if (this.charts.element) {
+            const elementData = stats.elements || {};
+            this.charts.element.data.datasets[0].data = [
+                elementData.Fire || 0,
+                elementData.Earth || 0,
+                elementData.Air || 0,
+                elementData.Water || 0
+            ];
+            this.charts.element.update();
+        }
+
+        // Zodiac Performance Table
+        const zodiacTable = document.getElementById('zodiacTable');
+        if (zodiacTable) {
+            const totalZodiac = Object.values(zodiacSigns).reduce((sum, d) => sum + d.total, 0) || 1;
+            const overallCVR = this.data.growthAnalytics ?
+                (this.data.growthAnalytics.customers / (this.data.growthAnalytics.leads + this.data.growthAnalytics.customers) * 100) : 0;
+
+            zodiacTable.innerHTML = sortedZodiac.map(([sign, data]) => {
+                const zodiacInfo = ZODIAC_SIGNS[sign];
+                const pct = (data.total / totalZodiac * 100).toFixed(1);
+                const cvr = data.total > 0 ? (data.customers / data.total * 100) : 0;
+                const cvrColor = cvr > overallCVR ? 'text-green-400' : cvr > 0 ? 'text-yellow-400' : 'text-gray-400';
+                const topGender = data.male > data.female ? 'Male' : data.female > data.male ? 'Female' : 'Even';
+                const topGenderColor = topGender === 'Male' ? 'text-blue-400' : topGender === 'Female' ? 'text-pink-400' : 'text-gray-400';
+                const elementColor = {
+                    'Fire': 'text-red-400',
+                    'Earth': 'text-green-400',
+                    'Air': 'text-yellow-400',
+                    'Water': 'text-blue-400'
+                }[zodiacInfo.element];
+
+                return `
+                    <tr class="border-b border-gray-800">
+                        <td class="py-3">
+                            <span style="color: ${zodiacInfo.color}" class="font-medium">${zodiacInfo.symbol} ${sign}</span>
+                        </td>
+                        <td class="text-right py-3 text-white">${this.formatNumber(data.total)}</td>
+                        <td class="text-right py-3 text-gray-400">${pct}%</td>
+                        <td class="text-right py-3 text-green-400">${this.formatNumber(data.customers)}</td>
+                        <td class="text-right py-3 ${cvrColor} font-medium">${cvr.toFixed(2)}%</td>
+                        <td class="py-3 ${elementColor}">${zodiacInfo.element}</td>
+                        <td class="py-3 ${topGenderColor}">${topGender}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Gender x Persona Table
+        const genderPersonaTable = document.getElementById('genderPersonaTable');
+        if (genderPersonaTable && stats.genderByPersona) {
+            const personas = Object.entries(this.data.personas || {})
+                .filter(([, p]) => p.count > 0)
+                .sort((a, b) => b[1].count - a[1].count);
+
+            genderPersonaTable.innerHTML = personas.map(([personaKey, persona]) => {
+                const genderData = stats.genderByPersona[personaKey] || {};
+                const maleData = genderData.Male || { total: 0, customers: 0 };
+                const femaleData = genderData.Female || { total: 0, customers: 0 };
+                const unknownData = genderData.Unknown || { total: 0, customers: 0 };
+
+                const maleCVR = maleData.total > 0 ? (maleData.customers / maleData.total * 100) : 0;
+                const femaleCVR = femaleData.total > 0 ? (femaleData.customers / femaleData.total * 100) : 0;
+
+                let bestGender = '-';
+                let bestGenderColor = 'text-gray-400';
+                if (maleData.total >= 10 && femaleData.total >= 10) {
+                    if (maleCVR > femaleCVR) {
+                        bestGender = 'Male';
+                        bestGenderColor = 'text-blue-400';
+                    } else if (femaleCVR > maleCVR) {
+                        bestGender = 'Female';
+                        bestGenderColor = 'text-pink-400';
+                    } else {
+                        bestGender = 'Equal';
+                        bestGenderColor = 'text-gray-400';
+                    }
+                } else if (maleData.total >= 10) {
+                    bestGender = 'Male (only)';
+                    bestGenderColor = 'text-blue-400';
+                } else if (femaleData.total >= 10) {
+                    bestGender = 'Female (only)';
+                    bestGenderColor = 'text-pink-400';
+                }
+
+                const maleCVRColor = maleCVR > femaleCVR ? 'text-green-400' : 'text-gray-400';
+                const femaleCVRColor = femaleCVR > maleCVR ? 'text-green-400' : 'text-gray-400';
+
+                return `
+                    <tr class="border-b border-gray-800">
+                        <td class="py-3">
+                            <span class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full" style="background: ${persona.color}"></span>
+                                <span style="color: ${persona.color}" class="font-medium">${persona.name}</span>
+                            </span>
+                        </td>
+                        <td class="text-right py-3 text-blue-400">${this.formatNumber(maleData.total)}</td>
+                        <td class="text-right py-3 text-pink-400">${this.formatNumber(femaleData.total)}</td>
+                        <td class="text-right py-3 text-gray-400">${this.formatNumber(unknownData.total)}</td>
+                        <td class="text-right py-3 ${maleCVRColor} font-medium">${maleCVR.toFixed(2)}%</td>
+                        <td class="text-right py-3 ${femaleCVRColor} font-medium">${femaleCVR.toFixed(2)}%</td>
+                        <td class="py-3 ${bestGenderColor} font-medium">${bestGender}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
     }
 
     drawSparkline(canvasId, data, color) {

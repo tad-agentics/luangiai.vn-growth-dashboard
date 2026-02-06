@@ -214,6 +214,9 @@
             <button onclick="setTab('personas')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="personas">
                 NRU Personas
             </button>
+            <button onclick="setTab('astrology')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="astrology">
+                ♈ Astrology Insights
+            </button>
         </div>
 
         <!-- ==================== OVERVIEW TAB ==================== -->
@@ -525,6 +528,119 @@
                             <!-- Populated dynamically -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ASTROLOGY INSIGHTS TAB ==================== -->
+        <div id="tab-astrology" class="tab-content space-y-6 hidden">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">With DOB Data</div>
+                    <div class="text-2xl font-bold text-white" id="astroWithDOB">-</div>
+                    <div class="text-gray-500 text-xs" id="astroWithDOBPct">-</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">With Birthtime</div>
+                    <div class="text-2xl font-bold text-cyan-400" id="astroWithBirthtime">-</div>
+                    <div class="text-gray-500 text-xs" id="astroWithBirthtimePct">-</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Top Zodiac</div>
+                    <div class="text-2xl font-bold text-purple-400" id="astroTopZodiac">-</div>
+                    <div class="text-gray-500 text-xs" id="astroTopZodiacPct">-</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Best Converting Sign</div>
+                    <div class="text-2xl font-bold text-green-400" id="astroBestCVR">-</div>
+                    <div class="text-gray-500 text-xs" id="astroBestCVRPct">-</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Zodiac Distribution -->
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Zodiac Sign Distribution</h3>
+                    <div class="h-80">
+                        <canvas id="zodiacChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Gender Distribution -->
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Gender Distribution</h3>
+                    <div class="h-80">
+                        <canvas id="genderChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zodiac Performance Table -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Zodiac Sign Performance</h3>
+                <p class="text-gray-400 text-sm mb-4">Conversion rates and distribution by zodiac sign</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Sign</th>
+                                <th class="text-right py-3">Count</th>
+                                <th class="text-right py-3">%</th>
+                                <th class="text-right py-3">Converted</th>
+                                <th class="text-right py-3">CVR</th>
+                                <th class="text-left py-3">Element</th>
+                                <th class="text-left py-3">Top Gender</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zodiacTable">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Gender x Persona Analysis -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Gender × Persona Analysis</h3>
+                <p class="text-gray-400 text-sm mb-4">How gender affects persona distribution and conversion</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Persona</th>
+                                <th class="text-right py-3">Male</th>
+                                <th class="text-right py-3">Female</th>
+                                <th class="text-right py-3">Unknown</th>
+                                <th class="text-right py-3">Male CVR</th>
+                                <th class="text-right py-3">Female CVR</th>
+                                <th class="text-left py-3">Best Gender</th>
+                            </tr>
+                        </thead>
+                        <tbody id="genderPersonaTable">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Birthtime Distribution -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Birthtime Distribution</h3>
+                    <div class="h-64">
+                        <canvas id="birthtimeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Element Distribution -->
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Element Distribution</h3>
+                    <p class="text-gray-400 text-sm mb-3">Fire 🔥 | Earth 🌍 | Air 💨 | Water 💧</p>
+                    <div class="h-56">
+                        <canvas id="elementChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
