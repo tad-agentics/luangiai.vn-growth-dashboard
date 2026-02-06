@@ -2101,8 +2101,7 @@ class CRMDashboard {
         // Targeting table - with dynamic columns
         const targetingTable = document.getElementById('targetingTable');
         const personaStats = this.data.growthAnalytics?.personaStats || {};
-        const overallCVR = this.data.growthAnalytics ?
-            (this.data.growthAnalytics.customers / (this.data.growthAnalytics.leads + this.data.growthAnalytics.customers) * 100) : 0;
+        // Note: overallCVR already defined above
 
         targetingTable.innerHTML = personaArray.filter(p => p.count > 0).map(p => {
             const channelInfo = bestChannelData[p.key] || {};
