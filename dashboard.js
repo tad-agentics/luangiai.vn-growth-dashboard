@@ -1292,10 +1292,11 @@ class CRMDashboard {
 
             sourceByPersonaEl.innerHTML = personasWithSources.map(([personaKey, sources]) => {
                 const persona = PERSONA_DEFINITIONS[personaKey];
+                // sources is now {channel: {total, customers}}
                 const topSources = Object.entries(sources)
-                    .sort((a, b) => b[1] - a[1])
+                    .sort((a, b) => b[1].total - a[1].total)
                     .slice(0, 3);
-                const total = Object.values(sources).reduce((sum, v) => sum + v, 0);
+                const total = Object.values(sources).reduce((sum, v) => sum + v.total, 0);
 
                 return `
                     <div class="bg-gray-800 rounded-lg p-3">
@@ -1304,8 +1305,8 @@ class CRMDashboard {
                             <span class="font-medium text-sm" style="color: ${persona.color}">${persona.name}</span>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            ${topSources.map(([source, count]) => {
-                                const pct = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
+                            ${topSources.map(([source, data]) => {
+                                const pct = total > 0 ? ((data.total / total) * 100).toFixed(0) : 0;
                                 return `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">${source}: ${pct}%</span>`;
                             }).join('')}
                         </div>
