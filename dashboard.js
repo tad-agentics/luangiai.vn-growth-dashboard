@@ -686,6 +686,7 @@ class CRMDashboard {
         const analytics = {
             sources: {},
             sourcesByPersona: {},
+            personaStats: {}, // Per-persona detailed stats
             cohorts: {},
             dailyRegistrations: {},
             timeToConvert: [],
@@ -693,6 +694,18 @@ class CRMDashboard {
             leads: 0,
             customers: 0
         };
+
+        // Initialize persona stats
+        Object.keys(PERSONA_DEFINITIONS).forEach(key => {
+            analytics.personaStats[key] = {
+                total: 0,
+                customers: 0,
+                timeToConvert: [],
+                avgTimeToConvert: null,
+                topSource: null,
+                topSourcePct: 0
+            };
+        });
 
         // Initialize daily registrations for last 30 days
         for (let i = 29; i >= 0; i--) {
@@ -737,6 +750,21 @@ class CRMDashboard {
             analytics.sourcesByPersona[personaKey][channel].total++;
             if (isCustomer) {
                 analytics.sourcesByPersona[personaKey][channel].customers++;
+            }
+
+            // === 2b. PERSONA STATS (for dynamic recommendations) ===
+            analytics.personaStats[personaKey].total++;
+            if (isCustomer) {
+                analytics.personaStats[personaKey].customers++;
+                // Track time-to-convert per persona
+                if (subscriber.updated_at && subscriber.created_at) {
+                    const created = new Date(subscriber.created_at);
+                    const updated = new Date(subscriber.updated_at);
+                    const daysToConvert = Math.max(0, Math.floor((updated - created) / (1000 * 60 * 60 * 24)));
+                    if (daysToConvert <= 365) {
+                        analytics.personaStats[personaKey].timeToConvert.push(daysToConvert);
+                    }
+                }
             }
 
             // === 3. COHORT ANALYSIS (Weekly) ===
@@ -834,7 +862,108 @@ class CRMDashboard {
         // Calculate best channel per persona based on conversion rate
         analytics.bestChannelByPersona = this.calculateBestChannels(analytics.sourcesByPersona);
 
+        // Calculate per-persona stats (avg time to convert, top source, etc.)
+        this.calculatePersonaDetailedStats(analytics);
+
         this.data.growthAnalytics = analytics;
+    }
+
+    // Calculate detailed stats per persona for dynamic recommendations
+    calculatePersonaDetailedStats(analytics) {
+        const overallCVR = analytics.customers / (analytics.leads + analytics.customers) || 0;
+        const overallAvgTime = analytics.timeToConvert.length > 0
+            ? analytics.timeToConvert.reduce((a, b) => a + b, 0) / analytics.timeToConvert.length
+            : null;
+
+        Object.entries(analytics.personaStats).forEach(([personaKey, stats]) => {
+            // Calculate average time to convert
+            if (stats.timeToConvert.length > 0) {
+                stats.avgTimeToConvert = stats.timeToConvert.reduce((a, b) => a + b, 0) / stats.timeToConvert.length;
+            }
+
+            // Calculate CVR
+            stats.cvr = stats.total > 0 ? (stats.customers / stats.total) : 0;
+            stats.cvrVsAverage = overallCVR > 0 ? ((stats.cvr - overallCVR) / overallCVR * 100) : 0;
+
+            // Find top source for this persona
+            const sources = analytics.sourcesByPersona[personaKey] || {};
+            let topSource = null;
+            let topSourceCount = 0;
+            let totalFromSources = 0;
+
+            Object.entries(sources).forEach(([channel, data]) => {
+                totalFromSources += data.total;
+                if (data.total > topSourceCount) {
+                    topSourceCount = data.total;
+                    topSource = channel;
+                }
+            });
+
+            stats.topSource = topSource;
+            stats.topSourcePct = totalFromSources > 0 ? (topSourceCount / totalFromSources * 100) : 0;
+            stats.sampleSize = stats.customers; // Number of conversions
+
+            // Dynamic nurture strategy based on time-to-convert
+            stats.nurtureStrategy = this.calculateNurtureStrategy(stats, overallAvgTime);
+        });
+    }
+
+    // Determine nurture strategy based on conversion behavior
+    calculateNurtureStrategy(stats, overallAvgTime) {
+        const avgTime = stats.avgTimeToConvert;
+        const cvr = stats.cvr;
+        const sampleSize = stats.sampleSize;
+
+        // Not enough data
+        if (sampleSize < 5) {
+            return {
+                priority: 'Unknown',
+                reason: 'Insufficient data',
+                description: `Only ${sampleSize} conversions`
+            };
+        }
+
+        // Fast converters (< 3 days average)
+        if (avgTime !== null && avgTime < 3) {
+            return {
+                priority: 'Low',
+                reason: 'Fast converters',
+                description: `Avg ${avgTime.toFixed(0)}d to convert`
+            };
+        }
+
+        // Medium converters (3-14 days)
+        if (avgTime !== null && avgTime >= 3 && avgTime <= 14) {
+            return {
+                priority: 'Medium',
+                reason: 'Standard journey',
+                description: `Avg ${avgTime.toFixed(0)}d to convert`
+            };
+        }
+
+        // Slow converters (> 14 days) - need more nurturing
+        if (avgTime !== null && avgTime > 14) {
+            return {
+                priority: 'High',
+                reason: 'Delayed converters',
+                description: `Avg ${avgTime.toFixed(0)}d to convert`
+            };
+        }
+
+        // High CVR but no time data
+        if (cvr > 0.05) {
+            return {
+                priority: 'Medium',
+                reason: 'Good CVR',
+                description: `${(cvr * 100).toFixed(1)}% conversion rate`
+            };
+        }
+
+        return {
+            priority: 'Medium',
+            reason: 'Standard',
+            description: 'Default nurturing'
+        };
     }
 
     // Calculate the best performing channel for each persona
@@ -1662,13 +1791,32 @@ class CRMDashboard {
             this.charts.device.update();
         }
 
-        // Targeting table - with dynamic best channel
+        // Targeting table - with dynamic columns
         const targetingTable = document.getElementById('targetingTable');
+        const personaStats = this.data.growthAnalytics?.personaStats || {};
+        const overallCVR = this.data.growthAnalytics ?
+            (this.data.growthAnalytics.customers / (this.data.growthAnalytics.leads + this.data.growthAnalytics.customers) * 100) : 0;
+
         targetingTable.innerHTML = personaArray.filter(p => p.count > 0).map(p => {
             const channelInfo = bestChannelData[p.key] || {};
             const dynamicBestChannel = channelInfo.channel || p.bestChannel;
             const channelCVR = channelInfo.cvr;
             const isDataDriven = channelInfo.isDataDriven;
+
+            // Get persona stats for new columns
+            const stats = personaStats[p.key] || {};
+            const topSourcePct = stats.topSourcePct ? stats.topSourcePct.toFixed(0) : '-';
+            const topSource = stats.topSource || '-';
+            const cvrVsAvg = stats.cvrVsAverage ? stats.cvrVsAverage.toFixed(0) : 0;
+            const cvrVsAvgColor = cvrVsAvg > 0 ? 'text-green-400' : cvrVsAvg < 0 ? 'text-red-400' : 'text-gray-400';
+            const cvrVsAvgSign = cvrVsAvg > 0 ? '+' : '';
+            const sampleSize = stats.sampleSize || 0;
+
+            // Dynamic nurture strategy
+            const nurture = stats.nurtureStrategy || { priority: p.priority, reason: p.nurturePriority, description: '' };
+            const priorityColor = nurture.priority === 'High' ? 'text-red-400' :
+                                  nurture.priority === 'Medium' ? 'text-yellow-400' :
+                                  nurture.priority === 'Low' ? 'text-green-400' : 'text-gray-400';
 
             return `
                 <tr class="border-b border-gray-800">
@@ -1680,10 +1828,22 @@ class CRMDashboard {
                     </td>
                     <td class="py-3 text-gray-300">
                         ${dynamicBestChannel}
-                        ${isDataDriven ? `<span class="text-xs text-green-400 ml-1">(${channelCVR}% CVR)</span>` : ''}
+                        ${isDataDriven ? `<span class="text-xs text-green-400 ml-1">(${channelCVR}%)</span>` : ''}
                     </td>
-                    <td class="py-3 text-gray-300">${p.recommendedOffer}</td>
-                    <td class="py-3 text-gray-300">${p.nurturePriority}</td>
+                    <td class="py-3 text-gray-300">
+                        <span class="text-white">${topSourcePct}%</span>
+                        <span class="text-gray-500 text-xs ml-1">${topSource}</span>
+                    </td>
+                    <td class="py-3 ${cvrVsAvgColor} font-medium">
+                        ${cvrVsAvgSign}${cvrVsAvg}%
+                    </td>
+                    <td class="py-3">
+                        <span class="${priorityColor} font-medium">${nurture.priority}</span>
+                        <span class="text-gray-500 text-xs ml-1">${nurture.description}</span>
+                    </td>
+                    <td class="py-3 text-gray-400 text-xs">
+                        ${sampleSize} conv
+                    </td>
                 </tr>
             `;
         }).join('');
