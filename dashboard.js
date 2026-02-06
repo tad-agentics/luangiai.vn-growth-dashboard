@@ -716,7 +716,7 @@ class CRMDashboard {
                 analytics.sources[channel].leads++;
             }
 
-            // === 2. SOURCE BY PERSONA ===
+            // === 2. SOURCE BY PERSONA (with conversion tracking) ===
             const dob = subscriber.custom_fields?.dob || subscriber.date_of_birth || null;
             const age = parseAge(dob);
             const ageGroup = getAgeBucket(age);
@@ -727,9 +727,12 @@ class CRMDashboard {
                 analytics.sourcesByPersona[personaKey] = {};
             }
             if (!analytics.sourcesByPersona[personaKey][channel]) {
-                analytics.sourcesByPersona[personaKey][channel] = 0;
+                analytics.sourcesByPersona[personaKey][channel] = { total: 0, customers: 0 };
             }
-            analytics.sourcesByPersona[personaKey][channel]++;
+            analytics.sourcesByPersona[personaKey][channel].total++;
+            if (isCustomer) {
+                analytics.sourcesByPersona[personaKey][channel].customers++;
+            }
 
             // === 3. COHORT ANALYSIS (Weekly) ===
             if (subscriber.created_at) {
@@ -823,7 +826,59 @@ class CRMDashboard {
             ? ((thisWeekNew - lastWeekNew) / lastWeekNew * 100).toFixed(0)
             : (thisWeekNew > 0 ? 100 : 0);
 
+        // Calculate best channel per persona based on conversion rate
+        analytics.bestChannelByPersona = this.calculateBestChannels(analytics.sourcesByPersona);
+
         this.data.growthAnalytics = analytics;
+    }
+
+    // Calculate the best performing channel for each persona
+    calculateBestChannels(sourcesByPersona) {
+        const bestChannels = {};
+        const MIN_SAMPLE_SIZE = 10; // Minimum contacts to consider a channel reliable
+
+        Object.entries(sourcesByPersona).forEach(([personaKey, channels]) => {
+            let bestChannel = null;
+            let bestCVR = -1;
+            let bestVolume = 0;
+            let channelStats = [];
+
+            Object.entries(channels).forEach(([channel, data]) => {
+                if (channel === 'Unknown') return; // Skip unknown sources
+
+                const cvr = data.total > 0 ? (data.customers / data.total) : 0;
+                channelStats.push({ channel, total: data.total, customers: data.customers, cvr });
+
+                // Prioritize channels with good sample size AND good CVR
+                if (data.total >= MIN_SAMPLE_SIZE) {
+                    if (cvr > bestCVR || (cvr === bestCVR && data.total > bestVolume)) {
+                        bestCVR = cvr;
+                        bestChannel = channel;
+                        bestVolume = data.total;
+                    }
+                }
+            });
+
+            // If no channel meets minimum sample size, pick the one with most volume
+            if (!bestChannel && channelStats.length > 0) {
+                const sorted = channelStats
+                    .filter(c => c.channel !== 'Unknown')
+                    .sort((a, b) => b.total - a.total);
+                if (sorted.length > 0) {
+                    bestChannel = sorted[0].channel;
+                    bestCVR = sorted[0].cvr;
+                }
+            }
+
+            bestChannels[personaKey] = {
+                channel: bestChannel || PERSONA_DEFINITIONS[personaKey]?.bestChannel || 'Unknown',
+                cvr: bestCVR >= 0 ? (bestCVR * 100).toFixed(1) : null,
+                isDataDriven: bestChannel !== null,
+                stats: channelStats.sort((a, b) => b.cvr - a.cvr).slice(0, 3) // Top 3 channels
+            };
+        });
+
+        return bestChannels;
     }
 
     parseSource(sourceUrl) {
@@ -1520,14 +1575,22 @@ class CRMDashboard {
             `;
         }).join('');
 
-        // Persona cards
+        // Persona cards - with dynamic best channel
         const cardsContainer = document.getElementById('personaCards');
+        const bestChannelData = this.data.growthAnalytics?.bestChannelByPersona || {};
+
         cardsContainer.innerHTML = personaArray.filter(p => p.count > 0).map(p => {
             const pct = (p.count / total * 100).toFixed(1);
             const cvr = p.count > 0 ? (p.converted / p.count * 100).toFixed(2) : 0;
             const cvrValue = parseFloat(cvr);
             const cvrColor = cvrValue > overallCVR ? 'text-green-400' : cvrValue > 0 ? 'text-yellow-400' : 'text-gray-500';
             const cvrBgColor = cvrValue > overallCVR ? 'bg-green-900/30' : cvrValue > 0 ? 'bg-yellow-900/30' : 'bg-gray-800';
+
+            // Get dynamic best channel or fall back to static
+            const channelInfo = bestChannelData[p.key] || {};
+            const dynamicBestChannel = channelInfo.channel || p.bestChannel;
+            const channelCVR = channelInfo.cvr;
+            const isDataDriven = channelInfo.isDataDriven;
 
             return `
                 <div class="card p-5 persona-card" style="border-left-color: ${p.color}">
@@ -1558,7 +1621,10 @@ class CRMDashboard {
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-400">Best Channel:</span>
-                            <span class="text-white">${p.bestChannel}</span>
+                            <span class="text-white flex items-center gap-1">
+                                ${dynamicBestChannel}
+                                ${isDataDriven ? `<span class="text-xs text-green-400" title="Based on ${channelCVR}% CVR">(${channelCVR}%)</span>` : '<span class="text-xs text-gray-500">(default)</span>'}
+                            </span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-400">Offer:</span>
@@ -1590,21 +1656,31 @@ class CRMDashboard {
             this.charts.device.update();
         }
 
-        // Targeting table
+        // Targeting table - with dynamic best channel
         const targetingTable = document.getElementById('targetingTable');
-        targetingTable.innerHTML = personaArray.filter(p => p.count > 0).map(p => `
-            <tr class="border-b border-gray-800">
-                <td class="py-3">
-                    <span class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
-                        <span style="color: ${p.color}">${p.name}</span>
-                    </span>
-                </td>
-                <td class="py-3 text-gray-300">${p.bestChannel}</td>
-                <td class="py-3 text-gray-300">${p.recommendedOffer}</td>
-                <td class="py-3 text-gray-300">${p.nurturePriority}</td>
-            </tr>
-        `).join('');
+        targetingTable.innerHTML = personaArray.filter(p => p.count > 0).map(p => {
+            const channelInfo = bestChannelData[p.key] || {};
+            const dynamicBestChannel = channelInfo.channel || p.bestChannel;
+            const channelCVR = channelInfo.cvr;
+            const isDataDriven = channelInfo.isDataDriven;
+
+            return `
+                <tr class="border-b border-gray-800">
+                    <td class="py-3">
+                        <span class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
+                            <span style="color: ${p.color}">${p.name}</span>
+                        </span>
+                    </td>
+                    <td class="py-3 text-gray-300">
+                        ${dynamicBestChannel}
+                        ${isDataDriven ? `<span class="text-xs text-green-400 ml-1">(${channelCVR}% CVR)</span>` : ''}
+                    </td>
+                    <td class="py-3 text-gray-300">${p.recommendedOffer}</td>
+                    <td class="py-3 text-gray-300">${p.nurturePriority}</td>
+                </tr>
+            `;
+        }).join('');
 
         // Update persona growth chart
         this.updatePersonaGrowthChart();
