@@ -396,8 +396,16 @@ class CRMDashboard {
                         contact_type: typeMap[sub.t] || sub.t || 'lead',
                         created_at: sub.c,
                         updated_at: sub.u,
+                        // Analytics fields
                         date_of_birth: sub.d,
-                        tags: [] // Tags will be fetched on incremental sync
+                        source: sub.src,
+                        custom_fields: {
+                            birth_time: sub.bt,
+                            gender: sub.g
+                        },
+                        // Synthetic tags for CVR calculation
+                        tags: sub.cv ? [{ title: 'converted' }] : [],
+                        _tagCount: sub.tc
                     }));
                 }
 
@@ -436,15 +444,37 @@ class CRMDashboard {
                            sub.custom_fields?.ngay_sinh ||
                            null;
 
+                // Extract birth time for astrology
+                const birthTime = sub.custom_fields?.birth_time ||
+                                 sub.custom_fields?.gio_sinh ||
+                                 null;
+
+                // Extract gender
+                const gender = sub.custom_fields?.gender ||
+                              sub.custom_fields?.gioi_tinh ||
+                              null;
+
+                // Check if has conversion tags (for CVR)
+                const hasConversionTag = sub.tags?.some(t => {
+                    const title = (t.title || t.name || '').toLowerCase();
+                    return title.includes('paid') || title.includes('customer') ||
+                           title.includes('purchased') || title.includes('buyer') ||
+                           title.includes('thanh-toan') || title.includes('da-mua');
+                }) || false;
+
                 return {
                     id: sub.id,
                     s: sub.status?.charAt(0), // 's'=subscribed, 'p'=pending, etc (1 char)
                     t: sub.contact_type?.charAt(0), // 'l'=lead, 'c'=customer (1 char)
                     c: sub.created_at,
                     u: sub.updated_at,
-                    d: dob, // date of birth
-                    // Count of tags (not full tag data)
-                    tc: sub.tags?.length || 0
+                    // Analytics fields
+                    d: dob,           // date of birth (for zodiac)
+                    bt: birthTime,    // birth time
+                    g: gender,        // gender
+                    src: sub.source,  // traffic source
+                    cv: hasConversionTag ? 1 : 0, // converted (1/0)
+                    tc: sub.tags?.length || 0     // tag count
                 };
             });
 
@@ -452,8 +482,8 @@ class CRMDashboard {
             const payloadMB = (payloadSize / (1024 * 1024)).toFixed(2);
             console.log(`Trimmed payload: ${payloadMB} MB (${subscribersToCache.length} subscribers)`);
 
-            // If still too large (>2MB), skip caching
-            if (payloadSize > 2 * 1024 * 1024) {
+            // If still too large (>5MB), skip caching
+            if (payloadSize > 5 * 1024 * 1024) {
                 console.log('⚠️ Payload still too large for Supabase, skipping cache save');
                 return;
             }
