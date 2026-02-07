@@ -671,6 +671,8 @@ class CRMDashboard {
                 }
             }
 
+            // Step 1: Fetch metadata (lists, tags, campaigns, sequences)
+            this.updateSyncSourceUI('full', '(fetching metadata...)');
             const [listsData, tagsData, campaignsData, sequencesData] = await Promise.all([
                 this.apiCall('/lists'),
                 this.apiCall('/tags'),
@@ -678,6 +680,8 @@ class CRMDashboard {
                 this.apiCall('/sequences?per_page=100')
             ]);
 
+            // Step 2: Fetch contact stats
+            this.updateSyncSourceUI('full', '(fetching stats...)');
             await this.fetchContactStats();
 
             this.data.lists = this.extractArray(listsData, 'lists');
@@ -685,6 +689,7 @@ class CRMDashboard {
             this.data.campaigns = this.extractArray(campaignsData, 'campaigns');
             this.data.sequences = this.extractArray(sequencesData, 'sequences');
 
+            // Step 3: Fetch subscribers (this is the big one)
             await this.fetchSubscribers(forceFullSync);
             this.categorizePersonas();
             this.calculatePersonaGrowth();
