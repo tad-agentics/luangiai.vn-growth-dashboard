@@ -713,23 +713,56 @@ class CRMDashboard {
         this.data.contacts = stats;
     }
 
+    // Update sync source indicator in UI
+    updateSyncSourceUI(source, details = '') {
+        const el = document.getElementById('syncSource');
+        if (!el) return;
+
+        el.classList.remove('hidden', 'bg-green-900/50', 'text-green-400', 'bg-blue-900/50', 'text-blue-400', 'bg-yellow-900/50', 'text-yellow-400');
+
+        switch (source) {
+            case 'supabase':
+                el.textContent = `📦 Supabase cache ${details}`;
+                el.classList.add('bg-green-900/50', 'text-green-400');
+                break;
+            case 'incremental':
+                el.textContent = `⚡ Incremental sync ${details}`;
+                el.classList.add('bg-blue-900/50', 'text-blue-400');
+                break;
+            case 'full':
+                el.textContent = `🔄 Full sync ${details}`;
+                el.classList.add('bg-yellow-900/50', 'text-yellow-400');
+                break;
+            default:
+                el.classList.add('hidden');
+                return;
+        }
+    }
+
     async fetchSubscribers(forceFullSync = false) {
         try {
             // Step 1: Try to load from Supabase cache if we don't have data
             if (this.data.subscribers.length === 0 && !forceFullSync) {
+                this.updateSyncSourceUI('supabase', '(loading...)');
                 const cache = await this.loadSubscriberCache();
+
                 if (cache && this.isCacheValid(cache)) {
-                    // Use cached data
+                    // Use cached data from Supabase
                     this.data.subscribers = cache.subscribers;
                     this.lastSyncTime = cache.lastSyncTime;
                     localStorage.setItem('fluentcrm_last_sync', this.lastSyncTime);
-                    console.log(`Using Supabase cache: ${cache.subscriberCount} subscribers`);
 
-                    // Do incremental sync to get any new changes
+                    const cacheAge = ((Date.now() - new Date(cache.updatedAt).getTime()) / (1000 * 60 * 60)).toFixed(1);
+                    console.log(`✅ Loaded ${cache.subscriberCount} subscribers from Supabase cache (${cacheAge}h old)`);
+                    this.updateSyncSourceUI('supabase', `(${cache.subscriberCount} records, ${cacheAge}h old)`);
+
+                    // Do incremental sync to get any new changes from FluentCRM
+                    console.log('🔄 Fetching updates from FluentCRM...');
                     await this.incrementalSubscriberSync();
 
                     // Save updated cache back to Supabase
                     await this.saveSubscriberCache();
+                    this.updateSyncSourceUI('incremental', `(${this.data.subscribers.length} total)`);
                     return;
                 }
             }
@@ -740,10 +773,15 @@ class CRMDashboard {
                                        this.data.subscribers.length > 0;
 
             if (canIncrementalSync) {
+                this.updateSyncSourceUI('incremental', '(syncing...)');
                 await this.incrementalSubscriberSync();
+                this.updateSyncSourceUI('incremental', `(${this.data.subscribers.length} total)`);
             } else {
-                // Full sync required
+                // Full sync required - first time or force refresh
+                this.updateSyncSourceUI('full', '(syncing...)');
+                console.log('⚠️ Full sync required - fetching all subscribers from FluentCRM...');
                 await this.fullSubscriberSync();
+                this.updateSyncSourceUI('full', `(${this.data.subscribers.length} fetched)`);
             }
 
             // Step 3: Save to Supabase cache after sync
