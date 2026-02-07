@@ -422,8 +422,10 @@ class CRMDashboard {
             this.initCharts();
             await this.refreshData();
 
-            // Auto-refresh every 15 minutes (reduced from 5 to prevent server overload)
-            this.refreshInterval = setInterval(() => this.refreshData(), 15 * 60 * 1000);
+            // MANUAL REFRESH MODE - Auto-refresh disabled to protect WordPress server
+            // Users click the Refresh button when they need updated data
+            // This prevents the 174K+ DB queries that crashed the server
+            console.log('Dashboard running in manual refresh mode - click Refresh button to update data');
 
         } catch (error) {
             this.showError(`Connection failed: ${error.message}`);
