@@ -432,12 +432,13 @@ class CRMDashboard {
         }
     }
 
-    // Check if cache is still valid (less than 24 hours old)
-    isCacheValid(cacheData, maxAgeHours = 24) {
-        if (!cacheData || !cacheData.updatedAt) return false;
-        const cacheAge = Date.now() - new Date(cacheData.updatedAt).getTime();
-        const maxAge = maxAgeHours * 60 * 60 * 1000;
-        return cacheAge < maxAge;
+    // Check if cache has valid data (no time limit - incremental sync will update it)
+    isCacheValid(cacheData) {
+        // Cache is valid as long as it has subscribers
+        // The incremental sync will fetch any new/updated records from FluentCRM
+        return cacheData &&
+               cacheData.subscribers &&
+               cacheData.subscribers.length > 0;
     }
 
     // Save daily metrics snapshot to Supabase
