@@ -381,8 +381,28 @@ class CRMDashboard {
                 const cacheAgeHours = (cacheAge / (1000 * 60 * 60)).toFixed(1);
                 console.log(`Loaded ${data.subscriber_count} subscribers from Supabase cache (${cacheAgeHours}h old)`);
 
+                // Expand minimal format back to full field names
+                const isMinimalFormat = data.metadata?.format === 'minimal_v2';
+                let subscribers = data.subscribers;
+
+                if (isMinimalFormat) {
+                    console.log('Expanding minimal format cache...');
+                    const statusMap = { 's': 'subscribed', 'p': 'pending', 'u': 'unsubscribed', 'b': 'bounced' };
+                    const typeMap = { 'l': 'lead', 'c': 'customer' };
+
+                    subscribers = data.subscribers.map(sub => ({
+                        id: sub.id,
+                        status: statusMap[sub.s] || sub.s || 'subscribed',
+                        contact_type: typeMap[sub.t] || sub.t || 'lead',
+                        created_at: sub.c,
+                        updated_at: sub.u,
+                        date_of_birth: sub.d,
+                        tags: [] // Tags will be fetched on incremental sync
+                    }));
+                }
+
                 return {
-                    subscribers: data.subscribers,
+                    subscribers: subscribers,
                     lastSyncTime: data.last_sync_time,
                     subscriberCount: data.subscriber_count,
                     updatedAt: data.updated_at
@@ -404,8 +424,8 @@ class CRMDashboard {
                 return;
             }
 
-            // Always trim to essential fields only - full data is too large for Supabase
-            // Keep only what's needed for dashboard calculations
+            // Aggressively trim to absolute minimum - only IDs and essential fields
+            // Tags are excluded (too large) - they'll be fetched on incremental sync
             console.log(`Preparing ${this.data.subscribers.length} subscribers for Supabase cache...`);
 
             const subscribersToCache = this.data.subscribers.map(sub => {
@@ -416,36 +436,27 @@ class CRMDashboard {
                            sub.custom_fields?.ngay_sinh ||
                            null;
 
-                // Extract birth time
-                const birthTime = sub.custom_fields?.birth_time ||
-                                 sub.custom_fields?.gio_sinh ||
-                                 null;
-
-                // Extract minimal tag info (just IDs and names)
-                const tags = sub.tags ? sub.tags.map(t => ({
-                    id: t.id,
-                    title: t.title || t.name
-                })) : [];
-
                 return {
                     id: sub.id,
-                    status: sub.status,
-                    contact_type: sub.contact_type,
-                    created_at: sub.created_at,
-                    updated_at: sub.updated_at,
-                    source: sub.source,
-                    // For personas
-                    dob: dob,
-                    birth_time: birthTime,
-                    gender: sub.custom_fields?.gender || sub.custom_fields?.gioi_tinh,
-                    // Minimal tags
-                    tags: tags
+                    s: sub.status?.charAt(0), // 's'=subscribed, 'p'=pending, etc (1 char)
+                    t: sub.contact_type?.charAt(0), // 'l'=lead, 'c'=customer (1 char)
+                    c: sub.created_at,
+                    u: sub.updated_at,
+                    d: dob, // date of birth
+                    // Count of tags (not full tag data)
+                    tc: sub.tags?.length || 0
                 };
             });
 
             const payloadSize = JSON.stringify(subscribersToCache).length;
             const payloadMB = (payloadSize / (1024 * 1024)).toFixed(2);
             console.log(`Trimmed payload: ${payloadMB} MB (${subscribersToCache.length} subscribers)`);
+
+            // If still too large (>2MB), skip caching
+            if (payloadSize > 2 * 1024 * 1024) {
+                console.log('⚠️ Payload still too large for Supabase, skipping cache save');
+                return;
+            }
 
             const cacheData = {
                 cache_key: 'main',
@@ -454,7 +465,8 @@ class CRMDashboard {
                 subscribers: subscribersToCache,
                 metadata: {
                     payload_mb: payloadMB,
-                    contacts_total: this.data.contacts?.total || 0
+                    contacts_total: this.data.contacts?.total || 0,
+                    format: 'minimal_v2' // Track format version
                 }
             };
 
@@ -699,16 +711,17 @@ class CRMDashboard {
     }
 
     // Load subscriber data from localStorage cache
+    // Note: Full subscriber data is now in Supabase, localStorage only has metadata
     loadFromCache() {
         try {
-            const cached = localStorage.getItem('fluentcrm_subscriber_cache');
+            // Check if we have cached metadata (not full data - that's in Supabase)
+            const cached = localStorage.getItem('fluentcrm_cache_meta');
             if (cached) {
-                const { timestamp, subscribers } = JSON.parse(cached);
-                // Use cache if less than 1 hour old
-                if (Date.now() - timestamp < 3600000 && subscribers.length > 0) {
-                    console.log(`Loaded ${subscribers.length} subscribers from cache`);
-                    this.data.subscribers = subscribers;
-                    return true;
+                const { timestamp, subscriberCount } = JSON.parse(cached);
+                // Just log that we have cache info - actual data loads from Supabase
+                if (Date.now() - timestamp < 3600000) {
+                    console.log(`Cache metadata found: ${subscriberCount} subscribers (will load from Supabase)`);
+                    return false; // Return false so Supabase cache is used
                 }
             }
         } catch (e) {
