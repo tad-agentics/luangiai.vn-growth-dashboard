@@ -737,7 +737,6 @@ class CRMDashboard {
 
         console.log(`Incremental sync complete: ${newCount} new, ${updatedCount} updated`);
     }
-    }
 
     categorizePersonas() {
         const personas = {};
