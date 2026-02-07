@@ -404,33 +404,48 @@ class CRMDashboard {
                 return;
             }
 
-            // Estimate payload size
-            const payloadSize = JSON.stringify(this.data.subscribers).length;
-            const payloadMB = (payloadSize / (1024 * 1024)).toFixed(2);
-            console.log(`Saving ${this.data.subscribers.length} subscribers to Supabase cache (${payloadMB} MB)...`);
+            // Always trim to essential fields only - full data is too large for Supabase
+            // Keep only what's needed for dashboard calculations
+            console.log(`Preparing ${this.data.subscribers.length} subscribers for Supabase cache...`);
 
-            // If payload is too large (>5MB), store only essential fields
-            let subscribersToCache = this.data.subscribers;
-            if (payloadSize > 5 * 1024 * 1024) {
-                console.log('Payload too large, trimming to essential fields...');
-                subscribersToCache = this.data.subscribers.map(sub => ({
+            const subscribersToCache = this.data.subscribers.map(sub => {
+                // Extract DOB from various possible locations
+                const dob = sub.date_of_birth ||
+                           sub.custom_fields?.date_of_birth ||
+                           sub.custom_fields?.dob ||
+                           sub.custom_fields?.ngay_sinh ||
+                           null;
+
+                // Extract birth time
+                const birthTime = sub.custom_fields?.birth_time ||
+                                 sub.custom_fields?.gio_sinh ||
+                                 null;
+
+                // Extract minimal tag info (just IDs and names)
+                const tags = sub.tags ? sub.tags.map(t => ({
+                    id: t.id,
+                    title: t.title || t.name
+                })) : [];
+
+                return {
                     id: sub.id,
-                    email: sub.email,
-                    first_name: sub.first_name,
-                    last_name: sub.last_name,
                     status: sub.status,
                     contact_type: sub.contact_type,
                     created_at: sub.created_at,
                     updated_at: sub.updated_at,
-                    tags: sub.tags,
-                    custom_fields: sub.custom_fields,
-                    // Keep fields needed for personas/astrology
-                    date_of_birth: sub.date_of_birth || sub.custom_fields?.date_of_birth,
-                    source: sub.source
-                }));
-                const trimmedSize = JSON.stringify(subscribersToCache).length;
-                console.log(`Trimmed payload: ${(trimmedSize / (1024 * 1024)).toFixed(2)} MB`);
-            }
+                    source: sub.source,
+                    // For personas
+                    dob: dob,
+                    birth_time: birthTime,
+                    gender: sub.custom_fields?.gender || sub.custom_fields?.gioi_tinh,
+                    // Minimal tags
+                    tags: tags
+                };
+            });
+
+            const payloadSize = JSON.stringify(subscribersToCache).length;
+            const payloadMB = (payloadSize / (1024 * 1024)).toFixed(2);
+            console.log(`Trimmed payload: ${payloadMB} MB (${subscribersToCache.length} subscribers)`);
 
             const cacheData = {
                 cache_key: 'main',
@@ -438,9 +453,8 @@ class CRMDashboard {
                 subscriber_count: this.data.subscribers.length,
                 subscribers: subscribersToCache,
                 metadata: {
-                    saved_by: navigator.userAgent,
-                    contacts_total: this.data.contacts?.total || 0,
-                    payload_mb: payloadMB
+                    payload_mb: payloadMB,
+                    contacts_total: this.data.contacts?.total || 0
                 }
             };
 
@@ -454,9 +468,10 @@ class CRMDashboard {
                 throw error;
             }
 
-            console.log('✅ Subscriber cache saved to Supabase successfully', data);
+            console.log('✅ Subscriber cache saved to Supabase successfully');
             this.logAuditEvent('cache_saved', {
-                subscriber_count: this.data.subscribers.length
+                subscriber_count: this.data.subscribers.length,
+                payload_mb: payloadMB
             });
         } catch (e) {
             console.error('❌ Failed to save cache to Supabase:', e);
@@ -476,18 +491,22 @@ class CRMDashboard {
     // Save daily metrics snapshot to Supabase
     async saveDailyMetrics() {
         const today = new Date().toISOString().split('T')[0];
+
+        // Use subscribers array for counting (contacts is an object with stats, not an array)
+        const subscribers = this.data.subscribers || [];
+
         const metrics = {
             date: today,
-            total_contacts: this.data.contacts.length,
-            subscribed: this.data.contacts.filter(c => c.status === 'subscribed').length,
-            pending: this.data.contacts.filter(c => c.status === 'pending').length,
-            unsubscribed: this.data.contacts.filter(c => c.status === 'unsubscribed').length,
-            bounced: this.data.contacts.filter(c => c.status === 'bounced').length,
-            total_lists: this.data.lists.length,
-            total_tags: this.data.tags.length,
-            total_campaigns: this.data.campaigns.length,
-            leads: this.data.contacts.filter(c => c.contact_type === 'lead').length,
-            customers: this.data.contacts.filter(c => c.contact_type === 'customer').length,
+            total_contacts: this.data.contacts?.total || subscribers.length,
+            subscribed: subscribers.filter(c => c.status === 'subscribed').length,
+            pending: subscribers.filter(c => c.status === 'pending').length,
+            unsubscribed: subscribers.filter(c => c.status === 'unsubscribed').length,
+            bounced: subscribers.filter(c => c.status === 'bounced').length,
+            total_lists: this.data.lists?.length || 0,
+            total_tags: this.data.tags?.length || 0,
+            total_campaigns: this.data.campaigns?.length || 0,
+            leads: subscribers.filter(c => c.contact_type === 'lead').length,
+            customers: subscribers.filter(c => c.contact_type === 'customer').length,
             personas: this.data.personas || {},
             sources: this.data.growthAnalytics?.sourceBreakdown || {}
         };
@@ -699,16 +718,19 @@ class CRMDashboard {
     }
 
     // Save subscriber data to localStorage cache
+    // Note: localStorage has ~5MB limit, so we only cache metadata, not full subscriber data
+    // Full subscriber data is cached in Supabase instead
     saveToCache() {
         try {
+            // Only save timestamp and count - Supabase handles the full data
             const cacheData = {
                 timestamp: Date.now(),
-                subscribers: this.data.subscribers
+                subscriberCount: this.data.subscribers?.length || 0
             };
-            localStorage.setItem('fluentcrm_subscriber_cache', JSON.stringify(cacheData));
-            console.log(`Cached ${this.data.subscribers.length} subscribers`);
+            localStorage.setItem('fluentcrm_cache_meta', JSON.stringify(cacheData));
+            console.log(`Cache metadata saved (${cacheData.subscriberCount} subscribers in Supabase)`);
         } catch (e) {
-            console.log('Could not save cache:', e.message);
+            console.log('Could not save cache metadata:', e.message);
         }
     }
 
