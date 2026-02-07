@@ -655,7 +655,7 @@ class CRMDashboard {
         console.log('Refreshing dashboard data...');
 
         // Show loading indicator immediately
-        this.updateSyncSourceUI('full', '(connecting...)');
+        this.updateSyncSourceUI('supabase', '(checking cache...)');
 
         try {
             // Try to load cached data first for instant display
@@ -830,13 +830,14 @@ class CRMDashboard {
 
                     const cacheAge = ((Date.now() - new Date(cache.updatedAt).getTime()) / (1000 * 60 * 60)).toFixed(1);
                     console.log(`✅ Loaded ${cache.subscriberCount} subscribers from Supabase cache (${cacheAge}h old)`);
-                    this.updateSyncSourceUI('supabase', `(${cache.subscriberCount} records, ${cacheAge}h old)`);
+                    this.updateSyncSourceUI('supabase', `(${cache.subscriberCount} loaded, fetching updates...)`);
 
                     // Do incremental sync to get any new changes from FluentCRM
                     console.log('🔄 Fetching updates from FluentCRM...');
                     await this.incrementalSubscriberSync();
 
                     // Save updated cache back to Supabase
+                    this.updateSyncSourceUI('supabase', `(saving cache...)`);
                     await this.saveSubscriberCache();
                     this.updateSyncSourceUI('incremental', `(${this.data.subscribers.length} total)`);
                     return;
