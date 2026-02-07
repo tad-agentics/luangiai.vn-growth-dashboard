@@ -278,7 +278,33 @@ class CRMDashboard {
         this.refreshInterval = null;
         this.growthPeriod = 30; // Default to 30 days
 
+        // Sync management to prevent server overload
+        this.isSyncing = false;
+        this.lastSyncTime = localStorage.getItem('fluentcrm_last_sync') || null;
+        this.subscriberCache = null;
+
         this.init();
+    }
+
+    // Sync lock management - prevents multiple tabs from syncing simultaneously
+    acquireSyncLock() {
+        const SYNC_LOCK_KEY = 'fluentcrm_sync_lock';
+        const lock = localStorage.getItem(SYNC_LOCK_KEY);
+        const now = Date.now();
+
+        // If lock exists and is less than 2 minutes old, another tab is syncing
+        if (lock && now - parseInt(lock) < 120000) {
+            console.log('Another tab is syncing, skipping...');
+            return false;
+        }
+
+        // Acquire lock
+        localStorage.setItem(SYNC_LOCK_KEY, now.toString());
+        return true;
+    }
+
+    releaseSyncLock() {
+        localStorage.removeItem('fluentcrm_sync_lock');
     }
 
     async init() {
@@ -396,8 +422,8 @@ class CRMDashboard {
             this.initCharts();
             await this.refreshData();
 
-            // Auto-refresh every 5 minutes
-            this.refreshInterval = setInterval(() => this.refreshData(), 5 * 60 * 1000);
+            // Auto-refresh every 15 minutes (reduced from 5 to prevent server overload)
+            this.refreshInterval = setInterval(() => this.refreshData(), 15 * 60 * 1000);
 
         } catch (error) {
             this.showError(`Connection failed: ${error.message}`);
@@ -458,10 +484,37 @@ class CRMDashboard {
         return [];
     }
 
-    async refreshData() {
+    async refreshData(forceFullSync = false) {
+        // Prevent concurrent syncs (same tab)
+        if (this.isSyncing) {
+            console.log('Sync already in progress, skipping...');
+            return;
+        }
+
+        // Prevent concurrent syncs (cross-tab)
+        if (!this.acquireSyncLock()) {
+            console.log('Another tab is syncing, using cached data...');
+            this.loadFromCache();
+            return;
+        }
+
+        this.isSyncing = true;
         console.log('Refreshing dashboard data...');
 
         try {
+            // Try to load cached data first for instant display
+            if (!forceFullSync) {
+                this.loadFromCache();
+                if (this.data.subscribers.length > 0) {
+                    // Show cached data immediately
+                    this.categorizePersonas();
+                    this.calculatePersonaGrowth();
+                    this.calculateGrowthAnalytics();
+                    this.calculateAstrologyStats();
+                    this.updateDashboard();
+                }
+            }
+
             const [listsData, tagsData, campaignsData, sequencesData] = await Promise.all([
                 this.apiCall('/lists'),
                 this.apiCall('/tags'),
@@ -476,7 +529,7 @@ class CRMDashboard {
             this.data.campaigns = this.extractArray(campaignsData, 'campaigns');
             this.data.sequences = this.extractArray(sequencesData, 'sequences');
 
-            await this.fetchSubscribers();
+            await this.fetchSubscribers(forceFullSync);
             this.categorizePersonas();
             this.calculatePersonaGrowth();
             this.calculateGrowthAnalytics();
@@ -484,13 +537,56 @@ class CRMDashboard {
             this.savePersonaHistory();
             this.updateDashboard();
 
+            // Save to cache for next load
+            this.saveToCache();
+
             // Save daily metrics to Supabase
             this.saveDailyMetrics();
+
+            // Update last sync time
+            this.lastSyncTime = new Date().toISOString();
+            localStorage.setItem('fluentcrm_last_sync', this.lastSyncTime);
 
             document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 
         } catch (error) {
             console.error('Error refreshing data:', error);
+        } finally {
+            this.isSyncing = false;
+            this.releaseSyncLock();
+        }
+    }
+
+    // Load subscriber data from localStorage cache
+    loadFromCache() {
+        try {
+            const cached = localStorage.getItem('fluentcrm_subscriber_cache');
+            if (cached) {
+                const { timestamp, subscribers } = JSON.parse(cached);
+                // Use cache if less than 1 hour old
+                if (Date.now() - timestamp < 3600000 && subscribers.length > 0) {
+                    console.log(`Loaded ${subscribers.length} subscribers from cache`);
+                    this.data.subscribers = subscribers;
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.log('Could not load cache:', e.message);
+        }
+        return false;
+    }
+
+    // Save subscriber data to localStorage cache
+    saveToCache() {
+        try {
+            const cacheData = {
+                timestamp: Date.now(),
+                subscribers: this.data.subscribers
+            };
+            localStorage.setItem('fluentcrm_subscriber_cache', JSON.stringify(cacheData));
+            console.log(`Cached ${this.data.subscribers.length} subscribers`);
+        } catch (e) {
+            console.log('Could not save cache:', e.message);
         }
     }
 
@@ -528,34 +624,119 @@ class CRMDashboard {
         this.data.contacts = stats;
     }
 
-    async fetchSubscribers() {
+    async fetchSubscribers(forceFullSync = false) {
         try {
-            let allSubscribers = [];
-            let page = 1;
-            const perPage = 500;
-            const knownTotal = this.data.contacts.total || 15000;
+            // Check if we can do incremental sync
+            const canIncrementalSync = !forceFullSync &&
+                                       this.lastSyncTime &&
+                                       this.data.subscribers.length > 0;
 
-            console.log(`Fetching all ${knownTotal} subscribers...`);
-
-            while (allSubscribers.length < knownTotal && page <= 50) {
-                const response = await this.apiCall(`/subscribers?per_page=${perPage}&page=${page}&with[]=tags&custom_fields=true`);
-                const subscribers = response.subscribers?.data || response.data || this.extractArray(response, 'subscribers') || [];
-
-                if (subscribers.length === 0) break;
-
-                allSubscribers = allSubscribers.concat(subscribers);
-                console.log(`Fetched page ${page}: ${subscribers.length} (total: ${allSubscribers.length})`);
-
-                if (subscribers.length < perPage) break;
-                page++;
+            if (canIncrementalSync) {
+                await this.incrementalSubscriberSync();
+            } else {
+                await this.fullSubscriberSync();
             }
-
-            console.log(`Total subscribers fetched: ${allSubscribers.length}`);
-            this.data.subscribers = allSubscribers;
         } catch (e) {
             console.log('Could not fetch subscribers:', e);
-            this.data.subscribers = [];
+            // Keep existing data if we have it
+            if (this.data.subscribers.length === 0) {
+                this.data.subscribers = [];
+            }
         }
+    }
+
+    // Full sync - fetches ALL subscribers (only on first load or force refresh)
+    async fullSubscriberSync() {
+        let allSubscribers = [];
+        let page = 1;
+        const perPage = 500;
+        const knownTotal = this.data.contacts.total || 15000;
+
+        console.log(`Full sync: Fetching all ${knownTotal} subscribers...`);
+
+        while (allSubscribers.length < knownTotal && page <= 50) {
+            const response = await this.apiCall(`/subscribers?per_page=${perPage}&page=${page}&with[]=tags&custom_fields=true`);
+            const subscribers = response.subscribers?.data || response.data || this.extractArray(response, 'subscribers') || [];
+
+            if (subscribers.length === 0) break;
+
+            // Use push with spread instead of concat (better memory efficiency)
+            allSubscribers.push(...subscribers);
+            console.log(`Fetched page ${page}: ${subscribers.length} (total: ${allSubscribers.length})`);
+
+            if (subscribers.length < perPage) break;
+
+            // Rate limiting: Add 300ms delay between pages to reduce server load
+            await new Promise(resolve => setTimeout(resolve, 300));
+            page++;
+        }
+
+        console.log(`Full sync complete: ${allSubscribers.length} subscribers`);
+        this.data.subscribers = allSubscribers;
+    }
+
+    // Incremental sync - fetches only new/updated subscribers since last sync
+    async incrementalSubscriberSync() {
+        console.log(`Incremental sync: Fetching changes since ${this.lastSyncTime}...`);
+
+        let page = 1;
+        let updatedCount = 0;
+        let newCount = 0;
+        const perPage = 500;
+
+        // Create a map of existing subscribers by ID for quick lookup
+        const subscriberMap = new Map();
+        this.data.subscribers.forEach(sub => {
+            subscriberMap.set(sub.id, sub);
+        });
+
+        while (page <= 10) { // Limit incremental sync to 10 pages max (5000 changes)
+            // Fetch subscribers updated after last sync
+            const response = await this.apiCall(
+                `/subscribers?per_page=${perPage}&page=${page}&with[]=tags&custom_fields=true&sort_by=updated_at&sort_order=DESC`
+            );
+            const subscribers = response.subscribers?.data || response.data || this.extractArray(response, 'subscribers') || [];
+
+            if (subscribers.length === 0) break;
+
+            // Check if we've reached records older than our last sync
+            let hasOlderRecords = false;
+            for (const sub of subscribers) {
+                const subUpdatedAt = new Date(sub.updated_at || sub.created_at);
+                const lastSync = new Date(this.lastSyncTime);
+
+                if (subUpdatedAt < lastSync) {
+                    hasOlderRecords = true;
+                    break;
+                }
+
+                // Update or add subscriber
+                if (subscriberMap.has(sub.id)) {
+                    // Update existing subscriber
+                    const index = this.data.subscribers.findIndex(s => s.id === sub.id);
+                    if (index !== -1) {
+                        this.data.subscribers[index] = sub;
+                        updatedCount++;
+                    }
+                } else {
+                    // Add new subscriber
+                    this.data.subscribers.push(sub);
+                    subscriberMap.set(sub.id, sub);
+                    newCount++;
+                }
+            }
+
+            console.log(`Incremental page ${page}: ${subscribers.length} records processed`);
+
+            if (hasOlderRecords || subscribers.length < perPage) break;
+
+            // Rate limiting
+            await new Promise(resolve => setTimeout(resolve, 300));
+            page++;
+        }
+
+        console.log(`Incremental sync complete: ${newCount} new, ${updatedCount} updated`);
+    }
     }
 
     categorizePersonas() {
