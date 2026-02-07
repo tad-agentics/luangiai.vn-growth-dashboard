@@ -654,6 +654,9 @@ class CRMDashboard {
         this.isSyncing = true;
         console.log('Refreshing dashboard data...');
 
+        // Show loading indicator immediately
+        this.updateSyncSourceUI('full', '(connecting...)');
+
         try {
             // Try to load cached data first for instant display
             if (!forceFullSync) {
@@ -870,8 +873,10 @@ class CRMDashboard {
         let page = 1;
         const perPage = 500;
         const knownTotal = this.data.contacts.total || 15000;
+        const totalPages = Math.ceil(knownTotal / perPage);
 
         console.log(`Full sync: Fetching all ${knownTotal} subscribers...`);
+        this.updateSyncSourceUI('full', `(0/${knownTotal})`);
 
         while (allSubscribers.length < knownTotal && page <= 50) {
             const response = await this.apiCall(`/subscribers?per_page=${perPage}&page=${page}&with[]=tags&custom_fields=true`);
@@ -882,6 +887,10 @@ class CRMDashboard {
             // Use push with spread instead of concat (better memory efficiency)
             allSubscribers.push(...subscribers);
             console.log(`Fetched page ${page}: ${subscribers.length} (total: ${allSubscribers.length})`);
+
+            // Update UI with progress
+            const pct = Math.round((allSubscribers.length / knownTotal) * 100);
+            this.updateSyncSourceUI('full', `(${allSubscribers.length}/${knownTotal} - ${pct}%)`);
 
             if (subscribers.length < perPage) break;
 
