@@ -353,6 +353,93 @@ class CRMDashboard {
         }
     }
 
+    // ============================================
+    // SUPABASE SUBSCRIBER CACHE
+    // Persist subscriber data across users/sessions
+    // ============================================
+
+    // Load cached subscribers from Supabase
+    async loadSubscriberCache() {
+        try {
+            console.log('Loading subscriber cache from Supabase...');
+            const { data, error } = await supabaseClient
+                .from('subscriber_cache')
+                .select('*')
+                .eq('cache_key', 'main')
+                .single();
+
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    console.log('No cache found in Supabase (first run)');
+                    return null;
+                }
+                throw error;
+            }
+
+            if (data && data.subscribers && data.subscribers.length > 0) {
+                const cacheAge = Date.now() - new Date(data.updated_at).getTime();
+                const cacheAgeHours = (cacheAge / (1000 * 60 * 60)).toFixed(1);
+                console.log(`Loaded ${data.subscriber_count} subscribers from Supabase cache (${cacheAgeHours}h old)`);
+
+                return {
+                    subscribers: data.subscribers,
+                    lastSyncTime: data.last_sync_time,
+                    subscriberCount: data.subscriber_count,
+                    updatedAt: data.updated_at
+                };
+            }
+
+            return null;
+        } catch (e) {
+            console.log('Failed to load cache from Supabase:', e.message);
+            return null;
+        }
+    }
+
+    // Save subscribers to Supabase cache
+    async saveSubscriberCache() {
+        try {
+            if (!this.data.subscribers || this.data.subscribers.length === 0) {
+                console.log('No subscribers to cache');
+                return;
+            }
+
+            console.log(`Saving ${this.data.subscribers.length} subscribers to Supabase cache...`);
+
+            const cacheData = {
+                cache_key: 'main',
+                last_sync_time: this.lastSyncTime || new Date().toISOString(),
+                subscriber_count: this.data.subscribers.length,
+                subscribers: this.data.subscribers,
+                metadata: {
+                    saved_by: navigator.userAgent,
+                    contacts_total: this.data.contacts?.total || 0
+                }
+            };
+
+            const { error } = await supabaseClient
+                .from('subscriber_cache')
+                .upsert(cacheData, { onConflict: 'cache_key' });
+
+            if (error) throw error;
+
+            console.log('Subscriber cache saved to Supabase successfully');
+            this.logAuditEvent('cache_saved', {
+                subscriber_count: this.data.subscribers.length
+            });
+        } catch (e) {
+            console.log('Failed to save cache to Supabase:', e.message);
+        }
+    }
+
+    // Check if cache is still valid (less than 24 hours old)
+    isCacheValid(cacheData, maxAgeHours = 24) {
+        if (!cacheData || !cacheData.updatedAt) return false;
+        const cacheAge = Date.now() - new Date(cacheData.updatedAt).getTime();
+        const maxAge = maxAgeHours * 60 * 60 * 1000;
+        return cacheAge < maxAge;
+    }
+
     // Save daily metrics snapshot to Supabase
     async saveDailyMetrics() {
         const today = new Date().toISOString().split('T')[0];
@@ -628,7 +715,26 @@ class CRMDashboard {
 
     async fetchSubscribers(forceFullSync = false) {
         try {
-            // Check if we can do incremental sync
+            // Step 1: Try to load from Supabase cache if we don't have data
+            if (this.data.subscribers.length === 0 && !forceFullSync) {
+                const cache = await this.loadSubscriberCache();
+                if (cache && this.isCacheValid(cache)) {
+                    // Use cached data
+                    this.data.subscribers = cache.subscribers;
+                    this.lastSyncTime = cache.lastSyncTime;
+                    localStorage.setItem('fluentcrm_last_sync', this.lastSyncTime);
+                    console.log(`Using Supabase cache: ${cache.subscriberCount} subscribers`);
+
+                    // Do incremental sync to get any new changes
+                    await this.incrementalSubscriberSync();
+
+                    // Save updated cache back to Supabase
+                    await this.saveSubscriberCache();
+                    return;
+                }
+            }
+
+            // Step 2: Check if we can do incremental sync (have local data)
             const canIncrementalSync = !forceFullSync &&
                                        this.lastSyncTime &&
                                        this.data.subscribers.length > 0;
@@ -636,8 +742,13 @@ class CRMDashboard {
             if (canIncrementalSync) {
                 await this.incrementalSubscriberSync();
             } else {
+                // Full sync required
                 await this.fullSubscriberSync();
             }
+
+            // Step 3: Save to Supabase cache after sync
+            await this.saveSubscriberCache();
+
         } catch (e) {
             console.log('Could not fetch subscribers:', e);
             // Keep existing data if we have it

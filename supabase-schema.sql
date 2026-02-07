@@ -112,7 +112,31 @@ CREATE TABLE IF NOT EXISTS ad_performance (
 CREATE INDEX IF NOT EXISTS idx_ad_performance_lookup ON ad_performance(provider, account_id, date DESC);
 
 -- ============================================
--- 6. AUDIT LOG
+-- 6. SUBSCRIBER CACHE
+-- Cache FluentCRM subscriber data to avoid full syncs
+-- ============================================
+CREATE TABLE IF NOT EXISTS subscriber_cache (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    cache_key TEXT UNIQUE NOT NULL DEFAULT 'main', -- Allow multiple cache keys if needed
+    last_sync_time TIMESTAMPTZ NOT NULL,
+    subscriber_count INTEGER DEFAULT 0,
+    subscribers JSONB NOT NULL DEFAULT '[]',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for quick lookup
+CREATE INDEX IF NOT EXISTS idx_subscriber_cache_key ON subscriber_cache(cache_key);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS subscriber_cache_updated_at ON subscriber_cache;
+CREATE TRIGGER subscriber_cache_updated_at
+    BEFORE UPDATE ON subscriber_cache
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================
+-- 7. AUDIT LOG
 -- Track who accessed what
 -- ============================================
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -165,6 +189,7 @@ ALTER TABLE oauth_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ad_performance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriber_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Policies allowing anon access (for internal dashboard)
@@ -173,6 +198,7 @@ CREATE POLICY "Allow anon read oauth" ON oauth_tokens FOR SELECT USING (true);
 CREATE POLICY "Allow anon all daily_metrics" ON daily_metrics FOR ALL USING (true);
 CREATE POLICY "Allow anon all ai_reports" ON ai_reports FOR ALL USING (true);
 CREATE POLICY "Allow anon all ad_performance" ON ad_performance FOR ALL USING (true);
+CREATE POLICY "Allow anon all subscriber_cache" ON subscriber_cache FOR ALL USING (true);
 CREATE POLICY "Allow anon insert audit" ON audit_log FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow anon read audit" ON audit_log FOR SELECT USING (true);
 
