@@ -195,8 +195,11 @@
                     <span>Last sync: <span id="lastUpdate">-</span></span>
                     <span id="syncSource" class="hidden ml-2 px-2 py-0.5 rounded text-xs"></span>
                 </div>
-                <button onclick="refreshData()" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors">
+                <button onclick="refreshData()" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors" title="Incremental sync (uses cache)">
                     <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+                <button onclick="refreshData(true)" class="px-3 py-2 bg-orange-900/50 hover:bg-orange-900 text-orange-400 rounded-lg text-sm transition-colors" title="Full sync from FluentCRM (ignores cache)">
+                    <i class="fas fa-database mr-2"></i>Full Sync
                 </button>
                 <button onclick="disconnect()" class="px-3 py-2 bg-red-900/50 hover:bg-red-900 text-red-400 rounded-lg text-sm transition-colors">
                     <i class="fas fa-sign-out-alt mr-2"></i>Disconnect

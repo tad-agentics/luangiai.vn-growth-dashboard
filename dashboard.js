@@ -3028,9 +3028,9 @@ window.addEventListener('DOMContentLoaded', () => {
     dashboard = new CRMDashboard();
 });
 
-function refreshData() {
+function refreshData(forceFullSync = false) {
     if (dashboard) {
-        dashboard.refreshData();
+        dashboard.refreshData(forceFullSync);
     }
 }
 
