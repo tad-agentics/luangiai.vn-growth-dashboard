@@ -289,17 +289,25 @@
                     <div class="card metric-card primary p-4">
                         <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Total Leads</div>
                         <div class="text-2xl font-bold text-foreground" id="metricTotal">-</div>
-                        <div class="text-primary text-xs mt-1" id="metricTotalTrend">-</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-primary text-xs" id="metricTotalTrend">-</span>
+                        </div>
                     </div>
                     <div class="card metric-card accent p-4">
                         <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">This Week New</div>
                         <div class="text-2xl font-bold text-accent" id="metricWeekNew">-</div>
-                        <div class="text-xs mt-1" id="metricWeekTrend">-</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-xs" id="metricWeekTrend">-</span>
+                            <span class="text-muted-foreground text-xs">vs last week</span>
+                        </div>
                     </div>
                     <div class="card metric-card success p-4">
                         <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">CVR %</div>
                         <div class="text-2xl font-bold text-success" id="metricCVR2">-</div>
-                        <div class="text-success text-xs mt-1">lead → customer</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="metricCVRTrend" class="text-xs"></span>
+                            <span class="text-muted-foreground text-xs">vs last week</span>
+                        </div>
                     </div>
                     <div class="card metric-card secondary p-4">
                         <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Top Source</div>
@@ -325,14 +333,20 @@
                         <div class="text-muted-foreground text-xs mt-1">2+ purchases</div>
                     </div>
                     <div class="card metric-card primary p-4">
-                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Time to 1st</div>
-                        <div class="text-2xl font-bold text-primary" id="summaryTimeToFirst">-</div>
-                        <div class="text-muted-foreground text-xs mt-1">days avg</div>
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Revenue This Week</div>
+                        <div class="text-2xl font-bold text-primary" id="summaryWeekRevenue">-</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="summaryRevenueTrend" class="text-xs"></span>
+                            <span class="text-muted-foreground text-xs">vs last week</span>
+                        </div>
                     </div>
                     <div class="card metric-card accent p-4">
                         <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">AOV</div>
                         <div class="text-2xl font-bold text-accent" id="summaryAOV">-</div>
-                        <div class="text-muted-foreground text-xs mt-1">avg order value</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="summaryAOVTrend" class="text-xs"></span>
+                            <span class="text-muted-foreground text-xs">vs last week</span>
+                        </div>
                     </div>
                 </div>
             </div>

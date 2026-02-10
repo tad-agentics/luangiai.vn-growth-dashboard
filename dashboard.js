@@ -1646,6 +1646,149 @@ class CRMDashboard {
         return d;
     }
 
+    // Calculate historical comparisons for KPI cards
+    calculateComparisons() {
+        const analytics = this.data.growthAnalytics || {};
+        const wc = this.data.woocommerce || {};
+        const dailyRegs = analytics.dailyRegistrations || {};
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+
+        // Initialize comparisons object
+        const comparisons = {
+            // Acquisition metrics
+            leads: { today: 0, sameDayLastWeek: 0, change: 0 },
+            weeklyLeads: { thisWeek: 0, lastWeek: 0, change: 0 },
+            cvr: { current: 0, lastWeek: 0, change: 0 },
+
+            // Revenue metrics (from WooCommerce)
+            revenue: { thisWeek: 0, lastWeek: 0, change: 0 },
+            orders: { thisWeek: 0, lastWeek: 0, change: 0 },
+            aov: { current: 0, lastWeek: 0, change: 0 },
+
+            // Persona metrics
+            personaGrowth: {}
+        };
+
+        // 1. SAME DAY LAST WEEK - Leads comparison
+        const sameDayLastWeek = new Date(today);
+        sameDayLastWeek.setDate(sameDayLastWeek.getDate() - 7);
+        const sameDayLastWeekStr = sameDayLastWeek.toISOString().split('T')[0];
+
+        comparisons.leads.today = dailyRegs[todayStr]?.total || 0;
+        comparisons.leads.sameDayLastWeek = dailyRegs[sameDayLastWeekStr]?.total || 0;
+        comparisons.leads.change = comparisons.leads.sameDayLastWeek > 0
+            ? Math.round((comparisons.leads.today - comparisons.leads.sameDayLastWeek) / comparisons.leads.sameDayLastWeek * 100)
+            : (comparisons.leads.today > 0 ? 100 : 0);
+
+        // 2. THIS WEEK VS LAST WEEK - Already calculated in analytics
+        comparisons.weeklyLeads.thisWeek = analytics.thisWeekNew || 0;
+        comparisons.weeklyLeads.lastWeek = analytics.lastWeekNew || 0;
+        comparisons.weeklyLeads.change = parseInt(analytics.weekOverWeekChange) || 0;
+
+        // 3. CVR COMPARISON - This week vs last week
+        const thisWeekStart = this.getWeekStart(today);
+        const lastWeekStart = new Date(thisWeekStart);
+        lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+        const twoWeeksAgoStart = new Date(lastWeekStart);
+        twoWeeksAgoStart.setDate(twoWeeksAgoStart.getDate() - 7);
+
+        let thisWeekCustomers = 0, thisWeekTotal = 0;
+        let lastWeekCustomers = 0, lastWeekTotal = 0;
+
+        Object.entries(dailyRegs).forEach(([date, data]) => {
+            const d = new Date(date);
+            if (d >= thisWeekStart) {
+                thisWeekCustomers += data.customers || 0;
+                thisWeekTotal += data.total || 0;
+            } else if (d >= lastWeekStart && d < thisWeekStart) {
+                lastWeekCustomers += data.customers || 0;
+                lastWeekTotal += data.total || 0;
+            }
+        });
+
+        const thisWeekCVR = thisWeekTotal > 0 ? (thisWeekCustomers / thisWeekTotal * 100) : 0;
+        const lastWeekCVR = lastWeekTotal > 0 ? (lastWeekCustomers / lastWeekTotal * 100) : 0;
+        comparisons.cvr.current = thisWeekCVR;
+        comparisons.cvr.lastWeek = lastWeekCVR;
+        comparisons.cvr.change = lastWeekCVR > 0
+            ? Math.round((thisWeekCVR - lastWeekCVR) / lastWeekCVR * 100)
+            : (thisWeekCVR > 0 ? 100 : 0);
+
+        // 4. REVENUE COMPARISON - This week vs last week (from WooCommerce orders)
+        const orders = wc.orders || [];
+        orders.forEach(order => {
+            const orderDate = new Date(order.date_created);
+            const orderTotal = parseFloat(order.total) || 0;
+
+            if (orderDate >= thisWeekStart) {
+                comparisons.revenue.thisWeek += orderTotal;
+                comparisons.orders.thisWeek++;
+            } else if (orderDate >= lastWeekStart && orderDate < thisWeekStart) {
+                comparisons.revenue.lastWeek += orderTotal;
+                comparisons.orders.lastWeek++;
+            }
+        });
+
+        comparisons.revenue.change = comparisons.revenue.lastWeek > 0
+            ? Math.round((comparisons.revenue.thisWeek - comparisons.revenue.lastWeek) / comparisons.revenue.lastWeek * 100)
+            : (comparisons.revenue.thisWeek > 0 ? 100 : 0);
+
+        comparisons.orders.change = comparisons.orders.lastWeek > 0
+            ? Math.round((comparisons.orders.thisWeek - comparisons.orders.lastWeek) / comparisons.orders.lastWeek * 100)
+            : (comparisons.orders.thisWeek > 0 ? 100 : 0);
+
+        // 5. AOV COMPARISON
+        const thisWeekAOV = comparisons.orders.thisWeek > 0 ? comparisons.revenue.thisWeek / comparisons.orders.thisWeek : 0;
+        const lastWeekAOV = comparisons.orders.lastWeek > 0 ? comparisons.revenue.lastWeek / comparisons.orders.lastWeek : 0;
+        comparisons.aov.current = thisWeekAOV;
+        comparisons.aov.lastWeek = lastWeekAOV;
+        comparisons.aov.change = lastWeekAOV > 0
+            ? Math.round((thisWeekAOV - lastWeekAOV) / lastWeekAOV * 100)
+            : (thisWeekAOV > 0 ? 100 : 0);
+
+        // 6. PERSONA GROWTH - This week vs last week by persona
+        const personas = this.data.personas || {};
+        const subscribers = this.data.subscribers || [];
+
+        Object.keys(personas).forEach(personaKey => {
+            let thisWeekCount = 0, lastWeekCount = 0;
+
+            subscribers.forEach(sub => {
+                if (sub._persona !== personaKey) return;
+                const createdAt = new Date(sub.created_at);
+
+                if (createdAt >= thisWeekStart) {
+                    thisWeekCount++;
+                } else if (createdAt >= lastWeekStart && createdAt < thisWeekStart) {
+                    lastWeekCount++;
+                }
+            });
+
+            comparisons.personaGrowth[personaKey] = {
+                thisWeek: thisWeekCount,
+                lastWeek: lastWeekCount,
+                change: lastWeekCount > 0
+                    ? Math.round((thisWeekCount - lastWeekCount) / lastWeekCount * 100)
+                    : (thisWeekCount > 0 ? 100 : 0)
+            };
+        });
+
+        this.data.comparisons = comparisons;
+        return comparisons;
+    }
+
+    // Format comparison badge HTML
+    formatComparisonBadge(change, suffix = '') {
+        if (change === 0) {
+            return `<span class="text-muted-foreground text-xs">→ 0%${suffix}</span>`;
+        } else if (change > 0) {
+            return `<span class="text-success text-xs">↑ +${change}%${suffix}</span>`;
+        } else {
+            return `<span class="text-destructive text-xs">↓ ${change}%${suffix}</span>`;
+        }
+    }
+
     calculateAstrologyStats() {
         const subscribers = this.data.subscribers;
         const stats = {
@@ -2675,6 +2818,9 @@ class CRMDashboard {
         const wc = this.data.woocommerce?.metrics || {};
         const personas = this.data.personas || {};
 
+        // Calculate historical comparisons
+        const comparisons = this.calculateComparisons();
+
         // Acquisition metrics
         document.getElementById('metricTotal').textContent = this.formatNumber(this.data.subscribers?.length || 0);
         document.getElementById('metricTotalTrend').textContent = `+${analytics.thisWeekNew || 0} this week`;
@@ -2686,13 +2832,17 @@ class CRMDashboard {
         const cvrEl = document.getElementById('metricCVR2');
         if (cvrEl) cvrEl.textContent = `${cvr}%`;
 
-        // Week trend
-        const weekChange = analytics.weekOverWeekChange || 0;
-        const trendColor = weekChange > 0 ? 'text-success' : weekChange < 0 ? 'text-danger' : 'text-muted-foreground';
-        const trendIcon = weekChange > 0 ? '↑' : weekChange < 0 ? '↓' : '→';
+        // CVR Trend Badge
+        const cvrTrendEl = document.getElementById('metricCVRTrend');
+        if (cvrTrendEl) {
+            cvrTrendEl.innerHTML = this.formatComparisonBadge(comparisons.cvr.change);
+        }
+
+        // Week trend with badge
+        const weekChange = parseInt(analytics.weekOverWeekChange) || 0;
         const weekTrendEl = document.getElementById('metricWeekTrend');
         if (weekTrendEl) {
-            weekTrendEl.innerHTML = `<span class="${trendColor}">${trendIcon} ${Math.abs(weekChange)}% vs last week</span>`;
+            weekTrendEl.innerHTML = this.formatComparisonBadge(weekChange);
         }
 
         // Top source
@@ -2721,13 +2871,23 @@ class CRMDashboard {
             summaryRepeatRate.textContent = `${repeatRate}%`;
         }
 
-        const summaryTimeToFirst = document.getElementById('summaryTimeToFirst');
-        if (summaryTimeToFirst) {
-            summaryTimeToFirst.textContent = wc.timeToFirstPurchase?.avg?.toFixed(1) || '-';
+        // Revenue This Week with comparison
+        const summaryWeekRevenue = document.getElementById('summaryWeekRevenue');
+        if (summaryWeekRevenue) {
+            summaryWeekRevenue.textContent = this.formatCurrency(comparisons.revenue.thisWeek);
+        }
+        const summaryRevenueTrend = document.getElementById('summaryRevenueTrend');
+        if (summaryRevenueTrend) {
+            summaryRevenueTrend.innerHTML = this.formatComparisonBadge(comparisons.revenue.change);
         }
 
+        // AOV with comparison
         const summaryAOV = document.getElementById('summaryAOV');
-        if (summaryAOV) summaryAOV.textContent = this.formatCurrency(wc.aovFirstPurchase?.avg || 0);
+        if (summaryAOV) summaryAOV.textContent = this.formatCurrency(comparisons.aov.current || wc.aovFirstPurchase?.avg || 0);
+        const summaryAOVTrend = document.getElementById('summaryAOVTrend');
+        if (summaryAOVTrend) {
+            summaryAOVTrend.innerHTML = this.formatComparisonBadge(comparisons.aov.change);
+        }
 
         // Best persona
         const bestPersona = this.getBestConvertingPersona();
