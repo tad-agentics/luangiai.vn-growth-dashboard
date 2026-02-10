@@ -374,5 +374,34 @@ CREATE TRIGGER attribution_paths_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================
+-- 12. WOOCOMMERCE ORDER CACHE
+-- Cache WooCommerce orders to avoid full API syncs
+-- ============================================
+CREATE TABLE IF NOT EXISTS order_cache (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    cache_key TEXT UNIQUE NOT NULL DEFAULT 'main', -- Allow multiple cache keys if needed
+    last_sync_time TIMESTAMPTZ NOT NULL,
+    last_order_id INTEGER DEFAULT 0,              -- Track newest order ID for incremental sync
+    order_count INTEGER DEFAULT 0,
+    orders JSONB NOT NULL DEFAULT '[]',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for quick lookup
+CREATE INDEX IF NOT EXISTS idx_order_cache_key ON order_cache(cache_key);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS order_cache_updated_at ON order_cache;
+CREATE TRIGGER order_cache_updated_at
+    BEFORE UPDATE ON order_cache
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- RLS Policy
+ALTER TABLE order_cache ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon all order_cache" ON order_cache FOR ALL USING (true);
+
+-- ============================================
 -- DONE! Your database is ready for Growth Intelligence Platform.
 -- ============================================

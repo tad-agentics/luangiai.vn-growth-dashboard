@@ -552,6 +552,132 @@ class CRMDashboard {
                cacheData.subscribers.length > 0;
     }
 
+    // ============================================
+    // SUPABASE ORDER CACHE
+    // Persist WooCommerce orders across sessions
+    // ============================================
+
+    // Load cached orders from Supabase
+    async loadOrderCache() {
+        try {
+            console.log('Loading order cache from Supabase...');
+            const { data, error } = await supabaseClient
+                .from('order_cache')
+                .select('*')
+                .eq('cache_key', 'main')
+                .single();
+
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    console.log('No order cache found in Supabase (first run)');
+                    return null;
+                }
+                throw error;
+            }
+
+            if (data && data.orders && data.orders.length > 0) {
+                const cacheAge = Date.now() - new Date(data.updated_at).getTime();
+                const cacheAgeHours = (cacheAge / (1000 * 60 * 60)).toFixed(1);
+                console.log(`Loaded ${data.order_count} orders from Supabase cache (${cacheAgeHours}h old)`);
+
+                return {
+                    orders: data.orders,
+                    lastSyncTime: data.last_sync_time,
+                    lastOrderId: data.last_order_id || 0,
+                    orderCount: data.order_count,
+                    updatedAt: data.updated_at
+                };
+            }
+
+            return null;
+        } catch (e) {
+            console.log('Failed to load order cache from Supabase:', e.message);
+            return null;
+        }
+    }
+
+    // Save orders to Supabase cache
+    async saveOrderCache() {
+        try {
+            const orders = this.data.woocommerce?.orders || [];
+            if (orders.length === 0) {
+                console.log('No orders to cache');
+                return;
+            }
+
+            console.log(`Preparing ${orders.length} orders for Supabase cache...`);
+
+            // Trim orders to essential fields only
+            const ordersToCache = orders.map(order => ({
+                id: order.id,
+                status: order.status,
+                date_created: order.date_created,
+                total: order.total,
+                currency: order.currency,
+                billing_email: order.billing?.email?.toLowerCase(),
+                billing_first_name: order.billing?.first_name,
+                billing_last_name: order.billing?.last_name,
+                line_items: (order.line_items || []).map(item => ({
+                    product_id: item.product_id,
+                    name: item.name,
+                    quantity: item.quantity,
+                    total: item.total
+                }))
+            }));
+
+            // Find the highest order ID for incremental sync
+            const maxOrderId = Math.max(...orders.map(o => o.id), 0);
+
+            const payloadSize = JSON.stringify(ordersToCache).length;
+            const payloadMB = (payloadSize / (1024 * 1024)).toFixed(2);
+            console.log(`Order cache payload: ${payloadMB} MB (${ordersToCache.length} orders)`);
+
+            // If too large (>5MB), skip caching
+            if (payloadSize > 5 * 1024 * 1024) {
+                console.log('⚠️ Order payload too large for Supabase, skipping cache save');
+                return;
+            }
+
+            const cacheData = {
+                cache_key: 'main',
+                last_sync_time: new Date().toISOString(),
+                last_order_id: maxOrderId,
+                order_count: ordersToCache.length,
+                orders: ordersToCache,
+                metadata: {
+                    payload_mb: payloadMB,
+                    max_order_id: maxOrderId
+                }
+            };
+
+            const { error } = await supabaseClient
+                .from('order_cache')
+                .upsert(cacheData, { onConflict: 'cache_key' });
+
+            if (error) {
+                console.error('Supabase order cache upsert error:', error);
+                throw error;
+            }
+
+            console.log('✅ Order cache saved to Supabase successfully');
+            this.logAuditEvent('order_cache_saved', {
+                order_count: ordersToCache.length,
+                payload_mb: payloadMB,
+                max_order_id: maxOrderId
+            });
+        } catch (e) {
+            console.error('❌ Failed to save order cache to Supabase:', e);
+            console.error('Error details:', e.message, e.code, e.details);
+        }
+    }
+
+    // Check if order cache is valid
+    isOrderCacheValid(cacheData) {
+        return cacheData &&
+               cacheData.orders &&
+               cacheData.orders.length > 0;
+    }
+
     // Save daily metrics snapshot to Supabase
     async saveDailyMetrics() {
         const today = new Date().toISOString().split('T')[0];
@@ -1904,44 +2030,180 @@ class CRMDashboard {
 
     // ==================== WOOCOMMERCE ORDER ANALYTICS ====================
 
-    async fetchWooCommerceOrders() {
+    async fetchWooCommerceOrders(forceFullSync = false) {
         console.log('Fetching WooCommerce orders...');
         const auth = btoa(`${this.wcCredentials.consumerKey}:${this.wcCredentials.consumerSecret}`);
-        let allOrders = [];
-        let page = 1;
-        const perPage = 100;
 
         try {
-            while (page <= 50) { // Max 5000 orders
-                const response = await fetch(
-                    `https://luangiai.vn/wp-json/wc/v3/orders?per_page=${perPage}&page=${page}&status=completed,processing`,
-                    { headers: { 'Authorization': `Basic ${auth}` } }
-                );
+            // Step 1: Try to load from Supabase cache first
+            if (!forceFullSync) {
+                console.log('Checking order cache...');
+                this.updateOrderSyncUI('checking', '(checking cache...)');
+                const cache = await this.loadOrderCache();
 
-                if (!response.ok) {
-                    console.error('WooCommerce API error:', response.status);
-                    break;
+                if (cache && this.isOrderCacheValid(cache)) {
+                    // Use cached orders
+                    this.data.woocommerce.orders = cache.orders;
+                    const cacheAge = ((Date.now() - new Date(cache.updatedAt).getTime()) / (1000 * 60 * 60)).toFixed(1);
+                    console.log(`✅ Loaded ${cache.orderCount} orders from cache (${cacheAge}h old)`);
+                    this.updateOrderSyncUI('cached', `(${cache.orderCount} cached)`);
+
+                    // Incremental sync: fetch only new orders since lastOrderId
+                    this.updateOrderSyncUI('incremental', '(checking new orders...)');
+                    const newOrders = await this.fetchNewOrders(cache.lastOrderId, auth);
+
+                    if (newOrders.length > 0) {
+                        console.log(`🔄 Found ${newOrders.length} new orders since ID ${cache.lastOrderId}`);
+
+                        // Merge new orders with cached orders (avoid duplicates)
+                        const existingIds = new Set(this.data.woocommerce.orders.map(o => o.id));
+                        const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
+
+                        this.data.woocommerce.orders.push(...uniqueNewOrders);
+                        console.log(`Total orders after merge: ${this.data.woocommerce.orders.length}`);
+
+                        // Save updated cache
+                        this.updateOrderSyncUI('saving', '(saving cache...)');
+                        await this.saveOrderCache();
+                        this.updateOrderSyncUI('cached', `(${this.data.woocommerce.orders.length} total, +${newOrders.length} new)`);
+                    } else {
+                        console.log('No new orders since last sync');
+                        this.updateOrderSyncUI('cached', `(${cache.orderCount} cached, up-to-date)`);
+                    }
+
+                    this.calculateWooCommerceMetrics();
+                    return;
                 }
-
-                const orders = await response.json();
-                if (!orders || orders.length === 0) break;
-
-                allOrders.push(...orders);
-                console.log(`Fetched ${allOrders.length} WooCommerce orders (page ${page})`);
-
-                if (orders.length < perPage) break;
-
-                await new Promise(r => setTimeout(r, 300)); // Rate limit
-                page++;
             }
+
+            // Step 2: Full sync (first time or forced)
+            console.log('⚠️ Full order sync required...');
+            this.updateOrderSyncUI('full', '(full sync...)');
+            const allOrders = await this.fetchAllOrders(auth);
 
             this.data.woocommerce.orders = allOrders;
             console.log(`Total WooCommerce orders: ${allOrders.length}`);
+
+            // Save to cache
+            this.updateOrderSyncUI('saving', '(saving cache...)');
+            await this.saveOrderCache();
+            this.updateOrderSyncUI('cached', `(${allOrders.length} cached)`);
+
             this.calculateWooCommerceMetrics();
 
         } catch (error) {
             console.error('Error fetching WooCommerce orders:', error);
+            this.updateOrderSyncUI('error', '(error)');
         }
+    }
+
+    // Update order sync status UI
+    updateOrderSyncUI(status, details = '') {
+        const el = document.getElementById('orderSyncSource');
+        if (!el) return;
+
+        el.classList.remove('hidden', 'bg-success/20', 'text-success', 'bg-secondary/20', 'text-secondary', 'bg-warning/20', 'text-yellow-400', 'bg-red-500/20', 'text-red-400');
+
+        switch (status) {
+            case 'cached':
+                el.textContent = `🛒 Orders ${details}`;
+                el.classList.add('bg-success/20', 'text-success');
+                break;
+            case 'incremental':
+                el.textContent = `⚡ Orders ${details}`;
+                el.classList.add('bg-secondary/20', 'text-secondary');
+                break;
+            case 'full':
+                el.textContent = `🔄 Orders ${details}`;
+                el.classList.add('bg-warning/20', 'text-yellow-400');
+                break;
+            case 'checking':
+            case 'saving':
+                el.textContent = `📦 Orders ${details}`;
+                el.classList.add('bg-secondary/20', 'text-secondary');
+                break;
+            case 'error':
+                el.textContent = `❌ Orders ${details}`;
+                el.classList.add('bg-red-500/20', 'text-red-400');
+                break;
+            default:
+                el.classList.add('hidden');
+                return;
+        }
+    }
+
+    // Fetch all orders (full sync)
+    async fetchAllOrders(auth) {
+        let allOrders = [];
+        let page = 1;
+        const perPage = 100;
+
+        while (page <= 50) { // Max 5000 orders
+            const response = await fetch(
+                `https://luangiai.vn/wp-json/wc/v3/orders?per_page=${perPage}&page=${page}&status=completed,processing`,
+                { headers: { 'Authorization': `Basic ${auth}` } }
+            );
+
+            if (!response.ok) {
+                console.error('WooCommerce API error:', response.status);
+                break;
+            }
+
+            const orders = await response.json();
+            if (!orders || orders.length === 0) break;
+
+            allOrders.push(...orders);
+            console.log(`Fetched ${allOrders.length} WooCommerce orders (page ${page})`);
+
+            if (orders.length < perPage) break;
+
+            await new Promise(r => setTimeout(r, 300)); // Rate limit
+            page++;
+        }
+
+        return allOrders;
+    }
+
+    // Fetch only new orders since lastOrderId (incremental sync)
+    async fetchNewOrders(lastOrderId, auth) {
+        let newOrders = [];
+        let page = 1;
+        const perPage = 100;
+
+        console.log(`Fetching orders newer than ID ${lastOrderId}...`);
+
+        while (page <= 10) { // Max 1000 new orders per incremental sync
+            // Use 'after' parameter or filter by order_id
+            // WooCommerce API doesn't have 'after_id', so we fetch recent and filter
+            const response = await fetch(
+                `https://luangiai.vn/wp-json/wc/v3/orders?per_page=${perPage}&page=${page}&status=completed,processing&orderby=id&order=desc`,
+                { headers: { 'Authorization': `Basic ${auth}` } }
+            );
+
+            if (!response.ok) {
+                console.error('WooCommerce API error:', response.status);
+                break;
+            }
+
+            const orders = await response.json();
+            if (!orders || orders.length === 0) break;
+
+            // Filter orders newer than lastOrderId
+            const newerOrders = orders.filter(o => o.id > lastOrderId);
+            newOrders.push(...newerOrders);
+
+            // If we found orders older than lastOrderId, we've caught up
+            if (newerOrders.length < orders.length) {
+                break;
+            }
+
+            if (orders.length < perPage) break;
+
+            await new Promise(r => setTimeout(r, 300)); // Rate limit
+            page++;
+        }
+
+        return newOrders;
     }
 
     groupOrdersByCustomer(orders) {
