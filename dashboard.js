@@ -1993,6 +1993,195 @@ class CRMDashboard {
         return customers.sort((a, b) => b.ltv - a.ltv).slice(0, 10);
     }
 
+    // ==================== 2ND PURCHASER PROFILE ====================
+    calculate2ndPurchaserProfile() {
+        const customerOrders = this.data.woocommerce?.customerOrders || {};
+        const subscribers = this.data.subscribers || [];
+
+        // Build email to subscriber lookup
+        const emailToSubscriber = {};
+        subscribers.forEach(s => {
+            if (s.email) {
+                emailToSubscriber[s.email.toLowerCase()] = s;
+            }
+        });
+
+        // Find all customers with 2+ purchases
+        const secondPurchasers = [];
+
+        Object.entries(customerOrders).forEach(([email, orders]) => {
+            if (orders.length >= 2) {
+                const subscriber = emailToSubscriber[email];
+                const secondOrder = orders.find(o => o._purchaseNumber === 2);
+                const firstOrder = orders.find(o => o._purchaseNumber === 1);
+
+                if (secondOrder) {
+                    // Extract demographics from subscriber
+                    const dob = subscriber?.date_of_birth ||
+                               subscriber?.custom_fields?.dob ||
+                               subscriber?.custom_fields?.date_of_birth ||
+                               subscriber?.dob || null;
+
+                    // Parse age from DOB
+                    let age = null;
+                    let birthYear = null;
+                    if (dob) {
+                        try {
+                            const parts = dob.split(/[\/\-]/);
+                            birthYear = parts.find(p => {
+                                const num = parseInt(p);
+                                return num > 1900 && num < 2100;
+                            });
+                            if (birthYear) {
+                                birthYear = parseInt(birthYear);
+                                age = new Date().getFullYear() - birthYear;
+                            }
+                        } catch(e) {}
+                    }
+
+                    // Get age bucket
+                    let ageGroup = 'Unknown';
+                    if (age !== null) {
+                        if (age < 18) ageGroup = '<18';
+                        else if (age <= 24) ageGroup = '18-24';
+                        else if (age <= 34) ageGroup = '25-34';
+                        else if (age <= 44) ageGroup = '35-44';
+                        else if (age <= 54) ageGroup = '45-54';
+                        else ageGroup = '55+';
+                    }
+
+                    // Get device type
+                    let deviceType = 'Unknown';
+                    const deviceVal = subscriber?.device_type ||
+                                     subscriber?.custom_fields?.device ||
+                                     subscriber?.device || null;
+                    if (deviceVal) {
+                        const dv = deviceVal.toLowerCase();
+                        if (dv.includes('mobile') || dv.includes('phone') || dv.includes('android') || dv.includes('ios')) {
+                            deviceType = 'Mobile';
+                        } else if (dv.includes('desktop') || dv.includes('windows') || dv.includes('mac')) {
+                            deviceType = 'Desktop';
+                        } else if (dv.includes('tablet') || dv.includes('ipad')) {
+                            deviceType = 'Tablet';
+                        }
+                    }
+
+                    // Get source
+                    const source = subscriber?.source || 'Unknown';
+                    let parsedSource = 'Unknown';
+                    if (source) {
+                        const sl = source.toLowerCase();
+                        if (sl.includes('facebook') || sl.includes('fbclid')) parsedSource = 'Facebook';
+                        else if (sl.includes('google') || sl.includes('gclid')) parsedSource = 'Google';
+                        else if (sl.includes('tiktok') || sl.includes('ttclid')) parsedSource = 'TikTok';
+                        else if (sl.includes('zalo')) parsedSource = 'Zalo';
+                        else if (sl.includes('utm_')) parsedSource = 'UTM Tagged';
+                        else if (sl.includes('direct') || sl === '') parsedSource = 'Direct';
+                        else parsedSource = 'Other';
+                    }
+
+                    // Get gender
+                    let gender = 'Unknown';
+                    const genderVal = subscriber?.custom_fields?.gender ||
+                                     subscriber?.custom_fields?.gioi_tinh ||
+                                     subscriber?.gender;
+                    if (genderVal) {
+                        const gv = String(genderVal).toLowerCase();
+                        if (gv === '1' || gv === 'male' || gv === 'nam') gender = 'Male';
+                        else if (gv === '-1' || gv === '0' || gv === 'female' || gv === 'nu' || gv === 'nữ') gender = 'Female';
+                    }
+
+                    // Assign persona
+                    let persona = 'mystery_visitor';
+                    if (ageGroup === '18-24') persona = 'gen_z_explorer';
+                    else if (ageGroup === '25-34' && deviceType === 'Mobile') persona = 'career_climber';
+                    else if ((ageGroup === '25-34' || ageGroup === '35-44') && deviceType === 'Desktop') persona = 'desktop_researcher';
+                    else if (ageGroup === '35-44' && deviceType === 'Mobile') persona = 'life_transition';
+                    else if (ageGroup === '45-54' || ageGroup === '55+') persona = 'established_buyer';
+
+                    // Calculate days between 1st and 2nd
+                    let daysBetween = null;
+                    if (firstOrder && secondOrder) {
+                        const d1 = new Date(firstOrder.date_created);
+                        const d2 = new Date(secondOrder.date_created);
+                        daysBetween = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+                        if (daysBetween < 0) daysBetween = null;
+                    }
+
+                    secondPurchasers.push({
+                        email,
+                        persona,
+                        ageGroup,
+                        age,
+                        birthYear,
+                        deviceType,
+                        source: parsedSource,
+                        gender,
+                        daysBetween,
+                        secondOrderValue: parseFloat(secondOrder.total || 0)
+                    });
+                }
+            }
+        });
+
+        // Aggregate statistics
+        const profile = {
+            count: secondPurchasers.length,
+            personas: {},
+            ageGroups: {},
+            birthYears: {},
+            devices: {},
+            sources: {},
+            genders: {},
+            avgDaysBetween: 0,
+            avgAge: null
+        };
+
+        let totalDays = 0;
+        let daysCount = 0;
+        let totalAge = 0;
+        let ageCount = 0;
+
+        secondPurchasers.forEach(p => {
+            // Persona
+            profile.personas[p.persona] = (profile.personas[p.persona] || 0) + 1;
+
+            // Age Group
+            profile.ageGroups[p.ageGroup] = (profile.ageGroups[p.ageGroup] || 0) + 1;
+
+            // Birth Year
+            if (p.birthYear) {
+                profile.birthYears[p.birthYear] = (profile.birthYears[p.birthYear] || 0) + 1;
+            }
+
+            // Device
+            profile.devices[p.deviceType] = (profile.devices[p.deviceType] || 0) + 1;
+
+            // Source
+            profile.sources[p.source] = (profile.sources[p.source] || 0) + 1;
+
+            // Gender
+            profile.genders[p.gender] = (profile.genders[p.gender] || 0) + 1;
+
+            // Days between
+            if (p.daysBetween !== null && p.daysBetween >= 0) {
+                totalDays += p.daysBetween;
+                daysCount++;
+            }
+
+            // Age
+            if (p.age !== null) {
+                totalAge += p.age;
+                ageCount++;
+            }
+        });
+
+        profile.avgDaysBetween = daysCount > 0 ? totalDays / daysCount : 0;
+        profile.avgAge = ageCount > 0 ? totalAge / ageCount : null;
+
+        return profile;
+    }
+
     initCharts() {
         // Design system chart colors
         const chartColors = {
@@ -2410,6 +2599,29 @@ class CRMDashboard {
                 }
             });
         }
+
+        // 2nd Purchaser Persona Chart
+        const secPurchCtx = document.getElementById('secPurchPersonaChart')?.getContext('2d');
+        if (secPurchCtx) {
+            this.charts.secPurchPersona = new Chart(secPurchCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#666666', usePointStyle: true, padding: 10 } }
+                    }
+                }
+            });
+        }
     }
 
     setGrowthPeriod(days) {
@@ -2485,7 +2697,7 @@ class CRMDashboard {
 
         const summaryRepeatRate = document.getElementById('summaryRepeatRate');
         if (summaryRepeatRate) {
-            const repeatRate = wc.totalCustomers > 0 ?
+            const repeatRate = (wc.totalCustomers > 0 && wc.customersWithRepeat != null) ?
                 ((wc.customersWithRepeat / wc.totalCustomers) * 100).toFixed(1) : '0';
             summaryRepeatRate.textContent = `${repeatRate}%`;
         }
@@ -2503,8 +2715,8 @@ class CRMDashboard {
         const bestPersonaEl = document.getElementById('summaryBestPersona');
         const bestPersonaCVREl = document.getElementById('summaryBestPersonaCVR');
         if (bestPersonaEl && bestPersona) {
-            bestPersonaEl.textContent = bestPersona.name;
-            if (bestPersonaCVREl) bestPersonaCVREl.textContent = `${bestPersona.cvr.toFixed(1)}% CVR`;
+            bestPersonaEl.textContent = bestPersona.name || '-';
+            if (bestPersonaCVREl) bestPersonaCVREl.textContent = bestPersona.cvr != null ? `${bestPersona.cvr.toFixed(1)}% CVR` : '-';
         }
 
         // VIP customers (4+ purchases)
@@ -2806,9 +3018,13 @@ class CRMDashboard {
             const topSource = this.getTopSourceForPersona(name);
             const actionLabel = data.cvr > avgCvr ? 'Scale' : 'Nurture';
             const actionColor = data.cvr > avgCvr ? 'bg-success' : 'bg-warning';
+            const personaKey = name.replace(/[^a-zA-Z0-9]/g, '_');
 
             return `
-                <tr class="border-b border-foreground/10 hover:bg-muted/30">
+                <tr class="border-b border-foreground/10 hover:bg-muted/30 cursor-pointer persona-row" onclick="expandPersonaRow('${personaKey}')" data-persona="${this.escapeHtml(name)}">
+                    <td class="py-3 text-center">
+                        <i class="fas fa-chevron-right text-muted-foreground transition-transform duration-200" id="persona-icon-${personaKey}"></i>
+                    </td>
                     <td class="py-3">
                         <span class="font-medium text-foreground">${this.escapeHtml(name)}</span>
                     </td>
@@ -2826,6 +3042,13 @@ class CRMDashboard {
                     <td class="py-3 text-muted-foreground">${topSource}</td>
                     <td class="py-3 text-center">
                         <span class="px-2 py-1 ${actionColor} text-white text-xs rounded">${actionLabel}</span>
+                    </td>
+                </tr>
+                <tr id="persona-detail-${personaKey}" class="hidden">
+                    <td colspan="9" class="p-0">
+                        <div id="persona-detail-content-${personaKey}" class="bg-muted/20 p-4 border-t border-foreground/10">
+                            <div class="text-center text-muted-foreground">Loading details...</div>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -2886,6 +3109,306 @@ class CRMDashboard {
             .sort((a, b) => b[1] - a[1])[0];
 
         return topSource ? topSource[0] : '-';
+    }
+
+    calculatePersonaDetails(personaName) {
+        const subscribers = this.data.subscribers || [];
+        const customerOrders = this.data.woocommerce?.customerOrders || {};
+
+        // Filter subscribers for this persona
+        const personaSubs = subscribers.filter(s => s._persona === personaName);
+
+        // Build email lookup for this persona
+        const personaEmails = new Set(personaSubs.map(s => s.email?.toLowerCase()).filter(Boolean));
+
+        // Initialize metrics
+        const details = {
+            totalCount: personaSubs.length,
+            buyersByBirthYear: {},
+            cvrByAge: {},
+            aovByAge: {},
+            devices: { mobile: 0, desktop: 0 },
+            cvrByTimeOfDay: { morning: { total: 0, converted: 0 }, afternoon: { total: 0, converted: 0 }, evening: { total: 0, converted: 0 }, night: { total: 0, converted: 0 } },
+            sources: {},
+            nurtureROI: { avgDaysToConvert: 0, totalConverted: 0, totalConversionValue: 0 }
+        };
+
+        // Calculate age bucket for a subscriber
+        const getAgeBucket = (dob) => {
+            if (!dob) return null;
+            const age = new Date().getFullYear() - new Date(dob).getFullYear();
+            if (age < 18) return 'Under 18';
+            if (age < 25) return '18-24';
+            if (age < 35) return '25-34';
+            if (age < 45) return '35-44';
+            if (age < 55) return '45-54';
+            return '55+';
+        };
+
+        // Calculate time of day bucket based on subscriber's created_at
+        const getTimeOfDay = (dateStr) => {
+            if (!dateStr) return null;
+            const hour = new Date(dateStr).getHours();
+            if (hour >= 5 && hour < 12) return 'morning';
+            if (hour >= 12 && hour < 17) return 'afternoon';
+            if (hour >= 17 && hour < 21) return 'evening';
+            return 'night';
+        };
+
+        // Process each subscriber in this persona
+        personaSubs.forEach(sub => {
+            // Device type
+            const device = (sub.device_type || '').toLowerCase();
+            if (device.includes('mobile') || device.includes('phone') || device.includes('ios') || device.includes('android')) {
+                details.devices.mobile++;
+            } else {
+                details.devices.desktop++;
+            }
+
+            // Sources
+            if (sub.source) {
+                details.sources[sub.source] = (details.sources[sub.source] || 0) + 1;
+            }
+
+            // Age bucket for CVR calculation
+            const ageBucket = getAgeBucket(sub.dob);
+            if (ageBucket) {
+                if (!details.cvrByAge[ageBucket]) {
+                    details.cvrByAge[ageBucket] = { total: 0, converted: 0 };
+                }
+                details.cvrByAge[ageBucket].total++;
+
+                if (!details.aovByAge[ageBucket]) {
+                    details.aovByAge[ageBucket] = { totalRevenue: 0, orderCount: 0 };
+                }
+            }
+
+            // Time of day for CVR
+            const timeOfDay = getTimeOfDay(sub.created_at);
+            if (timeOfDay) {
+                details.cvrByTimeOfDay[timeOfDay].total++;
+            }
+
+            // Check if this subscriber is a buyer
+            const email = sub.email?.toLowerCase();
+            if (email && customerOrders[email]) {
+                const orders = customerOrders[email];
+                const totalSpend = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+
+                // Track birth year for buyers
+                if (sub.dob) {
+                    const birthYear = new Date(sub.dob).getFullYear();
+                    details.buyersByBirthYear[birthYear] = (details.buyersByBirthYear[birthYear] || 0) + 1;
+                }
+
+                // Track CVR by age
+                if (ageBucket && details.cvrByAge[ageBucket]) {
+                    details.cvrByAge[ageBucket].converted++;
+                }
+
+                // Track AOV by age
+                if (ageBucket && details.aovByAge[ageBucket]) {
+                    details.aovByAge[ageBucket].totalRevenue += totalSpend;
+                    details.aovByAge[ageBucket].orderCount += orders.length;
+                }
+
+                // Track CVR by time of day
+                if (timeOfDay) {
+                    details.cvrByTimeOfDay[timeOfDay].converted++;
+                }
+
+                // Nurture ROI
+                details.nurtureROI.totalConverted++;
+                details.nurtureROI.totalConversionValue += totalSpend;
+
+                // Calculate days to first purchase
+                if (sub.created_at && orders.length > 0) {
+                    const firstOrder = orders.reduce((earliest, o) => {
+                        const orderDate = new Date(o.date_created);
+                        return orderDate < earliest ? orderDate : earliest;
+                    }, new Date(orders[0].date_created));
+
+                    const subCreated = new Date(sub.created_at);
+                    const daysToConvert = Math.max(0, Math.floor((firstOrder - subCreated) / (1000 * 60 * 60 * 24)));
+                    details.nurtureROI.avgDaysToConvert += daysToConvert;
+                }
+            }
+        });
+
+        // Calculate averages
+        if (details.nurtureROI.totalConverted > 0) {
+            details.nurtureROI.avgDaysToConvert = Math.round(details.nurtureROI.avgDaysToConvert / details.nurtureROI.totalConverted);
+        }
+
+        // Calculate CVR percentages
+        Object.keys(details.cvrByAge).forEach(bucket => {
+            const data = details.cvrByAge[bucket];
+            data.cvr = data.total > 0 ? ((data.converted / data.total) * 100).toFixed(1) : '0.0';
+        });
+
+        // Calculate AOV per age bucket
+        Object.keys(details.aovByAge).forEach(bucket => {
+            const data = details.aovByAge[bucket];
+            data.aov = data.orderCount > 0 ? (data.totalRevenue / data.orderCount) : 0;
+        });
+
+        // Calculate CVR by time of day percentages
+        Object.keys(details.cvrByTimeOfDay).forEach(period => {
+            const data = details.cvrByTimeOfDay[period];
+            data.cvr = data.total > 0 ? ((data.converted / data.total) * 100).toFixed(1) : '0.0';
+        });
+
+        // Sort birth years descending
+        details.buyersByBirthYear = Object.entries(details.buyersByBirthYear)
+            .sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+            .reduce((obj, [year, count]) => { obj[year] = count; return obj; }, {});
+
+        // Sort sources by count
+        details.sources = Object.entries(details.sources)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .reduce((obj, [source, count]) => { obj[source] = count; return obj; }, {});
+
+        return details;
+    }
+
+    renderPersonaDetails(personaName, details) {
+        const noData = '<span class="text-muted-foreground">No data</span>';
+
+        // Buyers by Birth Year table
+        const birthYearRows = Object.entries(details.buyersByBirthYear).length > 0
+            ? Object.entries(details.buyersByBirthYear).map(([year, count]) => `
+                <tr class="border-b border-foreground/5">
+                    <td class="py-1 text-foreground">${year}</td>
+                    <td class="py-1 text-right text-foreground">${count}</td>
+                </tr>
+            `).join('')
+            : `<tr><td colspan="2" class="py-2 text-center">${noData}</td></tr>`;
+
+        // CVR & AOV by Age table
+        const ageBuckets = ['18-24', '25-34', '35-44', '45-54', '55+'];
+        const cvrAovRows = ageBuckets.map(bucket => {
+            const cvrData = details.cvrByAge[bucket] || { total: 0, converted: 0, cvr: '0.0' };
+            const aovData = details.aovByAge[bucket] || { aov: 0 };
+            return `
+                <tr class="border-b border-foreground/5">
+                    <td class="py-1 text-foreground">${bucket}</td>
+                    <td class="py-1 text-right text-muted-foreground">${cvrData.total}</td>
+                    <td class="py-1 text-right text-success">${cvrData.converted}</td>
+                    <td class="py-1 text-right text-foreground font-medium">${cvrData.cvr}%</td>
+                    <td class="py-1 text-right text-foreground">${this.formatCurrency(aovData.aov)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Sources list
+        const sourcesList = Object.entries(details.sources).length > 0
+            ? Object.entries(details.sources).map(([source, count]) => `
+                <div class="flex justify-between py-1">
+                    <span class="text-foreground">${this.escapeHtml(source)}</span>
+                    <span class="text-muted-foreground">${count}</span>
+                </div>
+            `).join('')
+            : noData;
+
+        // Time of day CVR
+        const timeLabels = { morning: '🌅 Morning (5-12)', afternoon: '☀️ Afternoon (12-17)', evening: '🌆 Evening (17-21)', night: '🌙 Night (21-5)' };
+
+        return `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Buyers by Birth Year -->
+                <div class="bg-background rounded-lg p-3 border border-foreground/10">
+                    <h4 class="text-sm font-medium text-foreground mb-2">📅 Buyers by Birth Year</h4>
+                    <div class="max-h-32 overflow-y-auto">
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr class="text-muted-foreground border-b border-foreground/10">
+                                    <th class="text-left py-1">Year</th>
+                                    <th class="text-right py-1">Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>${birthYearRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CVR & AOV by Age -->
+                <div class="bg-background rounded-lg p-3 border border-foreground/10">
+                    <h4 class="text-sm font-medium text-foreground mb-2">📊 CVR & AOV by Age</h4>
+                    <div class="max-h-32 overflow-y-auto">
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr class="text-muted-foreground border-b border-foreground/10">
+                                    <th class="text-left py-1">Age</th>
+                                    <th class="text-right py-1">Total</th>
+                                    <th class="text-right py-1">Conv</th>
+                                    <th class="text-right py-1">CVR</th>
+                                    <th class="text-right py-1">AOV</th>
+                                </tr>
+                            </thead>
+                            <tbody>${cvrAovRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Device Split & Time of Day CVR -->
+                <div class="bg-background rounded-lg p-3 border border-foreground/10">
+                    <h4 class="text-sm font-medium text-foreground mb-2">📱 Device & Time</h4>
+
+                    <!-- Device Split -->
+                    <div class="flex gap-2 mb-3">
+                        <div class="flex-1 text-center bg-muted/30 rounded p-2">
+                            <div class="text-lg font-bold text-foreground">${details.devices.mobile}</div>
+                            <div class="text-xs text-muted-foreground">📱 Mobile</div>
+                        </div>
+                        <div class="flex-1 text-center bg-muted/30 rounded p-2">
+                            <div class="text-lg font-bold text-foreground">${details.devices.desktop}</div>
+                            <div class="text-xs text-muted-foreground">🖥️ Desktop</div>
+                        </div>
+                    </div>
+
+                    <!-- Time of Day CVR -->
+                    <div class="text-xs space-y-1">
+                        ${Object.entries(details.cvrByTimeOfDay).map(([period, data]) => `
+                            <div class="flex justify-between">
+                                <span class="text-muted-foreground">${timeLabels[period]}</span>
+                                <span class="text-foreground font-medium">${data.cvr}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Sources & Nurture ROI -->
+                <div class="bg-background rounded-lg p-3 border border-foreground/10">
+                    <h4 class="text-sm font-medium text-foreground mb-2">🎯 Sources & ROI</h4>
+
+                    <!-- Top Sources -->
+                    <div class="text-xs mb-3">
+                        <div class="font-medium text-muted-foreground mb-1">Top Sources</div>
+                        ${sourcesList}
+                    </div>
+
+                    <!-- Nurture ROI -->
+                    <div class="bg-success/10 rounded p-2 text-xs">
+                        <div class="font-medium text-success mb-1">Nurture ROI</div>
+                        <div class="grid grid-cols-3 gap-1 text-center">
+                            <div>
+                                <div class="font-bold text-foreground">${details.nurtureROI.avgDaysToConvert}</div>
+                                <div class="text-muted-foreground">Avg Days</div>
+                            </div>
+                            <div>
+                                <div class="font-bold text-foreground">${details.nurtureROI.totalConverted}</div>
+                                <div class="text-muted-foreground">Converted</div>
+                            </div>
+                            <div>
+                                <div class="font-bold text-foreground">${this.formatCurrency(details.nurtureROI.totalConversionValue)}</div>
+                                <div class="text-muted-foreground">Value</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     updateCohortTableLimited() {
@@ -3002,7 +3525,7 @@ class CRMDashboard {
         // Repeat rate in revenue tab
         const revRepeatRate = document.getElementById('revRepeatRate');
         if (revRepeatRate) {
-            const rate = wc.totalCustomers > 0 ?
+            const rate = (wc.totalCustomers > 0 && wc.customersWithRepeat != null) ?
                 ((wc.customersWithRepeat / wc.totalCustomers) * 100).toFixed(1) : '0';
             revRepeatRate.textContent = `${rate}%`;
         }
@@ -3026,6 +3549,175 @@ class CRMDashboard {
                 thirdPlusOrders.reduce((a, b) => a + b, 0) / thirdPlusOrders.length : 0;
             revAOV3rd.textContent = this.formatCurrency(avgAOV3rd);
         }
+
+        // Update 2nd Purchaser Profile
+        this.update2ndPurchaserProfile();
+    }
+
+    // Update 2nd Purchaser Profile section
+    update2ndPurchaserProfile() {
+        const profile = this.calculate2ndPurchaserProfile();
+        this.data.secondPurchaserProfile = profile;
+
+        // Count
+        const countEl = document.getElementById('secPurchCount');
+        if (countEl) countEl.textContent = this.formatNumber(profile.count);
+
+        // Top Persona
+        const topPersona = Object.entries(profile.personas)
+            .sort((a, b) => b[1] - a[1])[0];
+        const topPersonaEl = document.getElementById('secPurchTopPersona');
+        const topPersonaPctEl = document.getElementById('secPurchTopPersonaPct');
+        if (topPersonaEl && topPersona) {
+            const personaNames = {
+                'gen_z_explorer': 'Gen Z',
+                'career_climber': 'Career',
+                'desktop_researcher': 'Desktop',
+                'life_transition': 'Life Trans',
+                'established_buyer': 'Established',
+                'mystery_visitor': 'Mystery'
+            };
+            topPersonaEl.textContent = personaNames[topPersona[0]] || topPersona[0];
+            if (topPersonaPctEl && profile.count > 0) {
+                const pct = (topPersona[1] / profile.count * 100).toFixed(0);
+                topPersonaPctEl.textContent = `${pct}%`;
+            }
+        } else if (topPersonaEl) {
+            topPersonaEl.textContent = '-';
+        }
+
+        // Average Age
+        const avgAgeEl = document.getElementById('secPurchAvgAge');
+        if (avgAgeEl) {
+            avgAgeEl.textContent = profile.avgAge ? profile.avgAge.toFixed(0) : '-';
+        }
+
+        // Device Split (show dominant device)
+        const deviceEl = document.getElementById('secPurchDevice');
+        if (deviceEl) {
+            const mobileCount = profile.devices['Mobile'] || 0;
+            const desktopCount = profile.devices['Desktop'] || 0;
+            const total = mobileCount + desktopCount;
+            if (total > 0) {
+                const mobilePct = (mobileCount / total * 100).toFixed(0);
+                deviceEl.textContent = `${mobilePct}% Mobile`;
+            } else {
+                deviceEl.textContent = '-';
+            }
+        }
+
+        // Top Source
+        const topSource = Object.entries(profile.sources)
+            .sort((a, b) => b[1] - a[1])[0];
+        const topSourceEl = document.getElementById('secPurchTopSource');
+        if (topSourceEl) {
+            topSourceEl.textContent = topSource ? topSource[0] : '-';
+        }
+
+        // Average Days
+        const avgDaysEl = document.getElementById('secPurchAvgDays');
+        if (avgDaysEl) {
+            avgDaysEl.textContent = profile.avgDaysBetween > 0 ? profile.avgDaysBetween.toFixed(0) : '-';
+        }
+
+        // Update chart
+        this.update2ndPurchaserChart(profile);
+
+        // Update demographics table
+        this.update2ndPurchaserTable(profile);
+    }
+
+    update2ndPurchaserChart(profile) {
+        if (!this.charts.secPurchPersona) return;
+
+        const personaNames = {
+            'gen_z_explorer': 'Gen Z Explorer',
+            'career_climber': 'Career Climber',
+            'desktop_researcher': 'Desktop Researcher',
+            'life_transition': 'Life Transition',
+            'established_buyer': 'Established Buyer',
+            'mystery_visitor': 'Mystery Visitor'
+        };
+
+        const personaColors = {
+            'gen_z_explorer': '#f97316',
+            'career_climber': '#3b82f6',
+            'desktop_researcher': '#8b5cf6',
+            'life_transition': '#06b6d4',
+            'established_buyer': '#10b981',
+            'mystery_visitor': '#6b7280'
+        };
+
+        const sortedPersonas = Object.entries(profile.personas)
+            .sort((a, b) => b[1] - a[1]);
+
+        this.charts.secPurchPersona.data.labels = sortedPersonas.map(([key]) =>
+            personaNames[key] || key
+        );
+        this.charts.secPurchPersona.data.datasets[0].data = sortedPersonas.map(([, count]) => count);
+        this.charts.secPurchPersona.data.datasets[0].backgroundColor = sortedPersonas.map(([key]) =>
+            personaColors[key] || '#6b7280'
+        );
+        this.charts.secPurchPersona.update();
+    }
+
+    update2ndPurchaserTable(profile) {
+        const tableEl = document.getElementById('secPurchDemoTable');
+        if (!tableEl) return;
+
+        const rows = [];
+        const total = profile.count || 1;
+
+        // Gender rows
+        Object.entries(profile.genders)
+            .filter(([g]) => g !== 'Unknown')
+            .sort((a, b) => b[1] - a[1])
+            .forEach(([gender, count]) => {
+                rows.push({
+                    label: `Gender: ${gender}`,
+                    count,
+                    pct: (count / total * 100).toFixed(1)
+                });
+            });
+
+        // Age group rows
+        const ageOrder = ['18-24', '25-34', '35-44', '45-54', '55+', 'Unknown'];
+        ageOrder.forEach(age => {
+            const count = profile.ageGroups[age];
+            if (count && count > 0) {
+                rows.push({
+                    label: `Age: ${age}`,
+                    count,
+                    pct: (count / total * 100).toFixed(1)
+                });
+            }
+        });
+
+        // Source rows (top 3)
+        Object.entries(profile.sources)
+            .filter(([s]) => s !== 'Unknown')
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .forEach(([source, count]) => {
+                rows.push({
+                    label: `Source: ${source}`,
+                    count,
+                    pct: (count / total * 100).toFixed(1)
+                });
+            });
+
+        if (rows.length === 0) {
+            tableEl.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted-foreground">No data available</td></tr>';
+            return;
+        }
+
+        tableEl.innerHTML = rows.map(r => `
+            <tr class="border-b border-foreground/10">
+                <td class="py-2 text-foreground">${r.label}</td>
+                <td class="py-2 text-right text-foreground">${this.formatNumber(r.count)}</td>
+                <td class="py-2 text-right text-muted-foreground">${r.pct}%</td>
+            </tr>
+        `).join('');
     }
 
     updateGrowthTab() {
@@ -4099,6 +4791,14 @@ class CRMDashboard {
         return num.toLocaleString();
     }
 
+    formatCurrency(num) {
+        if (typeof num !== 'number' || isNaN(num)) return '-';
+        // Format in VND with K/M suffix
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
+        return Math.round(num).toLocaleString();
+    }
+
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text || '';
@@ -4174,6 +4874,61 @@ function toggleSection(sectionId) {
     if (icon) {
         icon.classList.toggle('rotate-180');
     }
+}
+
+// Expand persona row to show details
+let currentExpandedPersona = null;
+function expandPersonaRow(personaKey) {
+    const detailRow = document.getElementById(`persona-detail-${personaKey}`);
+    const detailContent = document.getElementById(`persona-detail-content-${personaKey}`);
+    const icon = document.getElementById(`persona-icon-${personaKey}`);
+
+    if (!detailRow) return;
+
+    // If clicking the same row, toggle it
+    if (currentExpandedPersona === personaKey) {
+        detailRow.classList.add('hidden');
+        if (icon) icon.style.transform = 'rotate(0deg)';
+        currentExpandedPersona = null;
+        return;
+    }
+
+    // Close any previously expanded row
+    if (currentExpandedPersona) {
+        const prevRow = document.getElementById(`persona-detail-${currentExpandedPersona}`);
+        const prevIcon = document.getElementById(`persona-icon-${currentExpandedPersona}`);
+        if (prevRow) prevRow.classList.add('hidden');
+        if (prevIcon) prevIcon.style.transform = 'rotate(0deg)';
+    }
+
+    // Get persona name from the row
+    const parentRow = detailRow.previousElementSibling;
+    const personaName = parentRow?.dataset?.persona;
+
+    if (!personaName || !dashboard) {
+        detailContent.innerHTML = '<div class="text-center text-muted-foreground">Unable to load details</div>';
+        detailRow.classList.remove('hidden');
+        if (icon) icon.style.transform = 'rotate(90deg)';
+        currentExpandedPersona = personaKey;
+        return;
+    }
+
+    // Calculate and render details
+    detailContent.innerHTML = '<div class="text-center text-muted-foreground">Loading...</div>';
+    detailRow.classList.remove('hidden');
+    if (icon) icon.style.transform = 'rotate(90deg)';
+    currentExpandedPersona = personaKey;
+
+    // Use setTimeout to allow UI to update before heavy calculation
+    setTimeout(() => {
+        try {
+            const details = dashboard.calculatePersonaDetails(personaName);
+            detailContent.innerHTML = dashboard.renderPersonaDetails(personaName, details);
+        } catch (err) {
+            console.error('Error calculating persona details:', err);
+            detailContent.innerHTML = '<div class="text-center text-destructive">Error loading details</div>';
+        }
+    }, 50);
 }
 
 // Reset segment filters

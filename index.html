@@ -431,9 +431,10 @@
                     </div>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table class="w-full text-sm" id="personaTableWrapper">
                         <thead>
                             <tr class="text-muted-foreground text-xs border-b border-foreground">
+                                <th class="text-center py-3 w-8"></th>
                                 <th class="text-left py-3">Persona</th>
                                 <th class="text-right py-3">Count</th>
                                 <th class="text-right py-3">%</th>
@@ -445,7 +446,7 @@
                             </tr>
                         </thead>
                         <tbody id="personaTable">
-                            <!-- Populated dynamically -->
+                            <!-- Populated dynamically with expandable rows -->
                         </tbody>
                     </table>
                 </div>
@@ -658,6 +659,73 @@
                 <h3 class="text-foreground font-bold mb-4">Purchase Funnel</h3>
                 <div class="grid grid-cols-5 gap-2 text-center" id="wcPurchaseFunnel">
                     <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- 2nd Purchaser Profile -->
+            <div class="card p-6">
+                <h3 class="text-foreground font-bold mb-2 flex items-center gap-2">
+                    <span class="text-success">👥</span>
+                    2nd Purchaser Profile
+                </h3>
+                <p class="text-muted-foreground text-sm mb-4">Characteristics of customers who made a repeat purchase</p>
+
+                <!-- Summary Metrics -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                    <div class="text-center p-3 bg-muted/30 rounded-lg">
+                        <div class="text-muted-foreground text-xs uppercase mb-1">Count</div>
+                        <div class="text-xl font-bold text-success" id="secPurchCount">-</div>
+                    </div>
+                    <div class="text-center p-3 bg-muted/30 rounded-lg">
+                        <div class="text-muted-foreground text-xs uppercase mb-1">Top Persona</div>
+                        <div class="text-lg font-bold text-primary" id="secPurchTopPersona">-</div>
+                        <div class="text-xs text-muted-foreground" id="secPurchTopPersonaPct">-</div>
+                    </div>
+                    <div class="text-center p-3 bg-muted/30 rounded-lg">
+                        <div class="text-muted-foreground text-xs uppercase mb-1">Avg Age</div>
+                        <div class="text-xl font-bold text-accent" id="secPurchAvgAge">-</div>
+                    </div>
+                    <div class="text-center p-3 bg-muted/30 rounded-lg">
+                        <div class="text-muted-foreground text-xs uppercase mb-1">Device Split</div>
+                        <div class="text-lg font-bold text-secondary" id="secPurchDevice">-</div>
+                    </div>
+                    <div class="text-center p-3 bg-muted/30 rounded-lg">
+                        <div class="text-muted-foreground text-xs uppercase mb-1">Top Source</div>
+                        <div class="text-lg font-bold text-warning" id="secPurchTopSource">-</div>
+                    </div>
+                    <div class="text-center p-3 bg-muted/30 rounded-lg">
+                        <div class="text-muted-foreground text-xs uppercase mb-1">Avg Days 1st→2nd</div>
+                        <div class="text-xl font-bold text-foreground" id="secPurchAvgDays">-</div>
+                    </div>
+                </div>
+
+                <!-- Charts and Table -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Persona Distribution Chart -->
+                    <div>
+                        <h4 class="text-sm font-medium text-foreground mb-3">Persona Distribution</h4>
+                        <div class="h-48">
+                            <canvas id="secPurchPersonaChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Demographics Table -->
+                    <div>
+                        <h4 class="text-sm font-medium text-foreground mb-3">Demographics Breakdown</h4>
+                        <div class="overflow-y-auto max-h-48">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-muted-foreground text-xs border-b border-foreground/20">
+                                        <th class="text-left py-2">Attribute</th>
+                                        <th class="text-right py-2">Count</th>
+                                        <th class="text-right py-2">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="secPurchDemoTable">
+                                    <tr><td colspan="3" class="text-center py-4 text-muted-foreground">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
