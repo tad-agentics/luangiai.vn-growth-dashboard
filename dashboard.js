@@ -2322,45 +2322,45 @@ class CRMDashboard {
 
         const container = document.getElementById('dataQualityGrid');
         container.innerHTML = `
-            <div class="bg-gray-800 rounded-lg p-4">
+            <div class="border border-foreground rounded-lg p-4">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-400 text-sm">DOB Data</span>
+                    <span class="text-muted-foreground text-sm">DOB Data</span>
                     <span class="badge ${dobPct > 70 ? 'badge-green' : dobPct > 40 ? 'badge-yellow' : 'badge-red'}">${dobPct}%</span>
                 </div>
-                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-purple-500 rounded-full" style="width: ${dobPct}%"></div>
+                <div class="h-2 bg-muted rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full" style="width: ${dobPct}%"></div>
                 </div>
-                <div class="text-gray-500 text-xs mt-2">${this.formatNumber(stats.withDOB || 0)} / ${this.formatNumber(total)}</div>
+                <div class="text-muted-foreground text-xs mt-2">${this.formatNumber(stats.withDOB || 0)} / ${this.formatNumber(total)}</div>
             </div>
-            <div class="bg-gray-800 rounded-lg p-4">
+            <div class="border border-foreground rounded-lg p-4">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-400 text-sm">Device Data</span>
+                    <span class="text-muted-foreground text-sm">Device Data</span>
                     <span class="badge ${devicePct > 70 ? 'badge-green' : devicePct > 40 ? 'badge-yellow' : 'badge-red'}">${devicePct}%</span>
                 </div>
-                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-blue-500 rounded-full" style="width: ${devicePct}%"></div>
+                <div class="h-2 bg-muted rounded-full overflow-hidden">
+                    <div class="h-full bg-secondary rounded-full" style="width: ${devicePct}%"></div>
                 </div>
-                <div class="text-gray-500 text-xs mt-2">${this.formatNumber(stats.withDevice || 0)} / ${this.formatNumber(total)}</div>
+                <div class="text-muted-foreground text-xs mt-2">${this.formatNumber(stats.withDevice || 0)} / ${this.formatNumber(total)}</div>
             </div>
-            <div class="bg-gray-800 rounded-lg p-4">
+            <div class="border border-foreground rounded-lg p-4">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-400 text-sm">Subscribed</span>
+                    <span class="text-muted-foreground text-sm">Subscribed</span>
                     <span class="badge ${subscribedPct > 80 ? 'badge-green' : subscribedPct > 50 ? 'badge-yellow' : 'badge-red'}">${subscribedPct}%</span>
                 </div>
-                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-green-500 rounded-full" style="width: ${subscribedPct}%"></div>
+                <div class="h-2 bg-muted rounded-full overflow-hidden">
+                    <div class="h-full bg-success rounded-full" style="width: ${subscribedPct}%"></div>
                 </div>
-                <div class="text-gray-500 text-xs mt-2">${this.formatNumber(this.data.contacts.subscribed)} / ${this.formatNumber(this.data.contacts.total)}</div>
+                <div class="text-muted-foreground text-xs mt-2">${this.formatNumber(this.data.contacts.subscribed)} / ${this.formatNumber(this.data.contacts.total)}</div>
             </div>
-            <div class="bg-gray-800 rounded-lg p-4">
+            <div class="border border-foreground rounded-lg p-4">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-400 text-sm">Tagged</span>
+                    <span class="text-muted-foreground text-sm">Tagged</span>
                     <span class="badge ${taggedPct > 50 ? 'badge-green' : taggedPct > 20 ? 'badge-yellow' : 'badge-red'}">${taggedPct}%</span>
                 </div>
-                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-cyan-500 rounded-full" style="width: ${Math.min(taggedPct, 100)}%"></div>
+                <div class="h-2 bg-muted rounded-full overflow-hidden">
+                    <div class="h-full bg-accent rounded-full" style="width: ${Math.min(taggedPct, 100)}%"></div>
                 </div>
-                <div class="text-gray-500 text-xs mt-2">${this.formatNumber(taggedCount)} tagged</div>
+                <div class="text-muted-foreground text-xs mt-2">${this.formatNumber(taggedCount)} tagged</div>
             </div>
         `;
     }
