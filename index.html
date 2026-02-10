@@ -38,8 +38,8 @@
             --lg-muted: #F5EFE0;
             --lg-foreground: #2A2B2F;
             --lg-muted-foreground: #666666;
-            --lg-border: rgba(42, 43, 47, 0.1);
-            --lg-card-bg: #FFFFFF;
+            --lg-border: #2A2B2F;
+            --lg-card-bg: transparent;
             --lg-success: #10B981;
             --lg-danger: #EF4444;
             --lg-warning: #F59E0B;
@@ -74,7 +74,6 @@
             background-color: var(--lg-card-bg);
             border: 1px solid var(--lg-border);
             border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
         /* Persona Cards */
@@ -200,21 +199,21 @@
                 <div>
                     <label class="block text-sm font-medium text-foreground mb-2">WordPress Site URL</label>
                     <input type="url" id="siteUrl" placeholder="https://yoursite.com"
-                        class="w-full px-4 py-3 bg-muted border border-foreground/20 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-foreground placeholder-muted-foreground">
+                        class="w-full px-4 py-3 bg-muted border border-foreground rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-foreground placeholder-muted-foreground">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-foreground mb-2">API Username</label>
                     <input type="text" id="apiUsername" placeholder="your-username"
-                        class="w-full px-4 py-3 bg-muted border border-foreground/20 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-foreground placeholder-muted-foreground">
+                        class="w-full px-4 py-3 bg-muted border border-foreground rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-foreground placeholder-muted-foreground">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-foreground mb-2">Application Password</label>
                     <input type="password" id="apiPassword" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
-                        class="w-full px-4 py-3 bg-muted border border-foreground/20 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-foreground placeholder-muted-foreground">
+                        class="w-full px-4 py-3 bg-muted border border-foreground rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-foreground placeholder-muted-foreground">
                     <p class="text-xs text-muted-foreground mt-1">Generate in WordPress > Users > Application Passwords</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <input type="checkbox" id="rememberCredentials" class="rounded border-foreground/20 bg-muted text-primary focus:ring-primary">
+                    <input type="checkbox" id="rememberCredentials" class="rounded border-foreground bg-muted text-primary focus:ring-primary">
                     <label for="rememberCredentials" class="text-sm text-muted-foreground">Remember credentials (stored locally)</label>
                 </div>
                 <button type="submit" id="connectBtn"
@@ -397,7 +396,7 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                                <tr class="text-muted-foreground text-xs border-b border-foreground">
                                     <th class="text-left py-2">Source</th>
                                     <th class="text-right py-2">Leads</th>
                                     <th class="text-right py-2">Customers</th>
@@ -423,7 +422,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-2">Week</th>
                                 <th class="text-right py-2">New Leads</th>
                                 <th class="text-right py-2">Converted</th>
@@ -585,7 +584,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Platform</th>
                                 <th class="text-right py-3">Spend</th>
                                 <th class="text-right py-3">Impressions</th>
@@ -612,13 +611,13 @@
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                     <h3 class="text-foreground font-bold">Top Campaigns</h3>
                     <div class="flex gap-2 mt-2 md:mt-0">
-                        <select id="adsCampaignFilter" class="px-3 py-1.5 bg-muted rounded text-xs border border-foreground/20 focus:border-indigo-500 outline-none">
+                        <select id="adsCampaignFilter" class="px-3 py-1.5 bg-muted rounded text-xs border border-foreground focus:border-indigo-500 outline-none">
                             <option value="all">All Platforms</option>
                             <option value="google">Google Ads</option>
                             <option value="meta">Meta Ads</option>
                             <option value="tiktok">TikTok Ads</option>
                         </select>
-                        <select id="adsCampaignSort" class="px-3 py-1.5 bg-muted rounded text-xs border border-foreground/20 focus:border-indigo-500 outline-none">
+                        <select id="adsCampaignSort" class="px-3 py-1.5 bg-muted rounded text-xs border border-foreground focus:border-indigo-500 outline-none">
                             <option value="spend">By Spend</option>
                             <option value="conversions">By Conversions</option>
                             <option value="cpa">By CPA</option>
@@ -629,7 +628,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Campaign</th>
                                 <th class="text-left py-3">Platform</th>
                                 <th class="text-right py-3">Spend</th>
@@ -666,7 +665,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Persona</th>
                                 <th class="text-right py-3">Attributed Spend</th>
                                 <th class="text-right py-3">Conversions</th>
@@ -787,7 +786,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Query</th>
                                 <th class="text-right py-3">Clicks</th>
                                 <th class="text-right py-3">Impressions</th>
@@ -815,7 +814,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Page</th>
                                 <th class="text-right py-3">Clicks</th>
                                 <th class="text-right py-3">Impressions</th>
@@ -841,7 +840,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Query</th>
                                 <th class="text-right py-3">Current Position</th>
                                 <th class="text-right py-3">Impressions</th>
@@ -883,7 +882,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Source / Medium</th>
                                 <th class="text-right py-3">Sessions</th>
                                 <th class="text-right py-3">Users</th>
@@ -913,7 +912,7 @@
                         <p class="text-muted-foreground text-sm mt-1">Generate intelligent analysis and recommendations</p>
                     </div>
                     <div class="flex gap-2 mt-2 md:mt-0">
-                        <select id="aiReportType" class="px-3 py-2 bg-muted rounded text-sm border border-foreground/20 focus:border-indigo-500 outline-none">
+                        <select id="aiReportType" class="px-3 py-2 bg-muted rounded text-sm border border-foreground focus:border-indigo-500 outline-none">
                             <option value="daily_strategy">Daily Strategy</option>
                             <option value="weekly_summary">Weekly Summary</option>
                             <option value="channel_analysis">Channel Analysis</option>
@@ -1061,7 +1060,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Persona</th>
                                 <th class="text-right py-3">Count</th>
                                 <th class="text-right py-3">%</th>
@@ -1129,7 +1128,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Persona</th>
                                 <th class="text-left py-3">Best Channel</th>
                                 <th class="text-left py-3">Top Source %</th>
@@ -1198,7 +1197,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Con Giáp</th>
                                 <th class="text-right py-3">Count</th>
                                 <th class="text-right py-3">%</th>
@@ -1222,7 +1221,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground/10">
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
                                 <th class="text-left py-3">Persona</th>
                                 <th class="text-right py-3">Male</th>
                                 <th class="text-right py-3">Female</th>
