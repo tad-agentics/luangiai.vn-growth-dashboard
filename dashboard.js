@@ -3118,34 +3118,10 @@ class CRMDashboard {
         // Filter subscribers for this persona
         const personaSubs = subscribers.filter(s => s._persona === personaName);
 
-        // Build email lookup for this persona
-        const personaEmails = new Set(personaSubs.map(s => s.email?.toLowerCase()).filter(Boolean));
+        // Group by birth year - each year gets its own row with all metrics
+        const byBirthYear = {};
 
-        // Initialize metrics
-        const details = {
-            totalCount: personaSubs.length,
-            buyersByBirthYear: {},
-            cvrByAge: {},
-            aovByAge: {},
-            devices: { mobile: 0, desktop: 0 },
-            cvrByTimeOfDay: { morning: { total: 0, converted: 0 }, afternoon: { total: 0, converted: 0 }, evening: { total: 0, converted: 0 }, night: { total: 0, converted: 0 } },
-            sources: {},
-            nurtureROI: { avgDaysToConvert: 0, totalConverted: 0, totalConversionValue: 0 }
-        };
-
-        // Calculate age bucket for a subscriber
-        const getAgeBucket = (dob) => {
-            if (!dob) return null;
-            const age = new Date().getFullYear() - new Date(dob).getFullYear();
-            if (age < 18) return 'Under 18';
-            if (age < 25) return '18-24';
-            if (age < 35) return '25-34';
-            if (age < 45) return '35-44';
-            if (age < 55) return '45-54';
-            return '55+';
-        };
-
-        // Calculate time of day bucket based on subscriber's created_at
+        // Helper: Get time of day bucket
         const getTimeOfDay = (dateStr) => {
             if (!dateStr) return null;
             const hour = new Date(dateStr).getHours();
@@ -3155,254 +3131,250 @@ class CRMDashboard {
             return 'night';
         };
 
-        // Process each subscriber in this persona
+        // Helper: Check if device is mobile
+        const isMobile = (deviceType) => {
+            const d = (deviceType || '').toLowerCase();
+            return d.includes('mobile') || d.includes('phone') || d.includes('ios') || d.includes('android');
+        };
+
+        // Totals for footer
+        const totals = {
+            subscribers: 0,
+            buyers: 0,
+            totalRevenue: 0,
+            orderCount: 0,
+            mobile: 0,
+            desktop: 0,
+            daysToConvert: 0,
+            convertedCount: 0
+        };
+
+        // Process each subscriber
         personaSubs.forEach(sub => {
-            // Device type
-            const device = (sub.device_type || '').toLowerCase();
-            if (device.includes('mobile') || device.includes('phone') || device.includes('ios') || device.includes('android')) {
-                details.devices.mobile++;
+            // Get birth year
+            let birthYear = 'Unknown';
+            if (sub.dob) {
+                try {
+                    birthYear = new Date(sub.dob).getFullYear();
+                    if (isNaN(birthYear) || birthYear < 1920 || birthYear > 2010) {
+                        birthYear = 'Unknown';
+                    }
+                } catch (e) {
+                    birthYear = 'Unknown';
+                }
+            }
+
+            // Initialize year data if not exists
+            if (!byBirthYear[birthYear]) {
+                byBirthYear[birthYear] = {
+                    subscribers: 0,
+                    buyers: 0,
+                    totalRevenue: 0,
+                    orderCount: 0,
+                    devices: { mobile: 0, desktop: 0 },
+                    timeOfDay: { morning: { total: 0, converted: 0 }, afternoon: { total: 0, converted: 0 }, evening: { total: 0, converted: 0 }, night: { total: 0, converted: 0 } },
+                    sources: {},
+                    daysToConvert: []
+                };
+            }
+
+            const yearData = byBirthYear[birthYear];
+            yearData.subscribers++;
+            totals.subscribers++;
+
+            // Device
+            if (isMobile(sub.device_type)) {
+                yearData.devices.mobile++;
+                totals.mobile++;
             } else {
-                details.devices.desktop++;
+                yearData.devices.desktop++;
+                totals.desktop++;
             }
 
-            // Sources
+            // Source
             if (sub.source) {
-                details.sources[sub.source] = (details.sources[sub.source] || 0) + 1;
+                yearData.sources[sub.source] = (yearData.sources[sub.source] || 0) + 1;
             }
 
-            // Age bucket for CVR calculation
-            const ageBucket = getAgeBucket(sub.dob);
-            if (ageBucket) {
-                if (!details.cvrByAge[ageBucket]) {
-                    details.cvrByAge[ageBucket] = { total: 0, converted: 0 };
-                }
-                details.cvrByAge[ageBucket].total++;
-
-                if (!details.aovByAge[ageBucket]) {
-                    details.aovByAge[ageBucket] = { totalRevenue: 0, orderCount: 0 };
-                }
-            }
-
-            // Time of day for CVR
+            // Time of day (based on registration)
             const timeOfDay = getTimeOfDay(sub.created_at);
             if (timeOfDay) {
-                details.cvrByTimeOfDay[timeOfDay].total++;
+                yearData.timeOfDay[timeOfDay].total++;
             }
 
-            // Check if this subscriber is a buyer
+            // Check if buyer
             const email = sub.email?.toLowerCase();
             if (email && customerOrders[email]) {
                 const orders = customerOrders[email];
-                const totalSpend = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+                const revenue = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
 
-                // Track birth year for buyers
-                if (sub.dob) {
-                    const birthYear = new Date(sub.dob).getFullYear();
-                    details.buyersByBirthYear[birthYear] = (details.buyersByBirthYear[birthYear] || 0) + 1;
-                }
+                yearData.buyers++;
+                yearData.totalRevenue += revenue;
+                yearData.orderCount += orders.length;
+                totals.buyers++;
+                totals.totalRevenue += revenue;
+                totals.orderCount += orders.length;
 
-                // Track CVR by age
-                if (ageBucket && details.cvrByAge[ageBucket]) {
-                    details.cvrByAge[ageBucket].converted++;
-                }
-
-                // Track AOV by age
-                if (ageBucket && details.aovByAge[ageBucket]) {
-                    details.aovByAge[ageBucket].totalRevenue += totalSpend;
-                    details.aovByAge[ageBucket].orderCount += orders.length;
-                }
-
-                // Track CVR by time of day
+                // Time of day conversion
                 if (timeOfDay) {
-                    details.cvrByTimeOfDay[timeOfDay].converted++;
+                    yearData.timeOfDay[timeOfDay].converted++;
                 }
 
-                // Nurture ROI
-                details.nurtureROI.totalConverted++;
-                details.nurtureROI.totalConversionValue += totalSpend;
-
-                // Calculate days to first purchase
+                // Days to convert
                 if (sub.created_at && orders.length > 0) {
                     const firstOrder = orders.reduce((earliest, o) => {
-                        const orderDate = new Date(o.date_created);
-                        return orderDate < earliest ? orderDate : earliest;
+                        const d = new Date(o.date_created);
+                        return d < earliest ? d : earliest;
                     }, new Date(orders[0].date_created));
-
-                    const subCreated = new Date(sub.created_at);
-                    const daysToConvert = Math.max(0, Math.floor((firstOrder - subCreated) / (1000 * 60 * 60 * 24)));
-                    details.nurtureROI.avgDaysToConvert += daysToConvert;
+                    const days = Math.max(0, Math.floor((firstOrder - new Date(sub.created_at)) / (1000 * 60 * 60 * 24)));
+                    yearData.daysToConvert.push(days);
+                    totals.daysToConvert += days;
+                    totals.convertedCount++;
                 }
             }
         });
 
-        // Calculate averages
-        if (details.nurtureROI.totalConverted > 0) {
-            details.nurtureROI.avgDaysToConvert = Math.round(details.nurtureROI.avgDaysToConvert / details.nurtureROI.totalConverted);
+        // Calculate derived metrics for each year
+        Object.keys(byBirthYear).forEach(year => {
+            const data = byBirthYear[year];
+
+            // CVR
+            data.cvr = data.subscribers > 0 ? ((data.buyers / data.subscribers) * 100).toFixed(1) : '0.0';
+
+            // AOV
+            data.aov = data.orderCount > 0 ? (data.totalRevenue / data.orderCount) : 0;
+
+            // Best time of day (highest CVR)
+            let bestTime = 'morning';
+            let bestCvr = 0;
+            Object.entries(data.timeOfDay).forEach(([period, d]) => {
+                const cvr = d.total > 0 ? (d.converted / d.total) : 0;
+                if (cvr > bestCvr) {
+                    bestCvr = cvr;
+                    bestTime = period;
+                }
+            });
+            data.bestTimeOfDay = bestTime;
+            data.bestTimeCvr = (bestCvr * 100).toFixed(0);
+
+            // Top source
+            const topSrc = Object.entries(data.sources).sort((a, b) => b[1] - a[1])[0];
+            data.topSource = topSrc ? topSrc[0] : '-';
+            data.topSourceCount = topSrc ? topSrc[1] : 0;
+
+            // Avg days to convert
+            data.avgDaysToConvert = data.daysToConvert.length > 0
+                ? Math.round(data.daysToConvert.reduce((a, b) => a + b, 0) / data.daysToConvert.length)
+                : 0;
+        });
+
+        // Sort birth years (newest first, Unknown at end)
+        const sortedYears = Object.keys(byBirthYear)
+            .filter(y => y !== 'Unknown')
+            .sort((a, b) => parseInt(b) - parseInt(a));
+        if (byBirthYear['Unknown']) {
+            sortedYears.push('Unknown');
         }
 
-        // Calculate CVR percentages
-        Object.keys(details.cvrByAge).forEach(bucket => {
-            const data = details.cvrByAge[bucket];
-            data.cvr = data.total > 0 ? ((data.converted / data.total) * 100).toFixed(1) : '0.0';
-        });
+        // Calculate totals
+        totals.cvr = totals.subscribers > 0 ? ((totals.buyers / totals.subscribers) * 100).toFixed(1) : '0.0';
+        totals.aov = totals.orderCount > 0 ? (totals.totalRevenue / totals.orderCount) : 0;
+        totals.avgDaysToConvert = totals.convertedCount > 0 ? Math.round(totals.daysToConvert / totals.convertedCount) : 0;
 
-        // Calculate AOV per age bucket
-        Object.keys(details.aovByAge).forEach(bucket => {
-            const data = details.aovByAge[bucket];
-            data.aov = data.orderCount > 0 ? (data.totalRevenue / data.orderCount) : 0;
-        });
-
-        // Calculate CVR by time of day percentages
-        Object.keys(details.cvrByTimeOfDay).forEach(period => {
-            const data = details.cvrByTimeOfDay[period];
-            data.cvr = data.total > 0 ? ((data.converted / data.total) * 100).toFixed(1) : '0.0';
-        });
-
-        // Sort birth years descending
-        details.buyersByBirthYear = Object.entries(details.buyersByBirthYear)
-            .sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
-            .reduce((obj, [year, count]) => { obj[year] = count; return obj; }, {});
-
-        // Sort sources by count
-        details.sources = Object.entries(details.sources)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .reduce((obj, [source, count]) => { obj[source] = count; return obj; }, {});
-
-        return details;
+        return {
+            byBirthYear,
+            sortedYears,
+            totals,
+            nurtureROI: {
+                avgDays: totals.avgDaysToConvert,
+                totalValue: totals.totalRevenue
+            }
+        };
     }
 
     renderPersonaDetails(personaName, details) {
-        const noData = '<span class="text-muted-foreground">No data</span>';
+        const timeIcons = { morning: '🌅', afternoon: '☀️', evening: '🌆', night: '🌙' };
 
-        // Buyers by Birth Year table
-        const birthYearRows = Object.entries(details.buyersByBirthYear).length > 0
-            ? Object.entries(details.buyersByBirthYear).map(([year, count]) => `
-                <tr class="border-b border-foreground/5">
-                    <td class="py-1 text-foreground">${year}</td>
-                    <td class="py-1 text-right text-foreground">${count}</td>
-                </tr>
-            `).join('')
-            : `<tr><td colspan="2" class="py-2 text-center">${noData}</td></tr>`;
-
-        // CVR & AOV by Age table
-        const ageBuckets = ['18-24', '25-34', '35-44', '45-54', '55+'];
-        const cvrAovRows = ageBuckets.map(bucket => {
-            const cvrData = details.cvrByAge[bucket] || { total: 0, converted: 0, cvr: '0.0' };
-            const aovData = details.aovByAge[bucket] || { aov: 0 };
+        // Build table rows for each birth year
+        const birthYearRows = details.sortedYears.map(year => {
+            const data = details.byBirthYear[year];
             return `
-                <tr class="border-b border-foreground/5">
-                    <td class="py-1 text-foreground">${bucket}</td>
-                    <td class="py-1 text-right text-muted-foreground">${cvrData.total}</td>
-                    <td class="py-1 text-right text-success">${cvrData.converted}</td>
-                    <td class="py-1 text-right text-foreground font-medium">${cvrData.cvr}%</td>
-                    <td class="py-1 text-right text-foreground">${this.formatCurrency(aovData.aov)}</td>
+                <tr class="border-b border-foreground/10 hover:bg-muted/20">
+                    <td class="py-2 text-foreground font-medium">${year}</td>
+                    <td class="py-2 text-right text-foreground">${data.subscribers}</td>
+                    <td class="py-2 text-right text-success font-medium">${data.buyers}</td>
+                    <td class="py-2 text-right ${parseFloat(data.cvr) > 0 ? 'text-primary' : 'text-muted-foreground'} font-medium">${data.cvr}%</td>
+                    <td class="py-2 text-right text-foreground">${this.formatCurrency(data.aov)}</td>
+                    <td class="py-2 text-center">
+                        <span class="text-xs">📱${data.devices.mobile}</span>
+                        <span class="text-muted-foreground mx-1">/</span>
+                        <span class="text-xs">🖥️${data.devices.desktop}</span>
+                    </td>
+                    <td class="py-2 text-center">
+                        <span title="${data.bestTimeOfDay} (${data.bestTimeCvr}% CVR)">${timeIcons[data.bestTimeOfDay]} ${data.bestTimeCvr}%</span>
+                    </td>
+                    <td class="py-2 text-muted-foreground text-sm">${this.escapeHtml(data.topSource)}${data.topSourceCount > 0 ? ` (${data.topSourceCount})` : ''}</td>
                 </tr>
             `;
         }).join('');
 
-        // Sources list
-        const sourcesList = Object.entries(details.sources).length > 0
-            ? Object.entries(details.sources).map(([source, count]) => `
-                <div class="flex justify-between py-1">
-                    <span class="text-foreground">${this.escapeHtml(source)}</span>
-                    <span class="text-muted-foreground">${count}</span>
-                </div>
-            `).join('')
-            : noData;
-
-        // Time of day CVR
-        const timeLabels = { morning: '🌅 Morning (5-12)', afternoon: '☀️ Afternoon (12-17)', evening: '🌆 Evening (17-21)', night: '🌙 Night (21-5)' };
+        // Totals row
+        const t = details.totals;
+        const totalsRow = `
+            <tr class="bg-muted/30 font-medium border-t-2 border-foreground/20">
+                <td class="py-2 text-foreground">TOTAL</td>
+                <td class="py-2 text-right text-foreground">${t.subscribers}</td>
+                <td class="py-2 text-right text-success">${t.buyers}</td>
+                <td class="py-2 text-right text-primary">${t.cvr}%</td>
+                <td class="py-2 text-right text-foreground">${this.formatCurrency(t.aov)}</td>
+                <td class="py-2 text-center">
+                    <span class="text-xs">📱${t.mobile}</span>
+                    <span class="text-muted-foreground mx-1">/</span>
+                    <span class="text-xs">🖥️${t.desktop}</span>
+                </td>
+                <td class="py-2 text-center">-</td>
+                <td class="py-2 text-muted-foreground">-</td>
+            </tr>
+        `;
 
         return `
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Buyers by Birth Year -->
-                <div class="bg-background rounded-lg p-3 border border-foreground/10">
-                    <h4 class="text-sm font-medium text-foreground mb-2">📅 Buyers by Birth Year</h4>
-                    <div class="max-h-32 overflow-y-auto">
-                        <table class="w-full text-xs">
-                            <thead>
-                                <tr class="text-muted-foreground border-b border-foreground/10">
-                                    <th class="text-left py-1">Year</th>
-                                    <th class="text-right py-1">Count</th>
-                                </tr>
-                            </thead>
-                            <tbody>${birthYearRows}</tbody>
-                        </table>
-                    </div>
+            <div class="space-y-3">
+                <!-- Birth Year Breakdown Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-muted-foreground text-xs border-b border-foreground/20 bg-muted/20">
+                                <th class="text-left py-2 px-1">Year</th>
+                                <th class="text-right py-2 px-1">Subscribers</th>
+                                <th class="text-right py-2 px-1">Buyers</th>
+                                <th class="text-right py-2 px-1">CVR</th>
+                                <th class="text-right py-2 px-1">AOV</th>
+                                <th class="text-center py-2 px-1">Device</th>
+                                <th class="text-center py-2 px-1">Best Time</th>
+                                <th class="text-left py-2 px-1">Top Source</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${birthYearRows || '<tr><td colspan="8" class="py-4 text-center text-muted-foreground">No birth year data available</td></tr>'}
+                            ${totalsRow}
+                        </tbody>
+                    </table>
                 </div>
 
-                <!-- CVR & AOV by Age -->
-                <div class="bg-background rounded-lg p-3 border border-foreground/10">
-                    <h4 class="text-sm font-medium text-foreground mb-2">📊 CVR & AOV by Age</h4>
-                    <div class="max-h-32 overflow-y-auto">
-                        <table class="w-full text-xs">
-                            <thead>
-                                <tr class="text-muted-foreground border-b border-foreground/10">
-                                    <th class="text-left py-1">Age</th>
-                                    <th class="text-right py-1">Total</th>
-                                    <th class="text-right py-1">Conv</th>
-                                    <th class="text-right py-1">CVR</th>
-                                    <th class="text-right py-1">AOV</th>
-                                </tr>
-                            </thead>
-                            <tbody>${cvrAovRows}</tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Device Split & Time of Day CVR -->
-                <div class="bg-background rounded-lg p-3 border border-foreground/10">
-                    <h4 class="text-sm font-medium text-foreground mb-2">📱 Device & Time</h4>
-
-                    <!-- Device Split -->
-                    <div class="flex gap-2 mb-3">
-                        <div class="flex-1 text-center bg-muted/30 rounded p-2">
-                            <div class="text-lg font-bold text-foreground">${details.devices.mobile}</div>
-                            <div class="text-xs text-muted-foreground">📱 Mobile</div>
+                <!-- Nurture ROI Summary -->
+                <div class="flex items-center justify-between bg-success/10 rounded-lg p-3">
+                    <div class="flex items-center gap-6">
+                        <div>
+                            <span class="text-success font-medium">📈 Nurture ROI:</span>
                         </div>
-                        <div class="flex-1 text-center bg-muted/30 rounded p-2">
-                            <div class="text-lg font-bold text-foreground">${details.devices.desktop}</div>
-                            <div class="text-xs text-muted-foreground">🖥️ Desktop</div>
-                        </div>
-                    </div>
-
-                    <!-- Time of Day CVR -->
-                    <div class="text-xs space-y-1">
-                        ${Object.entries(details.cvrByTimeOfDay).map(([period, data]) => `
-                            <div class="flex justify-between">
-                                <span class="text-muted-foreground">${timeLabels[period]}</span>
-                                <span class="text-foreground font-medium">${data.cvr}%</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-
-                <!-- Sources & Nurture ROI -->
-                <div class="bg-background rounded-lg p-3 border border-foreground/10">
-                    <h4 class="text-sm font-medium text-foreground mb-2">🎯 Sources & ROI</h4>
-
-                    <!-- Top Sources -->
-                    <div class="text-xs mb-3">
-                        <div class="font-medium text-muted-foreground mb-1">Top Sources</div>
-                        ${sourcesList}
-                    </div>
-
-                    <!-- Nurture ROI -->
-                    <div class="bg-success/10 rounded p-2 text-xs">
-                        <div class="font-medium text-success mb-1">Nurture ROI</div>
-                        <div class="grid grid-cols-3 gap-1 text-center">
+                        <div class="flex gap-6 text-sm">
                             <div>
-                                <div class="font-bold text-foreground">${details.nurtureROI.avgDaysToConvert}</div>
-                                <div class="text-muted-foreground">Avg Days</div>
+                                <span class="text-muted-foreground">Avg Days to Convert:</span>
+                                <span class="text-foreground font-bold ml-1">${details.nurtureROI.avgDays} days</span>
                             </div>
                             <div>
-                                <div class="font-bold text-foreground">${details.nurtureROI.totalConverted}</div>
-                                <div class="text-muted-foreground">Converted</div>
-                            </div>
-                            <div>
-                                <div class="font-bold text-foreground">${this.formatCurrency(details.nurtureROI.totalConversionValue)}</div>
-                                <div class="text-muted-foreground">Value</div>
+                                <span class="text-muted-foreground">Total Value:</span>
+                                <span class="text-success font-bold ml-1">${this.formatCurrency(details.nurtureROI.totalValue)}</span>
                             </div>
                         </div>
                     </div>
