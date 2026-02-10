@@ -400,6 +400,7 @@ class CRMDashboard {
 
                     subscribers = data.subscribers.map(sub => ({
                         id: sub.id,
+                        email: sub.e,  // Email for order matching
                         status: statusMap[sub.s] || sub.s || 'subscribed',
                         contact_type: typeMap[sub.t] || sub.t || 'lead',
                         created_at: sub.c,
@@ -483,6 +484,7 @@ class CRMDashboard {
 
                 return {
                     id: sub.id,
+                    e: sub.email?.toLowerCase(),  // email (for order matching)
                     s: sub.status?.charAt(0), // 's'=subscribed, 'p'=pending, etc (1 char)
                     t: sub.contact_type?.charAt(0), // 'l'=lead, 'c'=customer (1 char)
                     c: sub.created_at,
