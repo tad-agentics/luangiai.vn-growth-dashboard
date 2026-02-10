@@ -8,73 +8,61 @@ export const CONVERSION_TAGS = [
     'thanh-toan', 'da-mua', 'khach-hang' // Vietnamese tags
 ];
 
-// Persona Definitions based on Age + Device rules
+// Persona Definitions based on Generation (DOB-based)
+// Gen Z: 2000-2012 (12-24 years old in 2024)
+// Millennial: 1981-1999 (25-43 years old in 2024)
+// Gen X: 1965-1980 (44-59 years old in 2024)
+// Boomer: 1946-1964 (60-78 years old in 2024)
 export const PERSONA_DEFINITIONS = {
-    'gen_z_explorer': {
-        name: 'Gen Z Explorer',
+    'gen_z': {
+        name: 'Gen Z',
         color: '#f97316', // orange
-        description: 'Young users (18-24), mobile-first, impulse buyers',
-        ageGroups: ['18-24'],
-        deviceTypes: null,
-        priority: 'Low',
-        bestChannel: 'TikTok Organic',
-        recommendedOffer: '49K impulse offer',
-        nurturePriority: 'Low - decide instantly'
-    },
-    'career_climber': {
-        name: 'Career Climber',
-        color: '#3b82f6', // blue
-        description: 'Age 25-34, mobile users seeking career guidance',
-        ageGroups: ['25-34'],
-        deviceTypes: ['Mobile'],
-        priority: 'High',
-        bestChannel: 'Facebook Ads',
-        recommendedOffer: '299K career-focused',
-        nurturePriority: 'High - delayed converters'
-    },
-    'desktop_researcher': {
-        name: 'Desktop Researcher',
-        color: '#8b5cf6', // purple
-        description: 'Age 25-44, desktop users, high CVR potential',
-        ageGroups: ['25-34', '35-44'],
-        deviceTypes: ['Desktop'],
-        priority: 'High',
-        bestChannel: 'SEO / Desktop FB',
-        recommendedOffer: '299K full analysis',
-        nurturePriority: 'Medium - high base CVR'
-    },
-    'life_transition': {
-        name: 'Life Transition',
-        color: '#06b6d4', // cyan
-        description: 'Age 35-44, mobile users making major life decisions',
-        ageGroups: ['35-44'],
-        deviceTypes: ['Mobile'],
-        priority: 'High',
-        bestChannel: 'Zalo OA',
-        recommendedOffer: '349K family package',
-        nurturePriority: 'High - delayed converters'
-    },
-    'established_buyer': {
-        name: 'Established Buyer',
-        color: '#10b981', // green
-        description: 'Age 45+, high AOV, premium segment',
-        ageGroups: ['45-54', '55+'],
-        deviceTypes: null,
+        description: 'Born 2000-2012, digital natives, mobile-first',
+        birthYearRange: [2000, 2012],
         priority: 'Medium',
-        bestChannel: 'Direct / Referral',
-        recommendedOffer: '749K premium first',
-        nurturePriority: 'Low - decide fast'
+        bestChannel: 'TikTok, Instagram Reels',
+        recommendedOffer: '99K impulse offer',
+        nurturePriority: 'Low - decide fast, impulse buyers'
     },
-    'mystery_visitor': {
-        name: 'Mystery Visitor',
+    'millennial': {
+        name: 'Millennial',
+        color: '#3b82f6', // blue
+        description: 'Born 1981-1999, career-focused, value-seekers',
+        birthYearRange: [1981, 1999],
+        priority: 'High',
+        bestChannel: 'Facebook, Google Ads',
+        recommendedOffer: '299K value package',
+        nurturePriority: 'High - research before buying'
+    },
+    'gen_x': {
+        name: 'Gen X',
+        color: '#8b5cf6', // purple
+        description: 'Born 1965-1980, family-oriented, high purchasing power',
+        birthYearRange: [1965, 1980],
+        priority: 'High',
+        bestChannel: 'Zalo OA, Facebook',
+        recommendedOffer: '399K family package',
+        nurturePriority: 'Medium - practical buyers'
+    },
+    'boomer': {
+        name: 'Boomer',
+        color: '#10b981', // green
+        description: 'Born 1946-1964, premium segment, high AOV',
+        birthYearRange: [1946, 1964],
+        priority: 'Medium',
+        bestChannel: 'Direct, Referral, Zalo',
+        recommendedOffer: '599K premium',
+        nurturePriority: 'Low - decide fast when trust built'
+    },
+    'unknown': {
+        name: 'Unknown',
         color: '#6b7280', // gray
-        description: 'Unknown profile, incomplete data',
-        ageGroups: ['Unknown'],
-        deviceTypes: null,
+        description: 'Missing DOB data, needs profiling',
+        birthYearRange: null,
         priority: 'Low',
         bestChannel: 'Progressive profiling',
         recommendedOffer: '199K low-commitment',
-        nurturePriority: 'Medium - needs profiling'
+        nurturePriority: 'Medium - needs data collection'
     }
 };
 

@@ -1,13 +1,13 @@
 // Shared Report Generation Logic
 // ================================
 
+// Generation-based personas (DOB-based)
 export const PERSONA_DEFINITIONS = {
-    'gen_z_explorer': { name: 'Gen Z Explorer', bestChannel: 'TikTok Organic', recommendedOffer: '49K impulse offer' },
-    'career_climber': { name: 'Career Climber', bestChannel: 'Facebook Ads', recommendedOffer: '299K career-focused' },
-    'desktop_researcher': { name: 'Desktop Researcher', bestChannel: 'SEO / Desktop FB', recommendedOffer: '299K full analysis' },
-    'life_transition': { name: 'Life Transition', bestChannel: 'Zalo OA', recommendedOffer: '349K family package' },
-    'established_buyer': { name: 'Established Buyer', bestChannel: 'Direct / Referral', recommendedOffer: '749K premium first' },
-    'mystery_visitor': { name: 'Mystery Visitor', bestChannel: 'Progressive profiling', recommendedOffer: '199K low-commitment' }
+    'gen_z': { name: 'Gen Z', birthYearRange: [2000, 2012], bestChannel: 'TikTok, Instagram Reels', recommendedOffer: '99K impulse offer' },
+    'millennial': { name: 'Millennial', birthYearRange: [1981, 1999], bestChannel: 'Facebook, Google Ads', recommendedOffer: '299K value package' },
+    'gen_x': { name: 'Gen X', birthYearRange: [1965, 1980], bestChannel: 'Zalo OA, Facebook', recommendedOffer: '399K family package' },
+    'boomer': { name: 'Boomer', birthYearRange: [1946, 1964], bestChannel: 'Direct, Referral, Zalo', recommendedOffer: '599K premium' },
+    'unknown': { name: 'Unknown', birthYearRange: null, bestChannel: 'Progressive profiling', recommendedOffer: '199K low-commitment' }
 };
 
 export async function generateDailyStrategy(supabase) {

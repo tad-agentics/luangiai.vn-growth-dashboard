@@ -91,18 +91,26 @@ export class PersonaEngine {
     }
 
     /**
-     * Assign persona based on age group and device type
-     * @param {string} ageGroup - Age bucket
-     * @param {string} deviceType - Device type
+     * Assign persona based on birth year (generation)
+     * Gen Z: 2000-2012, Millennial: 1981-1999, Gen X: 1965-1980, Boomer: 1946-1964
+     * @param {number|string} birthYear - Birth year
      * @returns {string} Persona key
      */
-    assignPersona(ageGroup, deviceType) {
-        if (ageGroup === '18-24') return 'gen_z_explorer';
-        if (ageGroup === '25-34' && deviceType === 'Mobile') return 'career_climber';
-        if ((ageGroup === '25-34' || ageGroup === '35-44') && deviceType === 'Desktop') return 'desktop_researcher';
-        if (ageGroup === '35-44' && deviceType === 'Mobile') return 'life_transition';
-        if (ageGroup === '45-54' || ageGroup === '55+') return 'established_buyer';
-        return 'mystery_visitor';
+    assignPersona(birthYear) {
+        if (!birthYear || birthYear === 'Unknown') return 'unknown';
+        const year = parseInt(birthYear);
+        if (isNaN(year)) return 'unknown';
+
+        if (year >= 2000 && year <= 2012) return 'gen_z';
+        if (year >= 1981 && year <= 1999) return 'millennial';
+        if (year >= 1965 && year <= 1980) return 'gen_x';
+        if (year >= 1946 && year <= 1964) return 'boomer';
+
+        // Outside defined ranges
+        if (year > 2012) return 'gen_z';
+        if (year < 1946) return 'boomer';
+
+        return 'unknown';
     }
 
     /**

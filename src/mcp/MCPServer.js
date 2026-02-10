@@ -70,8 +70,8 @@ class GrowthIntelligenceMCP {
                         properties: {
                             persona: {
                                 type: 'string',
-                                description: 'Persona key: gen_z_explorer, career_climber, desktop_researcher, life_transition, established_buyer, mystery_visitor',
-                                enum: ['gen_z_explorer', 'career_climber', 'desktop_researcher', 'life_transition', 'established_buyer', 'mystery_visitor']
+                                description: 'Persona key: gen_z, millennial, gen_x, boomer, unknown (generation-based)',
+                                enum: ['gen_z', 'millennial', 'gen_x', 'boomer', 'unknown']
                             }
                         },
                         required: ['persona']
@@ -378,14 +378,13 @@ class GrowthIntelligenceMCP {
 
         const subscribers = cache?.subscribers || [];
 
-        // Filter by persona (simplified - in production would use PersonaEngine)
+        // Filter by persona (generation-based)
         const personaMap = {
-            'gen_z_explorer': { ageRange: [18, 24] },
-            'career_climber': { ageRange: [25, 34], device: 'Mobile' },
-            'desktop_researcher': { ageRange: [25, 44], device: 'Desktop' },
-            'life_transition': { ageRange: [35, 44], device: 'Mobile' },
-            'established_buyer': { ageRange: [45, 100] },
-            'mystery_visitor': { unknown: true }
+            'gen_z': { birthYearRange: [2000, 2012] },
+            'millennial': { birthYearRange: [1981, 1999] },
+            'gen_x': { birthYearRange: [1965, 1980] },
+            'boomer': { birthYearRange: [1946, 1964] },
+            'unknown': { unknown: true }
         };
 
         const personaDef = personaMap[persona];
