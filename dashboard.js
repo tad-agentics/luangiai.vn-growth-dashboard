@@ -424,20 +424,43 @@ class CRMDashboard {
 
                 // ALWAYS ensure all fields exist (handles both old and new cache formats)
                 // This fallback ensures data works even when isMinimalFormat is false
+                const statusMap = { 's': 'subscribed', 'p': 'pending', 'u': 'unsubscribed', 'b': 'bounced' };
+                const typeMap = { 'l': 'lead', 'c': 'customer' };
+
                 subscribers = subscribers.map(sub => ({
                     ...sub,
+                    // Core fields
                     email: sub.email || sub.e,
                     created_at: sub.created_at || sub.c,
                     updated_at: sub.updated_at || sub.u,
-                    date_of_birth: sub.date_of_birth || sub.d,
                     source: sub.source || sub.src,
                     last_activity: sub.last_activity || sub.la,
+
+                    // DOB - both formats for compatibility
+                    date_of_birth: sub.date_of_birth || sub.d,
+                    dob: sub.dob || sub.date_of_birth || sub.d,
+
+                    // Device - both formats for compatibility
                     device: sub.device || sub.dev,
+                    device_type: sub.device_type || sub.device || sub.dev,
+
+                    // Status and contact_type - critical for CVR calculations
+                    status: sub.status || statusMap[sub.s] || 'subscribed',
+                    contact_type: sub.contact_type || typeMap[sub.t] || 'lead',
+
+                    // Top-level gender and birthtime for direct access
+                    gender: sub.gender || sub.custom_fields?.gender || sub.g,
+                    birthtime: sub.birthtime || sub.custom_fields?.birth_time || sub.bt,
+
+                    // Custom fields with all variants
                     custom_fields: {
                         ...(sub.custom_fields || {}),
                         gender: sub.custom_fields?.gender || sub.g,
                         birth_time: sub.custom_fields?.birth_time || sub.bt,
-                        device: sub.custom_fields?.device || sub.dev
+                        birthtime: sub.custom_fields?.birthtime || sub.bt,
+                        device: sub.custom_fields?.device || sub.dev,
+                        dob: sub.custom_fields?.dob || sub.d,
+                        date_of_birth: sub.custom_fields?.date_of_birth || sub.d
                     }
                 }));
 
@@ -3676,8 +3699,9 @@ class CRMDashboard {
             yearData.subscribers++;
             totals.subscribers++;
 
-            // Device
-            if (isMobile(sub.device_type)) {
+            // Device - check multiple field locations
+            const deviceValue = sub.device_type || sub.device || sub.custom_fields?.device;
+            if (isMobile(deviceValue)) {
                 yearData.devices.mobile++;
                 totals.mobile++;
             } else {
@@ -3958,14 +3982,14 @@ class CRMDashboard {
         const astroData = this.data.astrology || {};
 
         // Update zodiac metrics
-        const withDOB = (this.data.subscribers || []).filter(s => s.dob).length;
+        const withDOB = (this.data.subscribers || []).filter(s => s.dob || s.date_of_birth).length;
         const total = this.data.subscribers?.length || 1;
         const withDOBEl = document.getElementById('astroWithDOB');
         if (withDOBEl) withDOBEl.textContent = this.formatNumber(withDOB);
         const withDOBPctEl = document.getElementById('astroWithDOBPct');
         if (withDOBPctEl) withDOBPctEl.textContent = `${((withDOB / total) * 100).toFixed(0)}%`;
 
-        const withBirthtime = (this.data.subscribers || []).filter(s => s.birthtime).length;
+        const withBirthtime = (this.data.subscribers || []).filter(s => s.birthtime || s.custom_fields?.birth_time).length;
         const withBirthtimeEl = document.getElementById('astroWithBirthtime');
         if (withBirthtimeEl) withBirthtimeEl.textContent = this.formatNumber(withBirthtime);
         const withBirthtimePctEl = document.getElementById('astroWithBirthtimePct');
