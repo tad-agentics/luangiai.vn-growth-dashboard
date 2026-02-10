@@ -877,7 +877,7 @@ class CRMDashboard {
 
             // Step 4: Fetch WooCommerce orders
             this.updateSyncSourceUI('full', '(fetching orders...)');
-            await this.fetchWooCommerceOrders();
+            await this.fetchWooCommerceOrders(forceFullSync);
 
             this.updateDashboard();
 
