@@ -422,6 +422,12 @@ class CRMDashboard {
                     }));
                 }
 
+                // ALWAYS ensure email field exists (handles both old and new cache formats)
+                subscribers = subscribers.map(sub => ({
+                    ...sub,
+                    email: sub.email || sub.e  // Use email if exists, fallback to 'e'
+                }));
+
                 return {
                     subscribers: subscribers,
                     lastSyncTime: data.last_sync_time,
