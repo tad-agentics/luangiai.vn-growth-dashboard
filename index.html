@@ -490,7 +490,7 @@
                                 <div class="text-xs text-muted-foreground" id="googleAdsStatus">Not connected</div>
                             </div>
                         </div>
-                        <button onclick="connectGoogleAds()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors" id="googleAdsBtn">
+                        <button onclick="connectGoogleAds()" class="px-3 py-1.5 bg-primary hover:bg-primary/90 rounded text-xs font-medium transition-colors" id="googleAdsBtn">
                             Connect
                         </button>
                     </div>
@@ -720,7 +720,7 @@
                                 <div class="text-xs text-muted-foreground" id="gscStatus">Not connected</div>
                             </div>
                         </div>
-                        <button onclick="connectGSC()" class="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-xs font-medium transition-colors" id="gscBtn">
+                        <button onclick="connectGSC()" class="px-3 py-1.5 bg-success hover:bg-success/90 rounded text-xs font-medium transition-colors" id="gscBtn">
                             Connect
                         </button>
                     </div>
@@ -1052,7 +1052,7 @@
                         <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-purple-500"></span> Desktop: 25-44 + Desktop</span>
                         <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-cyan-500"></span> Life: 35-44 + Mobile</span>
                         <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-green-500"></span> Established: 45+</span>
-                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-gray-500"></span> Mystery: Unknown</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-muted-foreground"></span> Mystery: Unknown</span>
                     </div>
                 </div>
 
@@ -1298,9 +1298,9 @@
 
         showNotification(message, type = 'info') {
             const colors = {
-                success: 'bg-green-600',
-                error: 'bg-red-600',
-                info: 'bg-blue-600'
+                success: 'bg-success',
+                error: 'bg-danger',
+                info: 'bg-primary'
             };
             const notification = document.createElement('div');
             notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300`;
@@ -1344,8 +1344,8 @@
             if (btnEl) {
                 btnEl.textContent = connected ? 'Refresh' : 'Connect';
                 if (connected) {
-                    btnEl.classList.remove('bg-blue-600', 'bg-primary', 'bg-pink-600');
-                    btnEl.classList.add('bg-gray-600');
+                    btnEl.classList.remove('bg-primary', 'bg-primary', 'bg-pink-600');
+                    btnEl.classList.add('bg-muted');
                 }
             }
         },
@@ -1480,8 +1480,8 @@
             if (btnEl) {
                 btnEl.textContent = connected ? 'Refresh' : 'Connect';
                 if (connected) {
-                    btnEl.classList.remove('bg-orange-600', 'bg-green-600');
-                    btnEl.classList.add('bg-gray-600');
+                    btnEl.classList.remove('bg-orange-600', 'bg-success');
+                    btnEl.classList.add('bg-muted');
                 }
             }
         },
@@ -1689,7 +1689,7 @@
 
             if (report.focus_today) {
                 html += `
-                    <div class="mt-3 p-3 bg-indigo-900/30 rounded border border-indigo-800">
+                    <div class="mt-3 p-3 bg-primary/10 rounded border border-primary">
                         <div class="text-primary text-xs font-medium mb-1">Today's Focus</div>
                         <div class="text-foreground text-sm">${report.focus_today}</div>
                     </div>
@@ -1786,7 +1786,7 @@
             if (!container || !opportunities?.length) return;
 
             container.innerHTML = opportunities.map(opp => `
-                <div class="flex items-start gap-3 p-2 bg-green-900/20 rounded">
+                <div class="flex items-start gap-3 p-2 bg-success/10 rounded">
                     <i class="fas fa-arrow-trend-up text-success mt-1"></i>
                     <div>
                         <div class="text-foreground text-sm font-medium">${opp.title || opp}</div>
@@ -1802,7 +1802,7 @@
             if (!container || !risks?.length) return;
 
             container.innerHTML = risks.map(risk => `
-                <div class="flex items-start gap-3 p-2 bg-red-900/20 rounded">
+                <div class="flex items-start gap-3 p-2 bg-danger/10 rounded">
                     <i class="fas fa-exclamation-circle text-danger mt-1"></i>
                     <div>
                         <div class="text-foreground text-sm font-medium">${risk.title || risk}</div>
@@ -1861,7 +1861,7 @@
                             <span class="badge badge-gray text-xs">${memory.memory_type}</span>
                         </div>
                         <div class="text-muted-foreground text-xs">${memory.content}</div>
-                        <div class="text-gray-600 text-xs mt-1">
+                        <div class="text-muted-foreground text-xs mt-1">
                             ${new Date(memory.created_at).toLocaleDateString('vi-VN')} ·
                             Importance: ${memory.importance}/10
                         </div>
@@ -1942,7 +1942,7 @@
     // Simple toast notification
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
-        const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+        const bgColor = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-primary';
         toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300`;
         toast.textContent = message;
         document.body.appendChild(toast);

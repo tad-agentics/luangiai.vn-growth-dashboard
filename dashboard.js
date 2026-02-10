@@ -838,20 +838,20 @@ class CRMDashboard {
         const el = document.getElementById('syncSource');
         if (!el) return;
 
-        el.classList.remove('hidden', 'bg-green-900/50', 'text-green-400', 'bg-blue-900/50', 'text-blue-400', 'bg-yellow-900/50', 'text-yellow-400');
+        el.classList.remove('hidden', 'bg-success/20', 'text-success', 'bg-secondary/20', 'text-secondary', 'bg-warning/20', 'text-yellow-400');
 
         switch (source) {
             case 'supabase':
                 el.textContent = `📦 Supabase cache ${details}`;
-                el.classList.add('bg-green-900/50', 'text-green-400');
+                el.classList.add('bg-success/20', 'text-success');
                 break;
             case 'incremental':
                 el.textContent = `⚡ Incremental sync ${details}`;
-                el.classList.add('bg-blue-900/50', 'text-blue-400');
+                el.classList.add('bg-secondary/20', 'text-secondary');
                 break;
             case 'full':
                 el.textContent = `🔄 Full sync ${details}`;
-                el.classList.add('bg-yellow-900/50', 'text-yellow-400');
+                el.classList.add('bg-warning/20', 'text-yellow-400');
                 break;
             default:
                 el.classList.add('hidden');
@@ -2059,11 +2059,11 @@ class CRMDashboard {
 
         // Update button states
         document.querySelectorAll('.growth-period-btn').forEach(btn => {
-            btn.classList.remove('active', 'bg-indigo-600', 'text-white');
-            btn.classList.add('bg-gray-700', 'text-gray-300');
+            btn.classList.remove('active', 'bg-primary', 'text-white');
+            btn.classList.add('bg-muted', 'text-foreground');
             if (parseInt(btn.dataset.days) === days) {
-                btn.classList.add('active', 'bg-indigo-600', 'text-white');
-                btn.classList.remove('bg-gray-700', 'text-gray-300');
+                btn.classList.add('active', 'bg-primary', 'text-white');
+                btn.classList.remove('bg-muted', 'text-foreground');
             }
         });
 
@@ -2091,7 +2091,7 @@ class CRMDashboard {
         document.getElementById('metricWeekNew').textContent = this.formatNumber(analytics.thisWeekNew || 0);
 
         const weekChange = analytics.weekOverWeekChange || 0;
-        const trendColor = weekChange > 0 ? 'text-green-400' : weekChange < 0 ? 'text-red-400' : 'text-gray-400';
+        const trendColor = weekChange > 0 ? 'text-success' : weekChange < 0 ? 'text-danger' : 'text-muted-foreground';
         const trendIcon = weekChange > 0 ? '↑' : weekChange < 0 ? '↓' : '→';
         document.getElementById('metricWeekTrend').innerHTML =
             `<span class="${trendColor}">${trendIcon} ${Math.abs(weekChange)}% vs last week</span>`;
@@ -2114,12 +2114,12 @@ class CRMDashboard {
 
             sourceTable.innerHTML = sortedSources.map(([name, data]) => {
                 const sourceCvr = data.total > 0 ? ((data.customers / data.total) * 100).toFixed(2) : 0;
-                const cvrColor = parseFloat(sourceCvr) > parseFloat(cvr) ? 'text-green-400' : 'text-gray-400';
+                const cvrColor = parseFloat(sourceCvr) > parseFloat(cvr) ? 'text-success' : 'text-muted-foreground';
                 return `
-                    <tr class="border-b border-gray-800">
+                    <tr class="border-b border-foreground">
                         <td class="py-2 text-white">${this.escapeHtml(name)}</td>
-                        <td class="py-2 text-right text-gray-300">${this.formatNumber(data.leads)}</td>
-                        <td class="py-2 text-right text-green-400">${this.formatNumber(data.customers)}</td>
+                        <td class="py-2 text-right text-foreground">${this.formatNumber(data.leads)}</td>
+                        <td class="py-2 text-right text-success">${this.formatNumber(data.customers)}</td>
                         <td class="py-2 text-right ${cvrColor} font-medium">${sourceCvr}%</td>
                     </tr>
                 `;
@@ -2139,16 +2139,16 @@ class CRMDashboard {
                 const weekDate = new Date(week);
                 const weekLabel = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const barWidth = maxCvr > 0 ? (parseFloat(cohort.cvr) / maxCvr * 100) : 0;
-                const cvrColor = parseFloat(cohort.cvr) > parseFloat(cvr) ? 'text-green-400' : 'text-gray-400';
+                const cvrColor = parseFloat(cohort.cvr) > parseFloat(cvr) ? 'text-success' : 'text-muted-foreground';
 
                 return `
-                    <tr class="border-b border-gray-800">
+                    <tr class="border-b border-foreground">
                         <td class="py-2 text-white">${weekLabel}</td>
-                        <td class="py-2 text-right text-gray-300">${this.formatNumber(cohort.leads)}</td>
-                        <td class="py-2 text-right text-green-400">${this.formatNumber(cohort.customers)}</td>
+                        <td class="py-2 text-right text-foreground">${this.formatNumber(cohort.leads)}</td>
+                        <td class="py-2 text-right text-success">${this.formatNumber(cohort.customers)}</td>
                         <td class="py-2 text-right ${cvrColor} font-medium">${cohort.cvr}%</td>
                         <td class="py-2">
-                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-2 bg-muted rounded-full overflow-hidden">
                                 <div class="h-full bg-green-500 rounded-full" style="width: ${barWidth}%"></div>
                             </div>
                         </td>
@@ -2198,7 +2198,7 @@ class CRMDashboard {
                 const total = Object.values(sources).reduce((sum, v) => sum + v.total, 0);
 
                 return `
-                    <div class="bg-gray-800 rounded-lg p-3">
+                    <div class="border border-foreground rounded-lg p-3">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="w-3 h-3 rounded-full" style="background: ${persona.color}"></span>
                             <span class="font-medium text-sm" style="color: ${persona.color}">${persona.name}</span>
@@ -2206,7 +2206,7 @@ class CRMDashboard {
                         <div class="flex flex-wrap gap-2">
                             ${topSources.map(([source, data]) => {
                                 const pct = total > 0 ? ((data.total / total) * 100).toFixed(0) : 0;
-                                return `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">${source}: ${pct}%</span>`;
+                                return `<span class="text-xs bg-muted text-foreground px-2 py-1 rounded">${source}: ${pct}%</span>`;
                             }).join('')}
                         </div>
                     </div>
@@ -2245,11 +2245,11 @@ class CRMDashboard {
             engagementGrid.innerHTML = statuses.map(s => {
                 const pct = ((s.count / totalEng) * 100).toFixed(1);
                 return `
-                    <div class="bg-gray-800 rounded-lg p-4 text-center border-l-4" style="border-left-color: ${s.color}">
+                    <div class="border border-foreground rounded-lg p-4 text-center border-l-4" style="border-left-color: ${s.color}">
                         <div class="text-2xl font-bold" style="color: ${s.color}">${this.formatNumber(s.count)}</div>
                         <div class="text-white text-sm font-medium">${s.name}</div>
-                        <div class="text-gray-500 text-xs">${s.desc}</div>
-                        <div class="text-gray-400 text-xs mt-1">${pct}%</div>
+                        <div class="text-muted-foreground text-xs">${s.desc}</div>
+                        <div class="text-muted-foreground text-xs mt-1">${pct}%</div>
                     </div>
                 `;
             }).join('');
@@ -2372,7 +2372,7 @@ class CRMDashboard {
             .slice(0, 5);
 
         if (sortedLists.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 text-center py-4">No lists found</p>';
+            container.innerHTML = '<p class="text-muted-foreground text-center py-4">No lists found</p>';
             return;
         }
 
@@ -2386,9 +2386,9 @@ class CRMDashboard {
                     <div class="flex-1">
                         <div class="flex justify-between items-center mb-1">
                             <span class="font-medium text-white text-sm">${this.escapeHtml(list.title)}</span>
-                            <span class="text-gray-400 text-sm">${this.formatNumber(count)}</span>
+                            <span class="text-muted-foreground text-sm">${this.formatNumber(count)}</span>
                         </div>
-                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-2 bg-muted rounded-full overflow-hidden">
                             <div class="h-full bg-blue-500 rounded-full" style="width: ${pct}%"></div>
                         </div>
                     </div>
@@ -2404,7 +2404,7 @@ class CRMDashboard {
             .slice(0, 5);
 
         if (sortedTags.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 text-center py-4">No tags found</p>';
+            container.innerHTML = '<p class="text-muted-foreground text-center py-4">No tags found</p>';
             return;
         }
 
@@ -2418,9 +2418,9 @@ class CRMDashboard {
                     <div class="flex-1">
                         <div class="flex justify-between items-center mb-1">
                             <span class="font-medium text-white text-sm">${this.escapeHtml(tag.title)}</span>
-                            <span class="text-gray-400 text-sm">${this.formatNumber(count)}</span>
+                            <span class="text-muted-foreground text-sm">${this.formatNumber(count)}</span>
                         </div>
-                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-2 bg-muted rounded-full overflow-hidden">
                             <div class="h-full bg-cyan-500 rounded-full" style="width: ${pct}%"></div>
                         </div>
                     </div>
@@ -2454,10 +2454,10 @@ class CRMDashboard {
             const cvr = p.count > 0 ? (p.converted / p.count * 100).toFixed(2) : 0;
             const cvrValue = parseFloat(cvr);
             const priorityColor = p.priority === 'High' ? 'badge-green' : p.priority === 'Medium' ? 'badge-yellow' : 'badge-gray';
-            const cvrColor = cvrValue > overallCVR ? 'text-green-400' : cvrValue > 0 ? 'text-yellow-400' : 'text-gray-400';
+            const cvrColor = cvrValue > overallCVR ? 'text-success' : cvrValue > 0 ? 'text-yellow-400' : 'text-muted-foreground';
 
             return `
-                <tr class="border-b border-gray-800 hover:bg-gray-800/50">
+                <tr class="border-b border-foreground hover:border border-foreground/50">
                     <td class="py-3">
                         <span class="flex items-center gap-2">
                             <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
@@ -2465,13 +2465,13 @@ class CRMDashboard {
                         </span>
                     </td>
                     <td class="text-right py-3 text-white font-medium">${this.formatNumber(p.count)}</td>
-                    <td class="text-right py-3 text-gray-400">${pct}%</td>
+                    <td class="text-right py-3 text-muted-foreground">${pct}%</td>
                     <td class="py-3">
-                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-2 bg-muted rounded-full overflow-hidden">
                             <div class="h-full rounded-full" style="width: ${pct}%; background: ${p.color}"></div>
                         </div>
                     </td>
-                    <td class="text-right py-3 text-gray-300">${this.formatNumber(p.converted || 0)}</td>
+                    <td class="text-right py-3 text-foreground">${this.formatNumber(p.converted || 0)}</td>
                     <td class="text-right py-3 ${cvrColor} font-medium">${cvr}%</td>
                     <td class="text-center py-3">
                         <span class="badge ${priorityColor}">${p.priority}</span>
@@ -2488,8 +2488,8 @@ class CRMDashboard {
             const pct = (p.count / total * 100).toFixed(1);
             const cvr = p.count > 0 ? (p.converted / p.count * 100).toFixed(2) : 0;
             const cvrValue = parseFloat(cvr);
-            const cvrColor = cvrValue > overallCVR ? 'text-green-400' : cvrValue > 0 ? 'text-yellow-400' : 'text-gray-500';
-            const cvrBgColor = cvrValue > overallCVR ? 'bg-green-900/30' : cvrValue > 0 ? 'bg-yellow-900/30' : 'bg-gray-800';
+            const cvrColor = cvrValue > overallCVR ? 'text-success' : cvrValue > 0 ? 'text-yellow-400' : 'text-muted-foreground';
+            const cvrBgColor = cvrValue > overallCVR ? 'bg-success/20' : cvrValue > 0 ? 'bg-warning/20' : 'border border-foreground';
 
             // Get dynamic best channel or fall back to static
             const channelInfo = bestChannelData[p.key] || {};
@@ -2502,37 +2502,37 @@ class CRMDashboard {
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <h4 class="font-bold text-lg" style="color: ${p.color}">${p.name}</h4>
-                            <p class="text-gray-400 text-xs mt-1">${p.description}</p>
+                            <p class="text-muted-foreground text-xs mt-1">${p.description}</p>
                         </div>
                         <div class="text-right">
                             <div class="text-white font-bold text-xl">${this.formatNumber(p.count)}</div>
-                            <div class="text-gray-500 text-xs">${pct}%</div>
+                            <div class="text-muted-foreground text-xs">${pct}%</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2 mb-3">
-                        <div class="bg-gray-800 rounded p-2 text-center">
-                            <div class="text-gray-400 text-xs">Subscribed</div>
+                        <div class="border border-foreground rounded p-2 text-center">
+                            <div class="text-muted-foreground text-xs">Subscribed</div>
                             <div class="text-white font-medium">${this.formatNumber(p.subscribed || 0)}</div>
                         </div>
                         <div class="${cvrBgColor} rounded p-2 text-center">
-                            <div class="text-gray-400 text-xs">CVR</div>
+                            <div class="text-muted-foreground text-xs">CVR</div>
                             <div class="${cvrColor} font-bold">${cvr}%</div>
                         </div>
                     </div>
                     <div class="space-y-2 text-sm border-t border-gray-700 pt-3">
                         <div class="flex justify-between">
-                            <span class="text-gray-400">Converted:</span>
-                            <span class="text-green-400 font-medium">${this.formatNumber(p.converted || 0)}</span>
+                            <span class="text-muted-foreground">Converted:</span>
+                            <span class="text-success font-medium">${this.formatNumber(p.converted || 0)}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">Best Channel:</span>
+                            <span class="text-muted-foreground">Best Channel:</span>
                             <span class="text-white flex items-center gap-1">
                                 ${dynamicBestChannel}
-                                ${isDataDriven ? `<span class="text-xs text-green-400" title="Based on ${channelCVR}% CVR">(${channelCVR}%)</span>` : '<span class="text-xs text-gray-500">(default)</span>'}
+                                ${isDataDriven ? `<span class="text-xs text-success" title="Based on ${channelCVR}% CVR">(${channelCVR}%)</span>` : '<span class="text-xs text-muted-foreground">(default)</span>'}
                             </span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">Offer:</span>
+                            <span class="text-muted-foreground">Offer:</span>
                             <span class="text-white">${p.recommendedOffer}</span>
                         </div>
                     </div>
@@ -2577,40 +2577,40 @@ class CRMDashboard {
             const topSourcePct = stats.topSourcePct ? stats.topSourcePct.toFixed(0) : '-';
             const topSource = stats.topSource || '-';
             const cvrVsAvg = stats.cvrVsAverage ? stats.cvrVsAverage.toFixed(0) : 0;
-            const cvrVsAvgColor = cvrVsAvg > 0 ? 'text-green-400' : cvrVsAvg < 0 ? 'text-red-400' : 'text-gray-400';
+            const cvrVsAvgColor = cvrVsAvg > 0 ? 'text-success' : cvrVsAvg < 0 ? 'text-danger' : 'text-muted-foreground';
             const cvrVsAvgSign = cvrVsAvg > 0 ? '+' : '';
             const sampleSize = stats.sampleSize || 0;
 
             // Dynamic nurture strategy
             const nurture = stats.nurtureStrategy || { priority: p.priority, reason: p.nurturePriority, description: '' };
-            const priorityColor = nurture.priority === 'High' ? 'text-red-400' :
+            const priorityColor = nurture.priority === 'High' ? 'text-danger' :
                                   nurture.priority === 'Medium' ? 'text-yellow-400' :
-                                  nurture.priority === 'Low' ? 'text-green-400' : 'text-gray-400';
+                                  nurture.priority === 'Low' ? 'text-success' : 'text-muted-foreground';
 
             return `
-                <tr class="border-b border-gray-800">
+                <tr class="border-b border-foreground">
                     <td class="py-3">
                         <span class="flex items-center gap-2">
                             <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
                             <span style="color: ${p.color}">${p.name}</span>
                         </span>
                     </td>
-                    <td class="py-3 text-gray-300">
+                    <td class="py-3 text-foreground">
                         ${dynamicBestChannel}
-                        ${isDataDriven ? `<span class="text-xs text-green-400 ml-1">(${channelCVR}%)</span>` : ''}
+                        ${isDataDriven ? `<span class="text-xs text-success ml-1">(${channelCVR}%)</span>` : ''}
                     </td>
-                    <td class="py-3 text-gray-300">
+                    <td class="py-3 text-foreground">
                         <span class="text-white">${topSourcePct}%</span>
-                        <span class="text-gray-500 text-xs ml-1">${topSource}</span>
+                        <span class="text-muted-foreground text-xs ml-1">${topSource}</span>
                     </td>
                     <td class="py-3 ${cvrVsAvgColor} font-medium">
                         ${cvrVsAvgSign}${cvrVsAvg}%
                     </td>
                     <td class="py-3">
                         <span class="${priorityColor} font-medium">${nurture.priority}</span>
-                        <span class="text-gray-500 text-xs ml-1">${nurture.description}</span>
+                        <span class="text-muted-foreground text-xs ml-1">${nurture.description}</span>
                     </td>
-                    <td class="py-3 text-gray-400 text-xs">
+                    <td class="py-3 text-muted-foreground text-xs">
                         ${sampleSize} conv
                     </td>
                 </tr>
@@ -2722,8 +2722,8 @@ class CRMDashboard {
 
         cardsContainer.innerHTML = personaStats.map(p => {
             const trendIcon = p.trend > 0 ? 'fa-arrow-up' : p.trend < 0 ? 'fa-arrow-down' : 'fa-minus';
-            const trendColor = p.trend > 0 ? 'text-green-400' : p.trend < 0 ? 'text-red-400' : 'text-gray-400';
-            const cvrColor = p.cvr > overallCVR ? 'text-green-400' : p.cvr > 0 ? 'text-yellow-400' : 'text-gray-400';
+            const trendColor = p.trend > 0 ? 'text-success' : p.trend < 0 ? 'text-danger' : 'text-muted-foreground';
+            const cvrColor = p.cvr > overallCVR ? 'text-success' : p.cvr > 0 ? 'text-yellow-400' : 'text-muted-foreground';
             const sparklineId = `sparkline-${p.key}`;
 
             return `
@@ -2734,30 +2734,30 @@ class CRMDashboard {
                             <div class="text-white font-bold text-xl mt-1">${this.formatNumber(p.currentTotal)}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-xs text-gray-400">Last ${this.growthPeriod} days</div>
-                            <div class="text-green-400 font-medium">+${this.formatNumber(p.totalNew)}</div>
+                            <div class="text-xs text-muted-foreground">Last ${this.growthPeriod} days</div>
+                            <div class="text-success font-medium">+${this.formatNumber(p.totalNew)}</div>
                         </div>
                     </div>
                     <div class="sparkline-container mb-3">
                         <canvas id="${sparklineId}" height="40"></canvas>
                     </div>
                     <div class="grid grid-cols-4 gap-2 text-xs">
-                        <div class="bg-gray-800 rounded p-2 text-center">
-                            <div class="text-gray-400">7d New</div>
+                        <div class="border border-foreground rounded p-2 text-center">
+                            <div class="text-muted-foreground">7d New</div>
                             <div class="text-white font-medium">+${p.last7}</div>
                         </div>
-                        <div class="bg-gray-800 rounded p-2 text-center">
-                            <div class="text-gray-400">Avg/day</div>
+                        <div class="border border-foreground rounded p-2 text-center">
+                            <div class="text-muted-foreground">Avg/day</div>
                             <div class="text-white font-medium">${p.avgDaily}</div>
                         </div>
-                        <div class="bg-gray-800 rounded p-2 text-center">
-                            <div class="text-gray-400">Trend</div>
+                        <div class="border border-foreground rounded p-2 text-center">
+                            <div class="text-muted-foreground">Trend</div>
                             <div class="${trendColor} font-medium">
                                 <i class="fas ${trendIcon} text-xs mr-1"></i>${Math.abs(p.trend)}%
                             </div>
                         </div>
-                        <div class="bg-gray-800 rounded p-2 text-center">
-                            <div class="text-gray-400">CVR</div>
+                        <div class="border border-foreground rounded p-2 text-center">
+                            <div class="text-muted-foreground">CVR</div>
                             <div class="${cvrColor} font-bold">${p.cvr}%</div>
                         </div>
                     </div>
@@ -2863,25 +2863,25 @@ class CRMDashboard {
                 const zodiacInfo = ZODIAC_SIGNS[sign];
                 const pct = (data.total / totalZodiac * 100).toFixed(1);
                 const cvr = data.total > 0 ? (data.customers / data.total * 100) : 0;
-                const cvrColor = cvr > overallCVR ? 'text-green-400' : cvr > 0 ? 'text-yellow-400' : 'text-gray-400';
+                const cvrColor = cvr > overallCVR ? 'text-success' : cvr > 0 ? 'text-yellow-400' : 'text-muted-foreground';
                 const topGender = data.male > data.female ? 'Male' : data.female > data.male ? 'Female' : 'Even';
-                const topGenderColor = topGender === 'Male' ? 'text-blue-400' : topGender === 'Female' ? 'text-pink-400' : 'text-gray-400';
+                const topGenderColor = topGender === 'Male' ? 'text-secondary' : topGender === 'Female' ? 'text-primary' : 'text-muted-foreground';
                 const elementColor = {
                     'Kim': 'text-yellow-400',
-                    'Mộc': 'text-green-400',
-                    'Thủy': 'text-blue-400',
-                    'Hỏa': 'text-red-400',
+                    'Mộc': 'text-success',
+                    'Thủy': 'text-secondary',
+                    'Hỏa': 'text-danger',
                     'Thổ': 'text-purple-400'
                 }[zodiacInfo.element];
 
                 return `
-                    <tr class="border-b border-gray-800">
+                    <tr class="border-b border-foreground">
                         <td class="py-3">
                             <span style="color: ${zodiacInfo.color}" class="font-medium">${zodiacInfo.symbol} ${sign}</span>
                         </td>
                         <td class="text-right py-3 text-white">${this.formatNumber(data.total)}</td>
-                        <td class="text-right py-3 text-gray-400">${pct}%</td>
-                        <td class="text-right py-3 text-green-400">${this.formatNumber(data.customers)}</td>
+                        <td class="text-right py-3 text-muted-foreground">${pct}%</td>
+                        <td class="text-right py-3 text-success">${this.formatNumber(data.customers)}</td>
                         <td class="text-right py-3 ${cvrColor} font-medium">${cvr.toFixed(2)}%</td>
                         <td class="py-3 ${elementColor}">${zodiacInfo.element}</td>
                         <td class="py-3 ${topGenderColor}">${topGender}</td>
@@ -2907,40 +2907,40 @@ class CRMDashboard {
                 const femaleCVR = femaleData.total > 0 ? (femaleData.customers / femaleData.total * 100) : 0;
 
                 let bestGender = '-';
-                let bestGenderColor = 'text-gray-400';
+                let bestGenderColor = 'text-muted-foreground';
                 if (maleData.total >= 10 && femaleData.total >= 10) {
                     if (maleCVR > femaleCVR) {
                         bestGender = 'Male';
-                        bestGenderColor = 'text-blue-400';
+                        bestGenderColor = 'text-secondary';
                     } else if (femaleCVR > maleCVR) {
                         bestGender = 'Female';
-                        bestGenderColor = 'text-pink-400';
+                        bestGenderColor = 'text-primary';
                     } else {
                         bestGender = 'Equal';
-                        bestGenderColor = 'text-gray-400';
+                        bestGenderColor = 'text-muted-foreground';
                     }
                 } else if (maleData.total >= 10) {
                     bestGender = 'Male (only)';
-                    bestGenderColor = 'text-blue-400';
+                    bestGenderColor = 'text-secondary';
                 } else if (femaleData.total >= 10) {
                     bestGender = 'Female (only)';
-                    bestGenderColor = 'text-pink-400';
+                    bestGenderColor = 'text-primary';
                 }
 
-                const maleCVRColor = maleCVR > femaleCVR ? 'text-green-400' : 'text-gray-400';
-                const femaleCVRColor = femaleCVR > maleCVR ? 'text-green-400' : 'text-gray-400';
+                const maleCVRColor = maleCVR > femaleCVR ? 'text-success' : 'text-muted-foreground';
+                const femaleCVRColor = femaleCVR > maleCVR ? 'text-success' : 'text-muted-foreground';
 
                 return `
-                    <tr class="border-b border-gray-800">
+                    <tr class="border-b border-foreground">
                         <td class="py-3">
                             <span class="flex items-center gap-2">
                                 <span class="w-3 h-3 rounded-full" style="background: ${persona.color}"></span>
                                 <span style="color: ${persona.color}" class="font-medium">${persona.name}</span>
                             </span>
                         </td>
-                        <td class="text-right py-3 text-blue-400">${this.formatNumber(maleData.total)}</td>
-                        <td class="text-right py-3 text-pink-400">${this.formatNumber(femaleData.total)}</td>
-                        <td class="text-right py-3 text-gray-400">${this.formatNumber(unknownData.total)}</td>
+                        <td class="text-right py-3 text-secondary">${this.formatNumber(maleData.total)}</td>
+                        <td class="text-right py-3 text-primary">${this.formatNumber(femaleData.total)}</td>
+                        <td class="text-right py-3 text-muted-foreground">${this.formatNumber(unknownData.total)}</td>
                         <td class="text-right py-3 ${maleCVRColor} font-medium">${maleCVR.toFixed(2)}%</td>
                         <td class="text-right py-3 ${femaleCVRColor} font-medium">${femaleCVR.toFixed(2)}%</td>
                         <td class="py-3 ${bestGenderColor} font-medium">${bestGender}</td>
