@@ -580,8 +580,18 @@ class CRMDashboard {
                 const cacheAgeHours = (cacheAge / (1000 * 60 * 60)).toFixed(1);
                 console.log(`Loaded ${data.order_count} orders from Supabase cache (${cacheAgeHours}h old)`);
 
+                // Expand cached flat format to expected nested structure
+                const orders = data.orders.map(order => ({
+                    ...order,
+                    billing: {
+                        email: order.billing_email,
+                        first_name: order.billing_first_name,
+                        last_name: order.billing_last_name
+                    }
+                }));
+
                 return {
-                    orders: data.orders,
+                    orders: orders,
                     lastSyncTime: data.last_sync_time,
                     lastOrderId: data.last_order_id || 0,
                     orderCount: data.order_count,
@@ -620,6 +630,7 @@ class CRMDashboard {
                 line_items: (order.line_items || []).map(item => ({
                     product_id: item.product_id,
                     name: item.name,
+                    sku: item.sku,
                     quantity: item.quantity,
                     total: item.total
                 }))
