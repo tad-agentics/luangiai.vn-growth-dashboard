@@ -934,6 +934,9 @@ class CRMDashboard {
             this.updateSyncSourceUI('full', '(fetching orders...)');
             await this.fetchWooCommerceOrders(forceFullSync);
 
+            // Update sync status to show completion
+            this.updateSyncSourceUI('supabase', `(${this.data.subscribers.length} synced)`);
+
             this.updateDashboard();
 
             // Save to cache for next load
