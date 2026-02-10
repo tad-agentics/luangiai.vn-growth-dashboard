@@ -252,171 +252,211 @@
             </div>
         </div>
 
-        <!-- Tabs -->
-        <div class="flex gap-1 mb-6 bg-muted p-1 rounded-lg w-fit flex-wrap">
-            <button onclick="setTab('overview')" class="tab-btn active px-4 py-2 rounded-md text-sm font-medium" data-tab="overview">
-                Overview
+        <!-- Tabs - 3 Tab Executive Structure -->
+        <div class="flex gap-1 mb-6 bg-muted p-1 rounded-lg w-fit">
+            <button onclick="setTab('summary')" class="tab-btn active px-4 py-2 rounded-md text-sm font-medium" data-tab="summary">
+                📊 Executive Summary
             </button>
-            <button onclick="setTab('growth')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="growth">
-                Growth Analytics
+            <button onclick="setTab('segments')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="segments">
+                🔍 Deep Dive
             </button>
-            <button onclick="setTab('ads')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="ads">
-                <i class="fas fa-ad mr-1"></i>Ads Performance
-            </button>
-            <button onclick="setTab('seo')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="seo">
-                <i class="fas fa-search mr-1"></i>SEO Insights
-            </button>
-            <button onclick="setTab('ai')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="ai">
-                <i class="fas fa-robot mr-1"></i>AI Reports
-            </button>
-            <button onclick="setTab('personas')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="personas">
-                NRU Personas
-            </button>
-            <button onclick="setTab('astrology')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="astrology">
-                ♈ Astrology Insights
+            <button onclick="setTab('revenue')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="revenue">
+                💰 Revenue
             </button>
         </div>
 
-        <!-- ==================== OVERVIEW TAB ==================== -->
-        <div id="tab-overview" class="tab-content space-y-6">
-            <!-- Key Metrics Row -->
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-                <div class="card metric-card primary p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Total Contacts</div>
-                    <div class="text-2xl font-bold text-foreground" id="metricTotal">-</div>
-                    <div class="text-primary text-xs mt-1" id="metricTotalTrend">-</div>
-                </div>
-                <div class="card metric-card success p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Converted</div>
-                    <div class="text-2xl font-bold text-success" id="metricConverted">-</div>
-                    <div class="text-success text-xs mt-1" id="metricCVR">-</div>
-                </div>
-                <div class="card metric-card warning p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Subscribed</div>
-                    <div class="text-2xl font-bold text-warning" id="metricSubscribed">-</div>
-                    <div class="text-muted-foreground text-xs mt-1" id="metricSubscribedPct">-</div>
-                </div>
-                <div class="card metric-card accent p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Pending</div>
-                    <div class="text-2xl font-bold text-accent" id="metricPending">-</div>
-                    <div class="text-muted-foreground text-xs mt-1" id="metricPendingPct">-</div>
-                </div>
-                <div class="card metric-card secondary p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Lists</div>
-                    <div class="text-2xl font-bold text-secondary" id="metricLists">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">Active segments</div>
-                </div>
-                <div class="card metric-card accent p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Tags</div>
-                    <div class="text-2xl font-bold text-accent" id="metricTags">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">For targeting</div>
+        <!-- ==================== EXECUTIVE SUMMARY TAB ==================== -->
+        <div id="tab-summary" class="tab-content space-y-6">
+            <!-- Today's Insights Bar -->
+            <div class="card p-4 border-l-4 border-primary bg-primary/5">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-lightbulb text-primary"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-foreground font-bold text-sm mb-2">🔔 Today's Insights</h3>
+                        <div id="insightsBar" class="space-y-1 text-sm">
+                            <p class="text-muted-foreground">Loading insights...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Charts Row -->
+            <!-- Balanced KPIs - Row 1: Acquisition -->
+            <div>
+                <h3 class="text-muted-foreground text-xs uppercase tracking-wide mb-3">Acquisition Metrics</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="card metric-card primary p-4">
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Total Leads</div>
+                        <div class="text-2xl font-bold text-foreground" id="metricTotal">-</div>
+                        <div class="text-primary text-xs mt-1" id="metricTotalTrend">-</div>
+                    </div>
+                    <div class="card metric-card accent p-4">
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">This Week New</div>
+                        <div class="text-2xl font-bold text-accent" id="metricWeekNew">-</div>
+                        <div class="text-xs mt-1" id="metricWeekTrend">-</div>
+                    </div>
+                    <div class="card metric-card success p-4">
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">CVR %</div>
+                        <div class="text-2xl font-bold text-success" id="metricCVR2">-</div>
+                        <div class="text-success text-xs mt-1">lead → customer</div>
+                    </div>
+                    <div class="card metric-card secondary p-4">
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Top Source</div>
+                        <div class="text-xl font-bold text-secondary truncate" id="metricTopSource">-</div>
+                        <div class="text-muted-foreground text-xs mt-1" id="metricTopSourcePct">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Balanced KPIs - Row 2: Revenue -->
+            <div>
+                <h3 class="text-muted-foreground text-xs uppercase tracking-wide mb-3">Revenue Metrics</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="card metric-card warning p-4 relative">
+                        <div class="absolute top-2 right-2 text-warning text-xs">⭐</div>
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Avg LTV</div>
+                        <div class="text-2xl font-bold text-warning" id="summaryLTV">-</div>
+                        <div class="text-muted-foreground text-xs mt-1">per customer</div>
+                    </div>
+                    <div class="card metric-card success p-4">
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Repeat Rate</div>
+                        <div class="text-2xl font-bold text-success" id="summaryRepeatRate">-</div>
+                        <div class="text-muted-foreground text-xs mt-1">2+ purchases</div>
+                    </div>
+                    <div class="card metric-card primary p-4">
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Time to 1st</div>
+                        <div class="text-2xl font-bold text-primary" id="summaryTimeToFirst">-</div>
+                        <div class="text-muted-foreground text-xs mt-1">days avg</div>
+                    </div>
+                    <div class="card metric-card accent p-4">
+                        <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">AOV</div>
+                        <div class="text-2xl font-bold text-accent" id="summaryAOV">-</div>
+                        <div class="text-muted-foreground text-xs mt-1">avg order value</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Charts -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Status Distribution -->
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Contact Status Distribution</h3>
-                    <div class="h-64">
-                        <canvas id="statusChart"></canvas>
+                    <h3 class="text-foreground font-bold mb-4">Lead Trend (7 Days)</h3>
+                    <div class="h-48">
+                        <canvas id="summaryLeadChart"></canvas>
                     </div>
                 </div>
-
-                <!-- Persona Distribution -->
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">NRU Persona Distribution</h3>
-                    <div class="h-64">
-                        <canvas id="personaChart"></canvas>
+                    <h3 class="text-foreground font-bold mb-4">Revenue Split</h3>
+                    <div class="h-48">
+                        <canvas id="summaryRevenueChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Data Quality Insights -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Data Quality Insights</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="dataQualityGrid">
-                    <!-- Populated dynamically -->
+            <!-- Recommended Actions -->
+            <div class="card p-6 border-l-4 border-success">
+                <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
+                    <i class="fas fa-bullseye text-success"></i>
+                    Recommended Actions
+                </h3>
+                <div id="actionsBar" class="space-y-3">
+                    <p class="text-muted-foreground text-sm">Loading recommendations...</p>
                 </div>
             </div>
 
-            <!-- Top Lists & Tags -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Top Lists</h3>
-                    <div id="topListsContainer" class="space-y-3">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Top Tags</h3>
-                    <div id="topTagsContainer" class="space-y-3">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==================== GROWTH ANALYTICS TAB ==================== -->
-        <div id="tab-growth" class="tab-content space-y-6 hidden">
-            <!-- Key Growth Metrics -->
+            <!-- Quick Stats Row -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Total Leads</div>
-                    <div class="text-2xl font-bold text-secondary" id="metricLeads">-</div>
-                    <div class="text-muted-foreground text-xs mt-1" id="metricLeadsPct">-</div>
+                <div class="card p-4 text-center">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Best Persona</div>
+                    <div class="text-lg font-bold text-foreground" id="summaryBestPersona">-</div>
+                    <div class="text-success text-xs" id="summaryBestPersonaCVR">-</div>
                 </div>
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Customers</div>
-                    <div class="text-2xl font-bold text-success" id="metricCustomers">-</div>
-                    <div class="text-success text-xs mt-1" id="metricCustomerCVR">-</div>
+                <div class="card p-4 text-center">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">VIP Customers</div>
+                    <div class="text-lg font-bold text-foreground" id="summaryVIPCount">-</div>
+                    <div class="text-muted-foreground text-xs">4+ purchases</div>
                 </div>
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Avg Time to Convert</div>
-                    <div class="text-2xl font-bold text-primary" id="metricAvgTTC">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">days</div>
+                <div class="card p-4 text-center">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Active Today</div>
+                    <div class="text-lg font-bold text-foreground" id="summaryActiveToday">-</div>
+                    <div class="text-muted-foreground text-xs">last 24h</div>
                 </div>
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">This Week New</div>
-                    <div class="text-2xl font-bold text-accent" id="metricWeekNew">-</div>
-                    <div class="text-xs mt-1" id="metricWeekTrend">-</div>
+                <div class="card p-4 text-center">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Data Quality</div>
+                    <div class="text-lg font-bold text-foreground" id="summaryDataQuality">-</div>
+                    <div class="text-muted-foreground text-xs">complete profiles</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== DEEP DIVE (SEGMENTS) TAB ==================== -->
+        <div id="tab-segments" class="tab-content space-y-6 hidden">
+            <!-- Segment Filters -->
+            <div class="card p-4">
+                <div class="flex flex-wrap gap-3 items-center">
+                    <span class="text-muted-foreground text-sm font-medium">Filter by:</span>
+                    <select id="filterPersona" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground focus:border-primary outline-none">
+                        <option value="">All Personas</option>
+                        <option value="gen_z">Gen Z Seekers</option>
+                        <option value="career">Career Seekers</option>
+                        <option value="desktop">Desktop Pros</option>
+                        <option value="life">Life Navigators</option>
+                        <option value="established">Established</option>
+                        <option value="mystery">Mystery</option>
+                    </select>
+                    <select id="filterGender" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground focus:border-primary outline-none">
+                        <option value="">All Genders</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="unknown">Unknown</option>
+                    </select>
+                    <select id="filterSource" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground focus:border-primary outline-none">
+                        <option value="">All Sources</option>
+                    </select>
+                    <button onclick="resetFilters()" class="px-3 py-1.5 bg-muted hover:bg-muted/80 rounded text-sm text-muted-foreground">
+                        <i class="fas fa-times mr-1"></i>Reset
+                    </button>
                 </div>
             </div>
 
-            <!-- Acquisition Sources -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Acquisition Sources</h3>
-                    <div class="h-64">
-                        <canvas id="sourceChart"></canvas>
+            <!-- Persona Performance Table -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <div>
+                        <h3 class="text-foreground font-bold">Persona Performance</h3>
+                        <p class="text-muted-foreground text-sm mt-1">Segmented by Age (DOB) + Device Type</p>
+                    </div>
+                    <div class="mt-2 md:mt-0 text-xs text-muted-foreground">
+                        <span id="dataCompleteness">-</span> contacts with complete data
                     </div>
                 </div>
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Source Performance</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                    <th class="text-left py-2">Source</th>
-                                    <th class="text-right py-2">Leads</th>
-                                    <th class="text-right py-2">Customers</th>
-                                    <th class="text-right py-2">CVR</th>
-                                </tr>
-                            </thead>
-                            <tbody id="sourceTable">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-muted-foreground text-xs border-b border-foreground">
+                                <th class="text-left py-3">Persona</th>
+                                <th class="text-right py-3">Count</th>
+                                <th class="text-right py-3">%</th>
+                                <th class="py-3 w-1/6">Distribution</th>
+                                <th class="text-right py-3">CVR</th>
+                                <th class="text-right py-3">Avg LTV</th>
+                                <th class="text-left py-3">Top Source</th>
+                                <th class="text-center py-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personaTable">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <!-- Cohort Analysis -->
+            <!-- Weekly Cohort Analysis (Limited to 4 weeks) -->
             <div class="card p-6">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                     <div>
                         <h3 class="text-foreground font-bold">Weekly Cohort Analysis</h3>
-                        <p class="text-muted-foreground text-sm mt-1">Registration week vs conversion rate</p>
+                        <p class="text-muted-foreground text-sm mt-1">Last 4 weeks registration vs conversion</p>
                     </div>
                 </div>
                 <div class="overflow-x-auto">
@@ -428,832 +468,272 @@
                                 <th class="text-right py-2">Converted</th>
                                 <th class="text-right py-2">CVR</th>
                                 <th class="py-2 w-1/4">Conversion Bar</th>
-                                <th class="text-right py-2">Avg Days to Convert</th>
+                                <th class="text-right py-2">Avg Days</th>
                             </tr>
                         </thead>
                         <tbody id="cohortTable">
-                            <!-- Populated dynamically -->
+                            <!-- Populated dynamically - limited to 4 weeks -->
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Conversion Timeline & Source by Persona -->
+            <!-- Source Performance -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Conversion Timeline</h3>
-                    <p class="text-muted-foreground text-xs mb-4">Distribution of days from lead to customer</p>
-                    <div class="h-48">
-                        <canvas id="conversionTimelineChart"></canvas>
+                    <h3 class="text-foreground font-bold mb-4">Acquisition Sources</h3>
+                    <div class="h-64">
+                        <canvas id="sourceChart"></canvas>
                     </div>
                 </div>
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Source by Persona</h3>
-                    <p class="text-muted-foreground text-xs mb-4">Which channels bring which personas</p>
-                    <div id="sourceByPersona" class="space-y-3">
-                        <!-- Populated dynamically -->
+                    <h3 class="text-foreground font-bold mb-4">Source Performance (Top 5)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-muted-foreground text-xs border-b border-foreground">
+                                    <th class="text-left py-2">Source</th>
+                                    <th class="text-right py-2">Leads</th>
+                                    <th class="text-right py-2">Customers</th>
+                                    <th class="text-right py-2">CVR</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sourceTable">
+                                <!-- Populated dynamically - limited to top 5 -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <!-- Daily Registrations Chart -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Daily New Registrations (Last 30 Days)</h3>
-                <div class="h-64">
-                    <canvas id="dailyRegistrationsChart"></canvas>
+            <!-- Demographic Breakdown (Collapsible Sections) -->
+            <div class="space-y-4">
+                <!-- Gender Distribution (Collapsible) -->
+                <div class="card overflow-hidden">
+                    <button onclick="toggleSection('gender')" class="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                        <h3 class="text-foreground font-bold flex items-center gap-2">
+                            <i class="fas fa-venus-mars text-secondary"></i>
+                            Gender Distribution
+                        </h3>
+                        <i class="fas fa-chevron-down text-muted-foreground transition-transform" id="gender-icon"></i>
+                    </button>
+                    <div id="gender-content" class="hidden border-t border-foreground/10">
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="h-64">
+                                    <canvas id="genderChart"></canvas>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="text-muted-foreground text-xs border-b border-foreground">
+                                                <th class="text-left py-3">Persona</th>
+                                                <th class="text-right py-3">Male</th>
+                                                <th class="text-right py-3">Female</th>
+                                                <th class="text-right py-3">Unknown</th>
+                                                <th class="text-left py-3">Best Gender</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="genderPersonaTable">
+                                            <!-- Populated dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zodiac Analysis (Collapsible) -->
+                <div class="card overflow-hidden">
+                    <button onclick="toggleSection('zodiac')" class="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                        <h3 class="text-foreground font-bold flex items-center gap-2">
+                            ♈ Zodiac Analysis (Con Giáp)
+                        </h3>
+                        <i class="fas fa-chevron-down text-muted-foreground transition-transform" id="zodiac-icon"></i>
+                    </button>
+                    <div id="zodiac-content" class="hidden border-t border-foreground/10">
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div class="h-64">
+                                    <canvas id="zodiacChart"></canvas>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="card p-4 text-center">
+                                        <div class="text-muted-foreground text-xs uppercase mb-1">With DOB</div>
+                                        <div class="text-xl font-bold text-foreground" id="astroWithDOB">-</div>
+                                        <div class="text-muted-foreground text-xs" id="astroWithDOBPct">-</div>
+                                    </div>
+                                    <div class="card p-4 text-center">
+                                        <div class="text-muted-foreground text-xs uppercase mb-1">Top Zodiac</div>
+                                        <div class="text-xl font-bold text-primary" id="astroTopZodiac">-</div>
+                                        <div class="text-muted-foreground text-xs" id="astroTopZodiacPct">-</div>
+                                    </div>
+                                    <div class="card p-4 text-center">
+                                        <div class="text-muted-foreground text-xs uppercase mb-1">Best CVR Sign</div>
+                                        <div class="text-xl font-bold text-success" id="astroBestCVR">-</div>
+                                        <div class="text-muted-foreground text-xs" id="astroBestCVRPct">-</div>
+                                    </div>
+                                    <div class="card p-4 text-center">
+                                        <div class="text-muted-foreground text-xs uppercase mb-1">With Birthtime</div>
+                                        <div class="text-xl font-bold text-accent" id="astroWithBirthtime">-</div>
+                                        <div class="text-muted-foreground text-xs" id="astroWithBirthtimePct">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="text-muted-foreground text-xs border-b border-foreground">
+                                            <th class="text-left py-3">Con Giáp</th>
+                                            <th class="text-right py-3">Count</th>
+                                            <th class="text-right py-3">%</th>
+                                            <th class="text-right py-3">CVR</th>
+                                            <th class="text-left py-3">Ngũ Hành</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="zodiacTable">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Age Distribution (Collapsible) -->
+                <div class="card overflow-hidden">
+                    <button onclick="toggleSection('age')" class="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                        <h3 class="text-foreground font-bold flex items-center gap-2">
+                            <i class="fas fa-birthday-cake text-accent"></i>
+                            Age Distribution
+                        </h3>
+                        <i class="fas fa-chevron-down text-muted-foreground transition-transform" id="age-icon"></i>
+                    </button>
+                    <div id="age-content" class="hidden border-t border-foreground/10">
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="h-64">
+                                    <canvas id="ageChart"></canvas>
+                                </div>
+                                <div class="h-64">
+                                    <canvas id="deviceChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== REVENUE TAB ==================== -->
+        <div id="tab-revenue" class="tab-content space-y-6 hidden">
+            <!-- Revenue Metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="card metric-card warning p-4 relative">
+                    <div class="absolute top-2 right-2 text-warning text-xs">⭐ North Star</div>
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Avg LTV</div>
+                    <div class="text-2xl font-bold text-warning" id="wcAvgLTV">-</div>
+                    <div class="text-muted-foreground text-xs mt-1">VND per customer</div>
+                </div>
+                <div class="card metric-card success p-4">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Repeat Rate</div>
+                    <div class="text-2xl font-bold text-success" id="revRepeatRate">-</div>
+                    <div class="text-muted-foreground text-xs mt-1">2+ purchases</div>
+                </div>
+                <div class="card metric-card primary p-4">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Time to 1st</div>
+                    <div class="text-2xl font-bold text-primary" id="wcTimeToFirst">-</div>
+                    <div class="text-muted-foreground text-xs mt-1">days avg</div>
+                </div>
+                <div class="card metric-card secondary p-4">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">1st → 2nd</div>
+                    <div class="text-2xl font-bold text-secondary" id="wcTimeFirstToSecond">-</div>
+                    <div class="text-muted-foreground text-xs mt-1">days avg</div>
                 </div>
             </div>
 
-            <!-- Activity & Engagement -->
+            <!-- Purchase Funnel -->
             <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Engagement Status</h3>
-                <p class="text-muted-foreground text-xs mb-4">Based on last activity date</p>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="engagementGrid">
+                <h3 class="text-foreground font-bold mb-4">Purchase Funnel</h3>
+                <div class="grid grid-cols-5 gap-2 text-center" id="wcPurchaseFunnel">
                     <!-- Populated dynamically -->
                 </div>
             </div>
-        </div>
 
-        <!-- ==================== ADS PERFORMANCE TAB ==================== -->
-        <div id="tab-ads" class="tab-content space-y-6 hidden">
-            <!-- Platform Connection Status -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="adsConnectionStatus">
-                <!-- Google Ads -->
-                <div class="card p-4 border-l-4 border-blue-500">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                                <i class="fab fa-google text-secondary text-lg"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-foreground">Google Ads</div>
-                                <div class="text-xs text-muted-foreground" id="googleAdsStatus">Not connected</div>
-                            </div>
-                        </div>
-                        <button onclick="connectGoogleAds()" class="px-3 py-1.5 bg-primary hover:bg-primary/90 rounded text-xs font-medium transition-colors" id="googleAdsBtn">
-                            Connect
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Meta Ads -->
-                <div class="card p-4 border-l-4 border-indigo-500">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-                                <i class="fab fa-meta text-primary text-lg"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-foreground">Meta Ads</div>
-                                <div class="text-xs text-muted-foreground" id="metaAdsStatus">Not connected</div>
-                            </div>
-                        </div>
-                        <button onclick="connectMetaAds()" class="px-3 py-1.5 bg-primary hover:bg-primary/90 rounded text-xs font-medium transition-colors" id="metaAdsBtn">
-                            Connect
-                        </button>
-                    </div>
-                </div>
-
-                <!-- TikTok Ads -->
-                <div class="card p-4 border-l-4 border-pink-500">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center">
-                                <i class="fab fa-tiktok text-pink-400 text-lg"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-foreground">TikTok Ads</div>
-                                <div class="text-xs text-muted-foreground" id="tiktokAdsStatus">Not connected</div>
-                            </div>
-                        </div>
-                        <button onclick="connectTikTokAds()" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 rounded text-xs font-medium transition-colors" id="tiktokAdsBtn">
-                            Connect
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Aggregated Ads Metrics -->
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div class="card metric-card blue p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Total Spend</div>
-                    <div class="text-2xl font-bold text-foreground" id="adsTotalSpend">-</div>
-                    <div class="text-muted-foreground text-xs mt-1" id="adsTotalSpendPeriod">Last 30 days</div>
-                </div>
-                <div class="card metric-card purple p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Impressions</div>
-                    <div class="text-2xl font-bold text-primary" id="adsTotalImpressions">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">All platforms</div>
-                </div>
-                <div class="card metric-card cyan p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Clicks</div>
-                    <div class="text-2xl font-bold text-accent" id="adsTotalClicks">-</div>
-                    <div class="text-muted-foreground text-xs mt-1" id="adsTotalCTR">CTR: -</div>
-                </div>
-                <div class="card metric-card green p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Conversions</div>
-                    <div class="text-2xl font-bold text-success" id="adsTotalConversions">-</div>
-                    <div class="text-muted-foreground text-xs mt-1" id="adsTotalCVR">CVR: -</div>
-                </div>
-                <div class="card metric-card orange p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Avg CPA</div>
-                    <div class="text-2xl font-bold text-warning" id="adsAvgCPA">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">Per conversion</div>
-                </div>
-            </div>
-
-            <!-- Platform Performance Comparison -->
+            <!-- Revenue Charts -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Spend by Platform</h3>
+                    <h3 class="text-foreground font-bold mb-4">Revenue: New vs Returning</h3>
                     <div class="h-64">
-                        <canvas id="adsSpendChart"></canvas>
+                        <canvas id="wcRevenueChart"></canvas>
                     </div>
                 </div>
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Conversions by Platform</h3>
+                    <h3 class="text-foreground font-bold mb-4">LTV Distribution</h3>
                     <div class="h-64">
-                        <canvas id="adsConversionsChart"></canvas>
+                        <canvas id="wcLTVChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Platform Performance Table -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Platform Performance Summary</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Platform</th>
-                                <th class="text-right py-3">Spend</th>
-                                <th class="text-right py-3">Impressions</th>
-                                <th class="text-right py-3">Clicks</th>
-                                <th class="text-right py-3">CTR</th>
-                                <th class="text-right py-3">Conversions</th>
-                                <th class="text-right py-3">CPA</th>
-                                <th class="text-right py-3">ROAS</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adsPlatformTable">
-                            <tr class="border-b border-gray-800">
-                                <td colspan="8" class="py-4 text-center text-muted-foreground">
-                                    Connect ad platforms to view performance data
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <!-- AOV Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="card p-4 text-center">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">AOV 1st Purchase</div>
+                    <div class="text-xl font-bold text-foreground" id="revAOV1st">-</div>
+                </div>
+                <div class="card p-4 text-center">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">AOV 2nd Purchase</div>
+                    <div class="text-xl font-bold text-success" id="wcAOV2nd">-</div>
+                </div>
+                <div class="card p-4 text-center">
+                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">AOV 3rd+ Purchase</div>
+                    <div class="text-xl font-bold text-primary" id="revAOV3rd">-</div>
                 </div>
             </div>
 
-            <!-- Campaign Performance -->
-            <div class="card p-6">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                    <h3 class="text-foreground font-bold">Top Campaigns</h3>
-                    <div class="flex gap-2 mt-2 md:mt-0">
-                        <select id="adsCampaignFilter" class="px-3 py-1.5 bg-muted rounded text-xs border border-foreground focus:border-indigo-500 outline-none">
-                            <option value="all">All Platforms</option>
-                            <option value="google">Google Ads</option>
-                            <option value="meta">Meta Ads</option>
-                            <option value="tiktok">TikTok Ads</option>
-                        </select>
-                        <select id="adsCampaignSort" class="px-3 py-1.5 bg-muted rounded text-xs border border-foreground focus:border-indigo-500 outline-none">
-                            <option value="spend">By Spend</option>
-                            <option value="conversions">By Conversions</option>
-                            <option value="cpa">By CPA</option>
-                            <option value="roas">By ROAS</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Campaign</th>
-                                <th class="text-left py-3">Platform</th>
-                                <th class="text-right py-3">Spend</th>
-                                <th class="text-right py-3">Impressions</th>
-                                <th class="text-right py-3">Clicks</th>
-                                <th class="text-right py-3">CTR</th>
-                                <th class="text-right py-3">Conversions</th>
-                                <th class="text-right py-3">CPA</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adsCampaignTable">
-                            <tr class="border-b border-gray-800">
-                                <td colspan="8" class="py-4 text-center text-muted-foreground">
-                                    No campaign data available
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Daily Spend Trend -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Daily Spend Trend (Last 30 Days)</h3>
-                <div class="h-64">
-                    <canvas id="adsDailySpendChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Persona Attribution -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Ad Performance by Persona</h3>
-                <p class="text-muted-foreground text-sm mb-4">Attribution based on UTM tracking and CRM conversion data</p>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Persona</th>
-                                <th class="text-right py-3">Attributed Spend</th>
-                                <th class="text-right py-3">Conversions</th>
-                                <th class="text-right py-3">CPA</th>
-                                <th class="text-left py-3">Best Platform</th>
-                                <th class="text-left py-3">Best Campaign</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adsPersonaTable">
-                            <tr class="border-b border-gray-800">
-                                <td colspan="6" class="py-4 text-center text-muted-foreground">
-                                    Connect ad platforms and enable attribution tracking
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==================== SEO INSIGHTS TAB ==================== -->
-        <div id="tab-seo" class="tab-content space-y-6 hidden">
-            <!-- Platform Connection Status -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="seoConnectionStatus">
-                <!-- Google Analytics 4 -->
-                <div class="card p-4 border-l-4 border-orange-500">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-chart-line text-warning text-lg"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-foreground">Google Analytics 4</div>
-                                <div class="text-xs text-muted-foreground" id="ga4Status">Not connected</div>
-                            </div>
-                        </div>
-                        <button onclick="connectGA4()" class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 rounded text-xs font-medium transition-colors" id="ga4Btn">
-                            Connect
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Google Search Console -->
-                <div class="card p-4 border-l-4 border-green-500">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-search text-success text-lg"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-foreground">Search Console</div>
-                                <div class="text-xs text-muted-foreground" id="gscStatus">Not connected</div>
-                            </div>
-                        </div>
-                        <button onclick="connectGSC()" class="px-3 py-1.5 bg-success hover:bg-success/90 rounded text-xs font-medium transition-colors" id="gscBtn">
-                            Connect
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SEO Overview Metrics -->
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-                <div class="card metric-card orange p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Sessions</div>
-                    <div class="text-2xl font-bold text-warning" id="seoSessions">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">GA4 Last 30 days</div>
-                </div>
-                <div class="card metric-card blue p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Users</div>
-                    <div class="text-2xl font-bold text-secondary" id="seoUsers">-</div>
-                    <div class="text-muted-foreground text-xs mt-1" id="seoNewUsers">New: -</div>
-                </div>
-                <div class="card metric-card green p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Organic Clicks</div>
-                    <div class="text-2xl font-bold text-success" id="seoClicks">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">GSC Last 28 days</div>
-                </div>
-                <div class="card metric-card purple p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Impressions</div>
-                    <div class="text-2xl font-bold text-primary" id="seoImpressions">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">Search results</div>
-                </div>
-                <div class="card metric-card cyan p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Avg CTR</div>
-                    <div class="text-2xl font-bold text-accent" id="seoCTR">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">Click-through rate</div>
-                </div>
-                <div class="card metric-card blue p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Avg Position</div>
-                    <div class="text-2xl font-bold text-secondary" id="seoPosition">-</div>
-                    <div class="text-muted-foreground text-xs mt-1">Search ranking</div>
-                </div>
-            </div>
-
-            <!-- Charts Row -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- SKU Breakdowns -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Traffic by Channel</h3>
-                    <div class="h-64">
-                        <canvas id="seoChannelChart"></canvas>
+                    <h3 class="text-foreground font-bold mb-4">1st Purchase Products</h3>
+                    <div id="wcSKU1st" class="space-y-2">
+                        <p class="text-muted-foreground text-sm">Loading...</p>
                     </div>
                 </div>
                 <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Search Performance Trend</h3>
-                    <div class="h-64">
-                        <canvas id="seoTrendChart"></canvas>
+                    <h3 class="text-foreground font-bold mb-4">2nd Purchase Products</h3>
+                    <div id="wcSKU2nd" class="space-y-2">
+                        <p class="text-muted-foreground text-sm">Loading...</p>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-foreground font-bold mb-4">3rd Purchase Products</h3>
+                    <div id="wcSKU3rd" class="space-y-2">
+                        <p class="text-muted-foreground text-sm">Loading...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Top Queries Table -->
+            <!-- Top Customers Table -->
             <div class="card p-6">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                    <h3 class="text-foreground font-bold">Top Search Queries</h3>
-                    <div class="text-xs text-muted-foreground">Last 28 days from Google Search Console</div>
-                </div>
+                <h3 class="text-foreground font-bold mb-4">Top Customers by LTV</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Query</th>
-                                <th class="text-right py-3">Clicks</th>
-                                <th class="text-right py-3">Impressions</th>
-                                <th class="text-right py-3">CTR</th>
-                                <th class="text-right py-3">Position</th>
+                                <th class="text-left py-2">Customer</th>
+                                <th class="text-right py-2">Orders</th>
+                                <th class="text-right py-2">LTV</th>
+                                <th class="text-right py-2">AOV</th>
+                                <th class="text-right py-2">Days to 1st</th>
+                                <th class="text-center py-2">Status</th>
                             </tr>
                         </thead>
-                        <tbody id="seoQueriesTable">
-                            <tr class="border-b border-gray-800">
-                                <td colspan="5" class="py-4 text-center text-muted-foreground">
-                                    Connect Google Search Console to view query data
-                                </td>
-                            </tr>
+                        <tbody id="wcTopCustomersTable">
+                            <tr><td colspan="6" class="text-center py-4 text-muted-foreground">Loading...</td></tr>
                         </tbody>
                     </table>
-                </div>
-            </div>
-
-            <!-- Top Pages Table -->
-            <div class="card p-6">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                    <h3 class="text-foreground font-bold">Top Landing Pages</h3>
-                    <div class="text-xs text-muted-foreground">By organic search traffic</div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Page</th>
-                                <th class="text-right py-3">Clicks</th>
-                                <th class="text-right py-3">Impressions</th>
-                                <th class="text-right py-3">CTR</th>
-                                <th class="text-right py-3">Position</th>
-                            </tr>
-                        </thead>
-                        <tbody id="seoPagesTable">
-                            <tr class="border-b border-gray-800">
-                                <td colspan="5" class="py-4 text-center text-muted-foreground">
-                                    Connect Google Search Console to view page data
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Keyword Opportunities -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-2">Quick Win Opportunities</h3>
-                <p class="text-muted-foreground text-sm mb-4">Keywords ranking 5-20 with high impressions - optimize for top 3</p>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Query</th>
-                                <th class="text-right py-3">Current Position</th>
-                                <th class="text-right py-3">Impressions</th>
-                                <th class="text-right py-3">Current Clicks</th>
-                                <th class="text-right py-3">Potential Clicks</th>
-                                <th class="text-left py-3">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="seoOpportunitiesTable">
-                            <tr class="border-b border-gray-800">
-                                <td colspan="6" class="py-4 text-center text-muted-foreground">
-                                    Connect Search Console to find keyword opportunities
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Device Breakdown -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Traffic by Device (GA4)</h3>
-                    <div class="h-64">
-                        <canvas id="seoDeviceChart"></canvas>
-                    </div>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Search by Device (GSC)</h3>
-                    <div class="h-64">
-                        <canvas id="seoSearchDeviceChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Traffic Sources -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Top Traffic Sources</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Source / Medium</th>
-                                <th class="text-right py-3">Sessions</th>
-                                <th class="text-right py-3">Users</th>
-                                <th class="text-right py-3">Conversions</th>
-                                <th class="text-right py-3">CVR</th>
-                            </tr>
-                        </thead>
-                        <tbody id="seoSourcesTable">
-                            <tr class="border-b border-gray-800">
-                                <td colspan="5" class="py-4 text-center text-muted-foreground">
-                                    Connect Google Analytics 4 to view source data
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==================== AI REPORTS TAB ==================== -->
-        <div id="tab-ai" class="tab-content space-y-6 hidden">
-            <!-- Report Generation Controls -->
-            <div class="card p-6">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                    <div>
-                        <h3 class="text-foreground font-bold">AI-Powered Reports</h3>
-                        <p class="text-muted-foreground text-sm mt-1">Generate intelligent analysis and recommendations</p>
-                    </div>
-                    <div class="flex gap-2 mt-2 md:mt-0">
-                        <select id="aiReportType" class="px-3 py-2 bg-muted rounded text-sm border border-foreground focus:border-indigo-500 outline-none">
-                            <option value="daily_strategy">Daily Strategy</option>
-                            <option value="weekly_summary">Weekly Summary</option>
-                            <option value="channel_analysis">Channel Analysis</option>
-                            <option value="seo_audit">SEO Audit</option>
-                        </select>
-                        <button onclick="generateAIReport()" class="px-4 py-2 bg-primary hover:bg-primary/90 rounded text-sm font-medium transition-colors" id="generateReportBtn">
-                            <i class="fas fa-magic mr-2"></i>Generate Report
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Report Status -->
-                <div id="aiReportStatus" class="hidden">
-                    <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <span>Generating report...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Latest Reports Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Daily Strategy Report -->
-                <div class="card p-6" id="dailyStrategyReport">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-foreground font-bold flex items-center gap-2">
-                            <i class="fas fa-calendar-day text-primary"></i>
-                            Daily Strategy
-                        </h3>
-                        <span class="text-xs text-muted-foreground" id="dailyStrategyDate">-</span>
-                    </div>
-                    <div id="dailyStrategyContent" class="space-y-4">
-                        <p class="text-muted-foreground text-sm">No report generated yet. Click "Generate Report" to create one.</p>
-                    </div>
-                </div>
-
-                <!-- Weekly Summary Report -->
-                <div class="card p-6" id="weeklySummaryReport">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-foreground font-bold flex items-center gap-2">
-                            <i class="fas fa-calendar-week text-success"></i>
-                            Weekly Summary
-                        </h3>
-                        <span class="text-xs text-muted-foreground" id="weeklySummaryDate">-</span>
-                    </div>
-                    <div id="weeklySummaryContent" class="space-y-4">
-                        <p class="text-muted-foreground text-sm">No report generated yet.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Channel Analysis Report -->
-            <div class="card p-6" id="channelAnalysisReport">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-foreground font-bold flex items-center gap-2">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Channel Analysis
-                    </h3>
-                    <span class="text-xs text-muted-foreground" id="channelAnalysisDate">-</span>
-                </div>
-                <div id="channelAnalysisContent">
-                    <p class="text-muted-foreground text-sm">No report generated yet.</p>
-                </div>
-            </div>
-
-            <!-- Opportunities & Risks -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Opportunities -->
-                <div class="card p-6 border-l-4 border-green-500">
-                    <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
-                        <i class="fas fa-lightbulb text-success"></i>
-                        Opportunities
-                    </h3>
-                    <div id="aiOpportunities" class="space-y-3">
-                        <p class="text-muted-foreground text-sm">Generate a report to see opportunities.</p>
-                    </div>
-                </div>
-
-                <!-- Risks -->
-                <div class="card p-6 border-l-4 border-red-500">
-                    <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
-                        <i class="fas fa-exclamation-triangle text-danger"></i>
-                        Risks & Warnings
-                    </h3>
-                    <div id="aiRisks" class="space-y-3">
-                        <p class="text-muted-foreground text-sm">Generate a report to see risks.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Items -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
-                    <i class="fas fa-tasks text-accent"></i>
-                    Recommended Actions
-                </h3>
-                <div id="aiActions" class="space-y-2">
-                    <p class="text-muted-foreground text-sm">Generate a report to see recommended actions.</p>
-                </div>
-            </div>
-
-            <!-- AI Memory -->
-            <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-foreground font-bold flex items-center gap-2">
-                        <i class="fas fa-brain text-pink-400"></i>
-                        AI Memory
-                    </h3>
-                    <span class="text-xs text-muted-foreground">Recent insights and decisions</span>
-                </div>
-                <div id="aiMemoryList" class="space-y-3">
-                    <p class="text-muted-foreground text-sm">No memories saved yet. Use Claude with MCP to save insights.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==================== NRU PERSONAS TAB ==================== -->
-        <div id="tab-personas" class="tab-content space-y-6 hidden">
-            <!-- Persona Summary -->
-            <div class="card p-6">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                    <div>
-                        <h3 class="text-foreground font-bold">NRU Persona Distribution</h3>
-                        <p class="text-muted-foreground text-sm mt-1">Segmented by Age (DOB) + Device Type</p>
-                    </div>
-                    <div class="mt-2 md:mt-0 text-xs text-muted-foreground">
-                        <span id="dataCompleteness">-</span> contacts with complete data
-                    </div>
-                </div>
-
-                <!-- Categorization Rules Legend -->
-                <div class="bg-muted rounded-lg p-4 mb-4">
-                    <div class="text-xs text-muted-foreground mb-2 font-medium">Categorization Rules:</div>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
-                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-orange-500"></span> Gen Z: 18-24</span>
-                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Career: 25-34 + Mobile</span>
-                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-purple-500"></span> Desktop: 25-44 + Desktop</span>
-                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-cyan-500"></span> Life: 35-44 + Mobile</span>
-                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-green-500"></span> Established: 45+</span>
-                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-muted-foreground"></span> Mystery: Unknown</span>
-                    </div>
-                </div>
-
-                <!-- Persona Overview Table -->
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Persona</th>
-                                <th class="text-right py-3">Count</th>
-                                <th class="text-right py-3">%</th>
-                                <th class="py-3 w-1/5">Distribution</th>
-                                <th class="text-right py-3">Converted</th>
-                                <th class="text-right py-3">CVR</th>
-                                <th class="text-center py-3">Priority</th>
-                            </tr>
-                        </thead>
-                        <tbody id="personaTable">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-                <p class="text-muted-foreground text-xs mt-2">* CVR based on tags: paid, purchased, customer, buyer, converted, order, subscription, premium, pro, vip</p>
-            </div>
-
-            <!-- Persona Cards Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="personaCards">
-                <!-- Populated dynamically -->
-            </div>
-
-            <!-- Persona Growth Chart -->
-            <div class="card p-6">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                    <div>
-                        <h3 class="text-foreground font-bold">Persona Growth Over Time</h3>
-                        <p class="text-muted-foreground text-sm mt-1">Daily contact count by persona (last 30 days)</p>
-                    </div>
-                    <div class="flex gap-2 mt-2 md:mt-0">
-                        <button onclick="setGrowthPeriod(7)" class="growth-period-btn px-3 py-1 text-xs rounded bg-muted text-foreground hover:bg-muted/80" data-days="7">7 days</button>
-                        <button onclick="setGrowthPeriod(14)" class="growth-period-btn px-3 py-1 text-xs rounded bg-muted text-foreground hover:bg-muted/80" data-days="14">14 days</button>
-                        <button onclick="setGrowthPeriod(30)" class="growth-period-btn active px-3 py-1 text-xs rounded bg-primary text-white" data-days="30">30 days</button>
-                    </div>
-                </div>
-                <div class="h-80">
-                    <canvas id="personaGrowthChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Individual Persona Growth Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="personaGrowthCards">
-                <!-- Populated dynamically -->
-            </div>
-
-            <!-- Age & Device Breakdown -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Age Distribution</h3>
-                    <div class="h-64">
-                        <canvas id="ageChart"></canvas>
-                    </div>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Device Distribution</h3>
-                    <div class="h-64">
-                        <canvas id="deviceChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Targeting Recommendations -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Targeting Recommendations</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Persona</th>
-                                <th class="text-left py-3">Best Channel</th>
-                                <th class="text-left py-3">Top Source %</th>
-                                <th class="text-left py-3">CVR vs Avg</th>
-                                <th class="text-left py-3">Nurture Strategy</th>
-                                <th class="text-left py-3">Sample</th>
-                            </tr>
-                        </thead>
-                        <tbody id="targetingTable">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ==================== ASTROLOGY INSIGHTS TAB ==================== -->
-        <div id="tab-astrology" class="tab-content space-y-6 hidden">
-            <!-- Summary Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">With DOB Data</div>
-                    <div class="text-2xl font-bold text-foreground" id="astroWithDOB">-</div>
-                    <div class="text-muted-foreground text-xs" id="astroWithDOBPct">-</div>
-                </div>
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">With Birthtime</div>
-                    <div class="text-2xl font-bold text-accent" id="astroWithBirthtime">-</div>
-                    <div class="text-muted-foreground text-xs" id="astroWithBirthtimePct">-</div>
-                </div>
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Top Zodiac</div>
-                    <div class="text-2xl font-bold text-primary" id="astroTopZodiac">-</div>
-                    <div class="text-muted-foreground text-xs" id="astroTopZodiacPct">-</div>
-                </div>
-                <div class="card p-4">
-                    <div class="text-muted-foreground text-xs uppercase tracking-wide mb-1">Best Converting Sign</div>
-                    <div class="text-2xl font-bold text-success" id="astroBestCVR">-</div>
-                    <div class="text-muted-foreground text-xs" id="astroBestCVRPct">-</div>
-                </div>
-            </div>
-
-            <!-- Charts Row -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Zodiac Distribution -->
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Zodiac Sign Distribution</h3>
-                    <div class="h-80">
-                        <canvas id="zodiacChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Gender Distribution -->
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Gender Distribution</h3>
-                    <div class="h-80">
-                        <canvas id="genderChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Zodiac Performance Table -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">12 Con Giáp Performance</h3>
-                <p class="text-muted-foreground text-sm mb-4">Conversion rates and distribution by Vietnamese zodiac (Tử Vi)</p>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Con Giáp</th>
-                                <th class="text-right py-3">Count</th>
-                                <th class="text-right py-3">%</th>
-                                <th class="text-right py-3">Converted</th>
-                                <th class="text-right py-3">CVR</th>
-                                <th class="text-left py-3">Ngũ Hành</th>
-                                <th class="text-left py-3">Top Gender</th>
-                            </tr>
-                        </thead>
-                        <tbody id="zodiacTable">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Gender x Persona Analysis -->
-            <div class="card p-6">
-                <h3 class="text-foreground font-bold mb-4">Gender × Persona Analysis</h3>
-                <p class="text-muted-foreground text-sm mb-4">How gender affects persona distribution and conversion</p>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-muted-foreground text-xs border-b border-foreground">
-                                <th class="text-left py-3">Persona</th>
-                                <th class="text-right py-3">Male</th>
-                                <th class="text-right py-3">Female</th>
-                                <th class="text-right py-3">Unknown</th>
-                                <th class="text-right py-3">Male CVR</th>
-                                <th class="text-right py-3">Female CVR</th>
-                                <th class="text-left py-3">Best Gender</th>
-                            </tr>
-                        </thead>
-                        <tbody id="genderPersonaTable">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Birthtime Distribution -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Birthtime Distribution</h3>
-                    <div class="h-64">
-                        <canvas id="birthtimeChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Element Distribution (Ngũ Hành) -->
-                <div class="card p-6">
-                    <h3 class="text-foreground font-bold mb-4">Ngũ Hành Distribution</h3>
-                    <p class="text-muted-foreground text-sm mb-3">Kim 🪙 | Mộc 🌳 | Thủy 💧 | Hỏa 🔥 | Thổ 🌍</p>
-                    <div class="h-56">
-                        <canvas id="elementChart"></canvas>
-                    </div>
                 </div>
             </div>
         </div>

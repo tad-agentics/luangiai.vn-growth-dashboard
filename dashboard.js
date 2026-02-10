@@ -272,7 +272,18 @@ class CRMDashboard {
             categorizationStats: {},
             personaHistory: {}, // Store historical persona data
             growthAnalytics: {}, // Store growth metrics
-            astrologyStats: {} // Store zodiac, gender, birthtime data
+            astrologyStats: {}, // Store zodiac, gender, birthtime data
+            woocommerce: { // WooCommerce order analytics
+                orders: [],
+                customerOrders: {},
+                metrics: {}
+            }
+        };
+
+        // WooCommerce API credentials
+        this.wcCredentials = {
+            consumerKey: 'ck_2df779b69df26d3c4ffdabbb1d1a9688e1111314',
+            consumerSecret: 'cs_67e56c53a8bcb2c797797c9d7e506e64c6fcfac3'
         };
         this.charts = {};
         this.refreshInterval = null;
@@ -740,6 +751,11 @@ class CRMDashboard {
             this.calculateGrowthAnalytics();
             this.calculateAstrologyStats();
             this.savePersonaHistory();
+
+            // Step 4: Fetch WooCommerce orders
+            this.updateSyncSourceUI('full', '(fetching orders...)');
+            await this.fetchWooCommerceOrders();
+
             this.updateDashboard();
 
             // Save to cache for next load
@@ -883,6 +899,14 @@ class CRMDashboard {
                     // Save updated cache back to Supabase
                     this.updateSyncSourceUI('supabase', `(saving cache...)`);
                     await this.saveSubscriberCache();
+
+                    // Fetch WooCommerce orders (always fetch fresh for purchase analytics)
+                    this.updateSyncSourceUI('supabase', `(fetching orders...)`);
+                    await this.fetchWooCommerceOrders();
+
+                    // Update dashboard with new WooCommerce data
+                    this.updateDashboard();
+
                     this.updateSyncSourceUI('incremental', `(${this.data.subscribers.length} total)`);
                     return;
                 }
@@ -896,6 +920,14 @@ class CRMDashboard {
             if (canIncrementalSync) {
                 this.updateSyncSourceUI('incremental', '(syncing...)');
                 await this.incrementalSubscriberSync();
+
+                // Fetch WooCommerce orders (always fetch fresh for purchase analytics)
+                this.updateSyncSourceUI('incremental', `(fetching orders...)`);
+                await this.fetchWooCommerceOrders();
+
+                // Update dashboard with new WooCommerce data
+                this.updateDashboard();
+
                 this.updateSyncSourceUI('incremental', `(${this.data.subscribers.length} total)`);
             } else {
                 // Full sync required - first time or force refresh
@@ -1703,6 +1735,264 @@ class CRMDashboard {
         this.data.astrologyStats = stats;
     }
 
+    // ==================== WOOCOMMERCE ORDER ANALYTICS ====================
+
+    async fetchWooCommerceOrders() {
+        console.log('Fetching WooCommerce orders...');
+        const auth = btoa(`${this.wcCredentials.consumerKey}:${this.wcCredentials.consumerSecret}`);
+        let allOrders = [];
+        let page = 1;
+        const perPage = 100;
+
+        try {
+            while (page <= 50) { // Max 5000 orders
+                const response = await fetch(
+                    `https://luangiai.vn/wp-json/wc/v3/orders?per_page=${perPage}&page=${page}&status=completed,processing`,
+                    { headers: { 'Authorization': `Basic ${auth}` } }
+                );
+
+                if (!response.ok) {
+                    console.error('WooCommerce API error:', response.status);
+                    break;
+                }
+
+                const orders = await response.json();
+                if (!orders || orders.length === 0) break;
+
+                allOrders.push(...orders);
+                console.log(`Fetched ${allOrders.length} WooCommerce orders (page ${page})`);
+
+                if (orders.length < perPage) break;
+
+                await new Promise(r => setTimeout(r, 300)); // Rate limit
+                page++;
+            }
+
+            this.data.woocommerce.orders = allOrders;
+            console.log(`Total WooCommerce orders: ${allOrders.length}`);
+            this.calculateWooCommerceMetrics();
+
+        } catch (error) {
+            console.error('Error fetching WooCommerce orders:', error);
+        }
+    }
+
+    groupOrdersByCustomer(orders) {
+        const customers = {};
+        orders.forEach(order => {
+            const email = order.billing?.email?.toLowerCase();
+            if (!email) return;
+            if (!customers[email]) customers[email] = [];
+            customers[email].push(order);
+        });
+
+        // Sort each customer's orders chronologically and tag purchase numbers
+        Object.values(customers).forEach(customerOrders => {
+            customerOrders.sort((a, b) => new Date(a.date_created) - new Date(b.date_created));
+            customerOrders.forEach((order, index) => {
+                order._purchaseNumber = index + 1;
+            });
+        });
+
+        return customers;
+    }
+
+    calculateWooCommerceMetrics() {
+        const orders = this.data.woocommerce.orders;
+        if (!orders || orders.length === 0) {
+            console.log('No WooCommerce orders to analyze');
+            return;
+        }
+
+        const customerOrders = this.groupOrdersByCustomer(orders);
+        this.data.woocommerce.customerOrders = customerOrders;
+
+        const metrics = {
+            timeToFirstPurchase: this.wcCalcTimeToFirstPurchase(customerOrders),
+            timeFirstToSecond: this.wcCalcTimeBetweenPurchases(customerOrders, 1, 2),
+            aovSecondPurchase: this.wcCalcAOVByPurchaseNum(customerOrders, 2),
+            aovFirstPurchase: this.wcCalcAOVByPurchaseNum(customerOrders, 1),
+            ltv: this.wcCalcLTV(customerOrders),
+            revenueNew: this.wcCalcRevenueByType(customerOrders, 'new'),
+            revenueReturning: this.wcCalcRevenueByType(customerOrders, 'returning'),
+            sku1st: this.wcCalcSKUBreakdown(customerOrders, 1),
+            sku2nd: this.wcCalcSKUBreakdown(customerOrders, 2),
+            sku3rd: this.wcCalcSKUBreakdown(customerOrders, 3),
+            totalCustomers: Object.keys(customerOrders).length,
+            totalOrders: orders.length,
+            repeatCustomers: Object.values(customerOrders).filter(o => o.length > 1).length,
+            funnel: this.wcCalcPurchaseFunnel(customerOrders),
+            topCustomers: this.wcCalcTopCustomers(customerOrders)
+        };
+
+        this.data.woocommerce.metrics = metrics;
+        console.log('WooCommerce metrics calculated:', metrics);
+    }
+
+    wcCalcTimeToFirstPurchase(customerOrders) {
+        const times = [];
+        const subscribers = this.data.subscribers;
+
+        Object.entries(customerOrders).forEach(([email, orders]) => {
+            const subscriber = subscribers.find(s => s.email?.toLowerCase() === email);
+            if (subscriber && orders[0]) {
+                const subDate = new Date(subscriber.created_at);
+                const orderDate = new Date(orders[0].date_created);
+                const days = (orderDate - subDate) / (1000 * 60 * 60 * 24);
+                if (days >= 0 && days < 365) { // Reasonable range
+                    times.push(days);
+                }
+            }
+        });
+
+        const avg = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
+        return { avg, count: times.length, data: times };
+    }
+
+    wcCalcTimeBetweenPurchases(customerOrders, from, to) {
+        const times = [];
+
+        Object.values(customerOrders).forEach(orders => {
+            if (orders.length >= to) {
+                const d1 = new Date(orders[from - 1].date_created);
+                const d2 = new Date(orders[to - 1].date_created);
+                const days = (d2 - d1) / (1000 * 60 * 60 * 24);
+                if (days >= 0 && days < 365) { // Reasonable range
+                    times.push(days);
+                }
+            }
+        });
+
+        const avg = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
+        return { avg, count: times.length, data: times };
+    }
+
+    wcCalcAOVByPurchaseNum(customerOrders, num) {
+        const totals = [];
+
+        Object.values(customerOrders).forEach(orders => {
+            const order = orders.find(o => o._purchaseNumber === num);
+            if (order) {
+                totals.push(parseFloat(order.total) || 0);
+            }
+        });
+
+        const avg = totals.length > 0 ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
+        return { avg, count: totals.length, total: totals.reduce((a, b) => a + b, 0) };
+    }
+
+    wcCalcLTV(customerOrders) {
+        const ltvs = Object.values(customerOrders).map(orders =>
+            orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0)
+        );
+
+        const avg = ltvs.length > 0 ? ltvs.reduce((a, b) => a + b, 0) / ltvs.length : 0;
+        const total = ltvs.reduce((a, b) => a + b, 0);
+
+        // LTV distribution buckets
+        const distribution = {
+            '<200K': 0,
+            '200K-500K': 0,
+            '500K-1M': 0,
+            '1M-2M': 0,
+            '2M+': 0
+        };
+
+        ltvs.forEach(ltv => {
+            if (ltv < 200000) distribution['<200K']++;
+            else if (ltv < 500000) distribution['200K-500K']++;
+            else if (ltv < 1000000) distribution['500K-1M']++;
+            else if (ltv < 2000000) distribution['1M-2M']++;
+            else distribution['2M+']++;
+        });
+
+        return { avg, total, count: ltvs.length, distribution, data: ltvs };
+    }
+
+    wcCalcRevenueByType(customerOrders, type) {
+        let total = 0;
+
+        Object.values(customerOrders).forEach(orders => {
+            orders.forEach(order => {
+                const amount = parseFloat(order.total) || 0;
+                if (type === 'new' && order._purchaseNumber === 1) {
+                    total += amount;
+                } else if (type === 'returning' && order._purchaseNumber > 1) {
+                    total += amount;
+                }
+            });
+        });
+
+        return total;
+    }
+
+    wcCalcSKUBreakdown(customerOrders, purchaseNum) {
+        const skus = {};
+
+        Object.values(customerOrders).forEach(orders => {
+            const order = orders.find(o => o._purchaseNumber === purchaseNum);
+            if (order && order.line_items) {
+                order.line_items.forEach(item => {
+                    const key = item.name || item.sku || 'Unknown Product';
+                    skus[key] = (skus[key] || 0) + (item.quantity || 1);
+                });
+            }
+        });
+
+        // Sort by count and return top 5
+        return Object.entries(skus)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([name, count]) => ({ name, count }));
+    }
+
+    wcCalcPurchaseFunnel(customerOrders) {
+        const totalSubscribers = this.data.subscribers.length;
+        const firstPurchase = Object.keys(customerOrders).length;
+        const secondPurchase = Object.values(customerOrders).filter(o => o.length >= 2).length;
+        const thirdPurchase = Object.values(customerOrders).filter(o => o.length >= 3).length;
+        const fourPlus = Object.values(customerOrders).filter(o => o.length >= 4).length;
+
+        return {
+            subscribers: totalSubscribers,
+            firstPurchase,
+            secondPurchase,
+            thirdPurchase,
+            fourPlus
+        };
+    }
+
+    wcCalcTopCustomers(customerOrders) {
+        const subscribers = this.data.subscribers;
+        const customers = [];
+
+        Object.entries(customerOrders).forEach(([email, orders]) => {
+            const ltv = orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+            const aov = ltv / orders.length;
+
+            // Find days to first purchase
+            const subscriber = subscribers.find(s => s.email?.toLowerCase() === email);
+            let daysToFirst = null;
+            if (subscriber && orders[0]) {
+                const subDate = new Date(subscriber.created_at);
+                const orderDate = new Date(orders[0].date_created);
+                daysToFirst = (orderDate - subDate) / (1000 * 60 * 60 * 24);
+                if (daysToFirst < 0 || daysToFirst > 365) daysToFirst = null;
+            }
+
+            customers.push({
+                email,
+                orderCount: orders.length,
+                ltv,
+                aov,
+                daysToFirst
+            });
+        });
+
+        // Sort by LTV descending, take top 10
+        return customers.sort((a, b) => b.ltv - a.ltv).slice(0, 10);
+    }
+
     initCharts() {
         // Design system chart colors
         const chartColors = {
@@ -1955,6 +2245,74 @@ class CRMDashboard {
             });
         }
 
+        // ========== WOOCOMMERCE CHARTS ==========
+
+        // WooCommerce Revenue Chart (New vs Returning)
+        const wcRevenueCtx = document.getElementById('wcRevenueChart')?.getContext('2d');
+        if (wcRevenueCtx) {
+            this.charts.wcRevenue = new Chart(wcRevenueCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['New Customers', 'Returning Customers'],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: ['#B05B36', '#10B981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#666666', usePointStyle: true, padding: 15 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const value = ctx.raw || 0;
+                                    return `${ctx.label}: ${this.formatNumber(value)} VND`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // WooCommerce LTV Distribution Chart
+        const wcLTVCtx = document.getElementById('wcLTVChart')?.getContext('2d');
+        if (wcLTVCtx) {
+            this.charts.wcLTV = new Chart(wcLTVCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['<200K', '200K-500K', '500K-1M', '1M-2M', '2M+'],
+                    datasets: [{
+                        label: 'Customers',
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: '#D4927A'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.raw} customers`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666666' } },
+                        y: { grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666666' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
         // ========== ASTROLOGY CHARTS ==========
 
         // Zodiac Chart
@@ -2071,10 +2429,603 @@ class CRMDashboard {
     }
 
     updateDashboard() {
-        this.updateOverviewTab();
-        this.updateGrowthTab();
-        this.updatePersonasTab();
-        this.updateAstrologyTab();
+        // New 3-tab structure
+        this.updateExecutiveSummary();
+        this.updateDeepDive();
+        this.updateRevenue();
+
+        // Legacy updates for shared data
+        this.updateWooCommerceSection();
+    }
+
+    // ==================== EXECUTIVE SUMMARY TAB ====================
+    updateExecutiveSummary() {
+        const analytics = this.data.growthAnalytics || {};
+        const wc = this.data.woocommerce?.metrics || {};
+        const personas = this.data.personas || {};
+
+        // Acquisition metrics
+        document.getElementById('metricTotal').textContent = this.formatNumber(this.data.subscribers?.length || 0);
+        document.getElementById('metricTotalTrend').textContent = `+${analytics.thisWeekNew || 0} this week`;
+        document.getElementById('metricWeekNew').textContent = this.formatNumber(analytics.thisWeekNew || 0);
+
+        // CVR
+        const total = (analytics.leads || 0) + (analytics.customers || 0);
+        const cvr = total > 0 ? ((analytics.customers / total) * 100).toFixed(1) : '0';
+        const cvrEl = document.getElementById('metricCVR2');
+        if (cvrEl) cvrEl.textContent = `${cvr}%`;
+
+        // Week trend
+        const weekChange = analytics.weekOverWeekChange || 0;
+        const trendColor = weekChange > 0 ? 'text-success' : weekChange < 0 ? 'text-danger' : 'text-muted-foreground';
+        const trendIcon = weekChange > 0 ? '↑' : weekChange < 0 ? '↓' : '→';
+        const weekTrendEl = document.getElementById('metricWeekTrend');
+        if (weekTrendEl) {
+            weekTrendEl.innerHTML = `<span class="${trendColor}">${trendIcon} ${Math.abs(weekChange)}% vs last week</span>`;
+        }
+
+        // Top source
+        if (analytics.sources) {
+            const topSource = Object.entries(analytics.sources)
+                .sort((a, b) => b[1].total - a[1].total)[0];
+            if (topSource) {
+                const topSourceEl = document.getElementById('metricTopSource');
+                const topSourcePctEl = document.getElementById('metricTopSourcePct');
+                if (topSourceEl) topSourceEl.textContent = topSource[0];
+                if (topSourcePctEl) {
+                    const pct = ((topSource[1].total / total) * 100).toFixed(0);
+                    topSourcePctEl.textContent = `${pct}% of leads`;
+                }
+            }
+        }
+
+        // Revenue metrics
+        const summaryLTV = document.getElementById('summaryLTV');
+        if (summaryLTV) summaryLTV.textContent = this.formatCurrency(wc.ltv?.avg || 0);
+
+        const summaryRepeatRate = document.getElementById('summaryRepeatRate');
+        if (summaryRepeatRate) {
+            const repeatRate = wc.totalCustomers > 0 ?
+                ((wc.customersWithRepeat / wc.totalCustomers) * 100).toFixed(1) : '0';
+            summaryRepeatRate.textContent = `${repeatRate}%`;
+        }
+
+        const summaryTimeToFirst = document.getElementById('summaryTimeToFirst');
+        if (summaryTimeToFirst) {
+            summaryTimeToFirst.textContent = wc.timeToFirstPurchase?.avg?.toFixed(1) || '-';
+        }
+
+        const summaryAOV = document.getElementById('summaryAOV');
+        if (summaryAOV) summaryAOV.textContent = this.formatCurrency(wc.aovFirstPurchase?.avg || 0);
+
+        // Best persona
+        const bestPersona = this.getBestConvertingPersona();
+        const bestPersonaEl = document.getElementById('summaryBestPersona');
+        const bestPersonaCVREl = document.getElementById('summaryBestPersonaCVR');
+        if (bestPersonaEl && bestPersona) {
+            bestPersonaEl.textContent = bestPersona.name;
+            if (bestPersonaCVREl) bestPersonaCVREl.textContent = `${bestPersona.cvr.toFixed(1)}% CVR`;
+        }
+
+        // VIP customers (4+ purchases)
+        const vipCount = document.getElementById('summaryVIPCount');
+        if (vipCount) {
+            const vips = Object.values(this.data.woocommerce?.customerOrders || {})
+                .filter(orders => orders.length >= 4).length;
+            vipCount.textContent = this.formatNumber(vips);
+        }
+
+        // Active today (last 24h)
+        const activeToday = document.getElementById('summaryActiveToday');
+        if (activeToday) {
+            const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const active = (this.data.subscribers || []).filter(s =>
+                s.last_activity && new Date(s.last_activity) > dayAgo
+            ).length;
+            activeToday.textContent = this.formatNumber(active);
+        }
+
+        // Data quality
+        const dataQuality = document.getElementById('summaryDataQuality');
+        if (dataQuality) {
+            const complete = (this.data.subscribers || []).filter(s => s.dob && s.device_type).length;
+            const total = this.data.subscribers?.length || 1;
+            dataQuality.textContent = `${((complete / total) * 100).toFixed(0)}%`;
+        }
+
+        // Generate and display insights
+        this.updateInsightsBar();
+        this.updateActionsBar();
+        this.initSummaryCharts();
+    }
+
+    getBestConvertingPersona() {
+        const personas = this.data.personas || {};
+        let best = null;
+        Object.entries(personas).forEach(([name, data]) => {
+            if (data.count > 10 && (!best || data.cvr > best.cvr)) {
+                best = { name, ...data };
+            }
+        });
+        return best;
+    }
+
+    updateInsightsBar() {
+        const insights = this.generateInsights();
+        const insightsBar = document.getElementById('insightsBar');
+        if (!insightsBar) return;
+
+        if (insights.length === 0) {
+            insightsBar.innerHTML = '<p class="text-muted-foreground">No insights available yet.</p>';
+            return;
+        }
+
+        insightsBar.innerHTML = insights.map(insight => {
+            const icon = insight.type === 'positive' ? '✅' : insight.type === 'warning' ? '⚠️' : 'ℹ️';
+            const color = insight.type === 'positive' ? 'text-success' :
+                         insight.type === 'warning' ? 'text-warning' : 'text-foreground';
+            return `<p class="${color}">${icon} ${insight.text}</p>`;
+        }).join('');
+    }
+
+    generateInsights() {
+        const insights = [];
+        const wc = this.data.woocommerce?.metrics || {};
+        const personas = this.data.personas || {};
+        const analytics = this.data.growthAnalytics || {};
+
+        // LTV insight
+        if (wc.ltv?.avg > 0) {
+            insights.push({
+                type: 'info',
+                text: `Average LTV is ${this.formatCurrency(wc.ltv.avg)} per customer`
+            });
+        }
+
+        // Best converting persona
+        const bestPersona = this.getBestConvertingPersona();
+        if (bestPersona && bestPersona.cvr > 5) {
+            insights.push({
+                type: 'positive',
+                text: `${bestPersona.name} has highest CVR at ${bestPersona.cvr.toFixed(1)}% - focus acquisition here`
+            });
+        }
+
+        // Repeat rate insight
+        if (wc.totalCustomers > 0) {
+            const repeatRate = (wc.customersWithRepeat / wc.totalCustomers) * 100;
+            if (repeatRate < 20) {
+                insights.push({
+                    type: 'warning',
+                    text: `Only ${repeatRate.toFixed(0)}% repeat purchase rate - focus on retention`
+                });
+            } else if (repeatRate > 30) {
+                insights.push({
+                    type: 'positive',
+                    text: `Strong ${repeatRate.toFixed(0)}% repeat purchase rate - customers love your products`
+                });
+            }
+        }
+
+        // Week over week trend
+        if (analytics.weekOverWeekChange) {
+            if (analytics.weekOverWeekChange < -10) {
+                insights.push({
+                    type: 'warning',
+                    text: `Lead acquisition down ${Math.abs(analytics.weekOverWeekChange)}% vs last week`
+                });
+            } else if (analytics.weekOverWeekChange > 20) {
+                insights.push({
+                    type: 'positive',
+                    text: `Lead acquisition up ${analytics.weekOverWeekChange}% vs last week!`
+                });
+            }
+        }
+
+        return insights.slice(0, 3);
+    }
+
+    updateActionsBar() {
+        const actions = this.generateActions();
+        const actionsBar = document.getElementById('actionsBar');
+        if (!actionsBar) return;
+
+        if (actions.length === 0) {
+            actionsBar.innerHTML = '<p class="text-muted-foreground">No recommendations available yet.</p>';
+            return;
+        }
+
+        actionsBar.innerHTML = actions.map((action, i) => `
+            <div class="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                <div class="w-6 h-6 bg-success/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-success text-xs font-bold">${i + 1}</span>
+                </div>
+                <div class="text-sm text-foreground">${action}</div>
+            </div>
+        `).join('');
+    }
+
+    generateActions() {
+        const actions = [];
+        const wc = this.data.woocommerce || {};
+        const subscribers = this.data.subscribers || [];
+
+        // Incomplete profiles
+        const incomplete = subscribers.filter(s => !s.dob || !s.device_type).length;
+        if (incomplete > 10) {
+            actions.push(`Nurture <strong>${incomplete}</strong> contacts with incomplete profiles to improve segmentation`);
+        }
+
+        // One-time buyers (>30 days)
+        const oneTimers = Object.values(wc.customerOrders || {})
+            .filter(orders => {
+                if (orders.length !== 1) return false;
+                const orderDate = new Date(orders[0].date_created);
+                const daysSinceOrder = (Date.now() - orderDate) / (1000 * 60 * 60 * 24);
+                return daysSinceOrder > 30;
+            }).length;
+        if (oneTimers > 0) {
+            actions.push(`Re-engage <strong>${oneTimers}</strong> one-time buyers with win-back campaign (inactive >30 days)`);
+        }
+
+        // Best source recommendation
+        const analytics = this.data.growthAnalytics || {};
+        if (analytics.sources) {
+            const sources = Object.entries(analytics.sources)
+                .filter(([, data]) => data.total > 10)
+                .map(([name, data]) => ({
+                    name,
+                    cvr: data.total > 0 ? (data.customers / data.total) * 100 : 0
+                }))
+                .sort((a, b) => b.cvr - a.cvr);
+
+            if (sources.length > 0 && sources[0].cvr > 5) {
+                actions.push(`Double down on <strong>${sources[0].name}</strong> - highest CVR at ${sources[0].cvr.toFixed(1)}%`);
+            }
+        }
+
+        return actions.slice(0, 3);
+    }
+
+    initSummaryCharts() {
+        // Lead Trend Chart (7 days)
+        const leadCtx = document.getElementById('summaryLeadChart')?.getContext('2d');
+        if (leadCtx && !this.charts.summaryLead) {
+            const last7Days = this.getLast7DaysData();
+            this.charts.summaryLead = new Chart(leadCtx, {
+                type: 'line',
+                data: {
+                    labels: last7Days.labels,
+                    datasets: [{
+                        label: 'New Leads',
+                        data: last7Days.data,
+                        borderColor: '#B05B36',
+                        backgroundColor: 'rgba(176, 91, 54, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666' } },
+                        x: { grid: { display: false }, ticks: { color: '#666' } }
+                    }
+                }
+            });
+        } else if (this.charts.summaryLead) {
+            const last7Days = this.getLast7DaysData();
+            this.charts.summaryLead.data.labels = last7Days.labels;
+            this.charts.summaryLead.data.datasets[0].data = last7Days.data;
+            this.charts.summaryLead.update();
+        }
+
+        // Revenue Split Chart
+        const revCtx = document.getElementById('summaryRevenueChart')?.getContext('2d');
+        if (revCtx && !this.charts.summaryRevenue) {
+            const wc = this.data.woocommerce?.metrics || {};
+            this.charts.summaryRevenue = new Chart(revCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['New Customers', 'Returning Customers'],
+                    datasets: [{
+                        data: [wc.revenueNew || 0, wc.revenueReturning || 0],
+                        backgroundColor: ['#B05B36', '#10B981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#666', padding: 15 } } }
+                }
+            });
+        } else if (this.charts.summaryRevenue) {
+            const wc = this.data.woocommerce?.metrics || {};
+            this.charts.summaryRevenue.data.datasets[0].data = [wc.revenueNew || 0, wc.revenueReturning || 0];
+            this.charts.summaryRevenue.update();
+        }
+    }
+
+    getLast7DaysData() {
+        const labels = [];
+        const data = [];
+        const subscribers = this.data.subscribers || [];
+
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+
+            const count = subscribers.filter(s => {
+                const created = s.created_at?.split('T')[0];
+                return created === dateStr;
+            }).length;
+            data.push(count);
+        }
+
+        return { labels, data };
+    }
+
+    // ==================== DEEP DIVE TAB ====================
+    updateDeepDive() {
+        // Update persona performance table with LTV
+        this.updatePersonaTableWithLTV();
+
+        // Update cohort table (limited to 4 weeks)
+        this.updateCohortTableLimited();
+
+        // Update source chart and table
+        this.updateSourceData();
+
+        // Update demographic sections (collapsible content)
+        this.updateDemographicSections();
+    }
+
+    updatePersonaTableWithLTV() {
+        const personas = this.data.personas || {};
+        const table = document.getElementById('personaTable');
+        if (!table) return;
+
+        const total = Object.values(personas).reduce((sum, p) => sum + p.count, 0);
+        const avgCvr = total > 0 ?
+            Object.values(personas).reduce((sum, p) => sum + (p.converted || 0), 0) / total * 100 : 0;
+
+        // Get LTV by persona from WooCommerce data
+        const personaLTV = this.calculatePersonaLTV();
+
+        const sortedPersonas = Object.entries(personas)
+            .sort((a, b) => b[1].count - a[1].count);
+
+        table.innerHTML = sortedPersonas.map(([name, data]) => {
+            const pct = ((data.count / total) * 100).toFixed(1);
+            const ltv = personaLTV[name] || 0;
+            const topSource = this.getTopSourceForPersona(name);
+            const actionLabel = data.cvr > avgCvr ? 'Scale' : 'Nurture';
+            const actionColor = data.cvr > avgCvr ? 'bg-success' : 'bg-warning';
+
+            return `
+                <tr class="border-b border-foreground/10 hover:bg-muted/30">
+                    <td class="py-3">
+                        <span class="font-medium text-foreground">${this.escapeHtml(name)}</span>
+                    </td>
+                    <td class="py-3 text-right text-foreground">${this.formatNumber(data.count)}</td>
+                    <td class="py-3 text-right text-muted-foreground">${pct}%</td>
+                    <td class="py-3">
+                        <div class="w-full bg-muted rounded-full h-2">
+                            <div class="bg-primary h-2 rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    </td>
+                    <td class="py-3 text-right ${data.cvr > avgCvr ? 'text-success' : 'text-foreground'} font-medium">
+                        ${data.cvr?.toFixed(1) || 0}%
+                    </td>
+                    <td class="py-3 text-right text-foreground">${this.formatCurrency(ltv)}</td>
+                    <td class="py-3 text-muted-foreground">${topSource}</td>
+                    <td class="py-3 text-center">
+                        <span class="px-2 py-1 ${actionColor} text-white text-xs rounded">${actionLabel}</span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Update data completeness
+        const completeEl = document.getElementById('dataCompleteness');
+        if (completeEl) {
+            const complete = (this.data.subscribers || []).filter(s => s.dob && s.device_type).length;
+            completeEl.textContent = `${this.formatNumber(complete)} / ${this.formatNumber(total)}`;
+        }
+    }
+
+    calculatePersonaLTV() {
+        const personaLTV = {};
+        const customerOrders = this.data.woocommerce?.customerOrders || {};
+        const subscribers = this.data.subscribers || [];
+
+        // Map emails to personas
+        const emailToPersona = {};
+        subscribers.forEach(s => {
+            if (s.email && s._persona) {
+                emailToPersona[s.email.toLowerCase()] = s._persona;
+            }
+        });
+
+        // Calculate LTV per persona
+        const personaTotals = {};
+        const personaCounts = {};
+
+        Object.entries(customerOrders).forEach(([email, orders]) => {
+            const persona = emailToPersona[email];
+            if (persona) {
+                const ltv = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+                personaTotals[persona] = (personaTotals[persona] || 0) + ltv;
+                personaCounts[persona] = (personaCounts[persona] || 0) + 1;
+            }
+        });
+
+        Object.keys(personaTotals).forEach(persona => {
+            personaLTV[persona] = personaTotals[persona] / (personaCounts[persona] || 1);
+        });
+
+        return personaLTV;
+    }
+
+    getTopSourceForPersona(personaName) {
+        const subscribers = this.data.subscribers || [];
+        const sources = {};
+
+        subscribers.forEach(s => {
+            if (s._persona === personaName && s.source) {
+                sources[s.source] = (sources[s.source] || 0) + 1;
+            }
+        });
+
+        const topSource = Object.entries(sources)
+            .sort((a, b) => b[1] - a[1])[0];
+
+        return topSource ? topSource[0] : '-';
+    }
+
+    updateCohortTableLimited() {
+        const cohorts = this.data.cohorts || [];
+        const table = document.getElementById('cohortTable');
+        if (!table) return;
+
+        // Limit to 4 weeks
+        const limitedCohorts = cohorts.slice(0, 4);
+
+        table.innerHTML = limitedCohorts.map(cohort => {
+            const cvr = cohort.total > 0 ? ((cohort.converted / cohort.total) * 100).toFixed(1) : 0;
+            const barWidth = Math.min(parseFloat(cvr) * 5, 100);
+
+            return `
+                <tr class="border-b border-foreground/10 hover:bg-muted/30">
+                    <td class="py-2 text-foreground">${cohort.weekLabel}</td>
+                    <td class="py-2 text-right text-foreground">${this.formatNumber(cohort.total)}</td>
+                    <td class="py-2 text-right text-success">${this.formatNumber(cohort.converted)}</td>
+                    <td class="py-2 text-right font-medium text-foreground">${cvr}%</td>
+                    <td class="py-2">
+                        <div class="w-full bg-muted rounded-full h-2">
+                            <div class="bg-success h-2 rounded-full" style="width: ${barWidth}%"></div>
+                        </div>
+                    </td>
+                    <td class="py-2 text-right text-muted-foreground">${cohort.avgDaysToConvert?.toFixed(1) || '-'}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    updateSourceData() {
+        const analytics = this.data.growthAnalytics || {};
+
+        // Update source chart
+        if (this.charts.source && analytics.sources) {
+            const sortedSources = Object.entries(analytics.sources)
+                .sort((a, b) => b[1].total - a[1].total)
+                .slice(0, 5);
+
+            this.charts.source.data.labels = sortedSources.map(([name]) => name);
+            this.charts.source.data.datasets[0].data = sortedSources.map(([, data]) => data.total);
+            this.charts.source.update();
+        }
+
+        // Update source table (top 5 only)
+        const sourceTable = document.getElementById('sourceTable');
+        if (sourceTable && analytics.sources) {
+            const total = analytics.leads + analytics.customers || 1;
+            const avgCvr = total > 0 ? (analytics.customers / total) * 100 : 0;
+
+            const sortedSources = Object.entries(analytics.sources)
+                .sort((a, b) => b[1].total - a[1].total)
+                .slice(0, 5);
+
+            sourceTable.innerHTML = sortedSources.map(([name, data]) => {
+                const cvr = data.total > 0 ? ((data.customers / data.total) * 100).toFixed(1) : 0;
+                const cvrColor = parseFloat(cvr) > avgCvr ? 'text-success' : 'text-foreground';
+
+                return `
+                    <tr class="border-b border-foreground/10 hover:bg-muted/30">
+                        <td class="py-2 text-foreground">${this.escapeHtml(name)}</td>
+                        <td class="py-2 text-right text-foreground">${this.formatNumber(data.leads)}</td>
+                        <td class="py-2 text-right text-success">${this.formatNumber(data.customers)}</td>
+                        <td class="py-2 text-right ${cvrColor} font-medium">${cvr}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    updateDemographicSections() {
+        // These methods already exist and will populate the collapsible sections
+        this.updateAstrologyData();
+        this.updateGenderData();
+        this.updateAgeDeviceCharts();
+    }
+
+    updateAstrologyData() {
+        // Populate zodiac chart and table for the collapsible section
+        const astroData = this.data.astrology || {};
+
+        // Update zodiac metrics
+        const withDOB = (this.data.subscribers || []).filter(s => s.dob).length;
+        const total = this.data.subscribers?.length || 1;
+        const withDOBEl = document.getElementById('astroWithDOB');
+        if (withDOBEl) withDOBEl.textContent = this.formatNumber(withDOB);
+        const withDOBPctEl = document.getElementById('astroWithDOBPct');
+        if (withDOBPctEl) withDOBPctEl.textContent = `${((withDOB / total) * 100).toFixed(0)}%`;
+
+        const withBirthtime = (this.data.subscribers || []).filter(s => s.birthtime).length;
+        const withBirthtimeEl = document.getElementById('astroWithBirthtime');
+        if (withBirthtimeEl) withBirthtimeEl.textContent = this.formatNumber(withBirthtime);
+        const withBirthtimePctEl = document.getElementById('astroWithBirthtimePct');
+        if (withBirthtimePctEl) withBirthtimePctEl.textContent = `${((withBirthtime / total) * 100).toFixed(0)}%`;
+    }
+
+    updateGenderData() {
+        // Gender chart and table already handled in existing updateAstrologyTab method
+        // Just ensure genderChart and genderPersonaTable are populated
+    }
+
+    updateAgeDeviceCharts() {
+        // These charts are already initialized in initCharts
+        // Just update data if needed
+    }
+
+    // ==================== REVENUE TAB ====================
+    updateRevenue() {
+        // This tab uses the WooCommerce section which is already implemented
+        // Just need to update a few additional elements
+        const wc = this.data.woocommerce?.metrics || {};
+
+        // Repeat rate in revenue tab
+        const revRepeatRate = document.getElementById('revRepeatRate');
+        if (revRepeatRate) {
+            const rate = wc.totalCustomers > 0 ?
+                ((wc.customersWithRepeat / wc.totalCustomers) * 100).toFixed(1) : '0';
+            revRepeatRate.textContent = `${rate}%`;
+        }
+
+        // AOV metrics
+        const revAOV1st = document.getElementById('revAOV1st');
+        if (revAOV1st) revAOV1st.textContent = this.formatCurrency(wc.aovFirstPurchase?.avg || 0);
+
+        const revAOV3rd = document.getElementById('revAOV3rd');
+        if (revAOV3rd) {
+            // Calculate AOV for 3rd+ purchases
+            const thirdPlusOrders = [];
+            Object.values(this.data.woocommerce?.customerOrders || {}).forEach(orders => {
+                orders.forEach(o => {
+                    if (o._purchaseNumber >= 3) {
+                        thirdPlusOrders.push(parseFloat(o.total || 0));
+                    }
+                });
+            });
+            const avgAOV3rd = thirdPlusOrders.length > 0 ?
+                thirdPlusOrders.reduce((a, b) => a + b, 0) / thirdPlusOrders.length : 0;
+            revAOV3rd.textContent = this.formatCurrency(avgAOV3rd);
+        }
     }
 
     updateGrowthTab() {
@@ -2087,7 +3038,7 @@ class CRMDashboard {
         document.getElementById('metricCustomers').textContent = this.formatNumber(analytics.customers || 0);
         const cvr = total > 0 ? ((analytics.customers / total) * 100).toFixed(2) : 0;
         document.getElementById('metricCustomerCVR').textContent = `${cvr}% CVR`;
-        document.getElementById('metricAvgTTC').textContent = analytics.avgTimeToConvert || '-';
+        // Note: Time to 1st Purchase is now updated in updateWooCommerceSection()
         document.getElementById('metricWeekNew').textContent = this.formatNumber(analytics.thisWeekNew || 0);
 
         const weekChange = analytics.weekOverWeekChange || 0;
@@ -2117,7 +3068,7 @@ class CRMDashboard {
                 const cvrColor = parseFloat(sourceCvr) > parseFloat(cvr) ? 'text-success' : 'text-muted-foreground';
                 return `
                     <tr class="border-b border-foreground">
-                        <td class="py-2 text-white">${this.escapeHtml(name)}</td>
+                        <td class="py-2 text-foreground">${this.escapeHtml(name)}</td>
                         <td class="py-2 text-right text-foreground">${this.formatNumber(data.leads)}</td>
                         <td class="py-2 text-right text-success">${this.formatNumber(data.customers)}</td>
                         <td class="py-2 text-right ${cvrColor} font-medium">${sourceCvr}%</td>
@@ -2143,7 +3094,7 @@ class CRMDashboard {
 
                 return `
                     <tr class="border-b border-foreground">
-                        <td class="py-2 text-white">${weekLabel}</td>
+                        <td class="py-2 text-foreground">${weekLabel}</td>
                         <td class="py-2 text-right text-foreground">${this.formatNumber(cohort.leads)}</td>
                         <td class="py-2 text-right text-success">${this.formatNumber(cohort.customers)}</td>
                         <td class="py-2 text-right ${cvrColor} font-medium">${cohort.cvr}%</td>
@@ -2247,12 +3198,151 @@ class CRMDashboard {
                 return `
                     <div class="border border-foreground rounded-lg p-4 text-center border-l-4" style="border-left-color: ${s.color}">
                         <div class="text-2xl font-bold" style="color: ${s.color}">${this.formatNumber(s.count)}</div>
-                        <div class="text-white text-sm font-medium">${s.name}</div>
+                        <div class="text-foreground text-sm font-medium">${s.name}</div>
                         <div class="text-muted-foreground text-xs">${s.desc}</div>
                         <div class="text-muted-foreground text-xs mt-1">${pct}%</div>
                     </div>
                 `;
             }).join('');
+        }
+
+        // Update WooCommerce section
+        this.updateWooCommerceSection();
+    }
+
+    updateWooCommerceSection() {
+        const wc = this.data.woocommerce;
+        if (!wc || !wc.metrics) return;
+
+        const m = wc.metrics;
+
+        // Update metric cards
+        const timeToFirstEl = document.getElementById('wcTimeToFirst');
+        if (timeToFirstEl) {
+            timeToFirstEl.textContent = m.timeToFirstPurchase?.avg != null
+                ? m.timeToFirstPurchase.avg.toFixed(1)
+                : '-';
+        }
+
+        const timeFirstToSecondEl = document.getElementById('wcTimeFirstToSecond');
+        if (timeFirstToSecondEl) {
+            timeFirstToSecondEl.textContent = m.timeFirstToSecond?.avg != null
+                ? m.timeFirstToSecond.avg.toFixed(1)
+                : '-';
+        }
+
+        const aov2ndEl = document.getElementById('wcAOV2nd');
+        if (aov2ndEl) {
+            aov2ndEl.textContent = m.aovSecondPurchase?.avg != null
+                ? this.formatNumber(Math.round(m.aovSecondPurchase.avg))
+                : '-';
+        }
+
+        const avgLTVEl = document.getElementById('wcAvgLTV');
+        if (avgLTVEl) {
+            avgLTVEl.textContent = m.ltv?.avg != null
+                ? this.formatNumber(Math.round(m.ltv.avg))
+                : '-';
+        }
+
+        // Update Revenue Chart (New vs Returning)
+        if (this.charts.wcRevenue) {
+            this.charts.wcRevenue.data.datasets[0].data = [
+                m.revenueNew || 0,
+                m.revenueReturning || 0
+            ];
+            this.charts.wcRevenue.update();
+        }
+
+        // Update LTV Distribution Chart
+        if (this.charts.wcLTV && m.ltv?.data) {
+            const ltvBuckets = { '<200K': 0, '200K-500K': 0, '500K-1M': 0, '1M-2M': 0, '2M+': 0 };
+            m.ltv.data.forEach(ltv => {
+                if (ltv < 200000) ltvBuckets['<200K']++;
+                else if (ltv < 500000) ltvBuckets['200K-500K']++;
+                else if (ltv < 1000000) ltvBuckets['500K-1M']++;
+                else if (ltv < 2000000) ltvBuckets['1M-2M']++;
+                else ltvBuckets['2M+']++;
+            });
+            this.charts.wcLTV.data.datasets[0].data = Object.values(ltvBuckets);
+            this.charts.wcLTV.update();
+        }
+
+        // Update Purchase Funnel
+        const funnelEl = document.getElementById('wcPurchaseFunnel');
+        if (funnelEl && m.funnel) {
+            const funnel = m.funnel;
+            const maxCount = Math.max(funnel.subscribers, 1);
+
+            const funnelSteps = [
+                { label: 'Subscribers', count: funnel.subscribers, color: '#6b7280' },
+                { label: '1st Purchase', count: funnel.firstPurchase, color: '#B05B36' },
+                { label: '2nd Purchase', count: funnel.secondPurchase, color: '#D4927A' },
+                { label: '3rd Purchase', count: funnel.thirdPurchase, color: '#10B981' },
+                { label: '4+ Purchases', count: funnel.fourPlus, color: '#059669' }
+            ];
+
+            funnelEl.innerHTML = funnelSteps.map((step, i) => {
+                const pct = maxCount > 0 ? ((step.count / maxCount) * 100).toFixed(1) : 0;
+                const width = Math.max(20, (step.count / maxCount) * 100);
+                const dropOff = i > 0 ? ((funnelSteps[i-1].count - step.count) / funnelSteps[i-1].count * 100).toFixed(0) : null;
+
+                return `
+                    <div class="text-center">
+                        <div class="text-2xl font-bold" style="color: ${step.color}">${this.formatNumber(step.count)}</div>
+                        <div class="text-xs text-muted-foreground">${step.label}</div>
+                        <div class="h-2 bg-muted rounded-full mt-2 mx-auto" style="width: ${width}%">
+                            <div class="h-full rounded-full" style="width: 100%; background: ${step.color}"></div>
+                        </div>
+                        ${dropOff !== null ? `<div class="text-xs text-danger mt-1">-${dropOff}%</div>` : '<div class="text-xs mt-1">&nbsp;</div>'}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update SKU Breakdowns
+        const escapeHtml = (str) => this.escapeHtml(str);
+        ['1st', '2nd', '3rd'].forEach((num) => {
+            const skuEl = document.getElementById(`wcSKU${num}`);
+            const skuData = m[`sku${num}`];
+            if (skuEl && skuData) {
+                if (skuData.length === 0) {
+                    skuEl.innerHTML = '<div class="text-muted-foreground text-sm">No data</div>';
+                } else {
+                    const maxQty = Math.max(...skuData.map(s => s.count), 1);
+                    skuEl.innerHTML = skuData.map(item => {
+                        const barWidth = (item.count / maxQty) * 100;
+                        const safeName = escapeHtml(item.name);
+                        return `
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 text-sm text-foreground truncate" title="${safeName}">${safeName}</div>
+                                <div class="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary rounded-full" style="width: ${barWidth}%"></div>
+                                </div>
+                                <div class="w-10 text-right text-xs text-muted-foreground">${item.count}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+        });
+
+        // Update Top Customers Table
+        const topCustomersEl = document.getElementById('wcTopCustomersTable');
+        if (topCustomersEl && m.topCustomers) {
+            if (m.topCustomers.length === 0) {
+                topCustomersEl.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-muted-foreground">No customer data</td></tr>';
+            } else {
+                topCustomersEl.innerHTML = m.topCustomers.map(c => `
+                    <tr class="border-b border-foreground">
+                        <td class="py-2 text-foreground">${this.escapeHtml(c.email)}</td>
+                        <td class="py-2 text-right text-foreground">${c.orderCount}</td>
+                        <td class="py-2 text-right text-success font-medium">${this.formatNumber(Math.round(c.ltv))}</td>
+                        <td class="py-2 text-right text-foreground">${this.formatNumber(Math.round(c.aov))}</td>
+                        <td class="py-2 text-right text-muted-foreground">${c.daysToFirst != null ? c.daysToFirst.toFixed(0) : '-'}</td>
+                    </tr>
+                `).join('');
+            }
         }
     }
 
@@ -2385,7 +3475,7 @@ class CRMDashboard {
                 <div class="flex items-center gap-4">
                     <div class="flex-1">
                         <div class="flex justify-between items-center mb-1">
-                            <span class="font-medium text-white text-sm">${this.escapeHtml(list.title)}</span>
+                            <span class="font-medium text-foreground text-sm">${this.escapeHtml(list.title)}</span>
                             <span class="text-muted-foreground text-sm">${this.formatNumber(count)}</span>
                         </div>
                         <div class="h-2 bg-muted rounded-full overflow-hidden">
@@ -2417,7 +3507,7 @@ class CRMDashboard {
                 <div class="flex items-center gap-4">
                     <div class="flex-1">
                         <div class="flex justify-between items-center mb-1">
-                            <span class="font-medium text-white text-sm">${this.escapeHtml(tag.title)}</span>
+                            <span class="font-medium text-foreground text-sm">${this.escapeHtml(tag.title)}</span>
                             <span class="text-muted-foreground text-sm">${this.formatNumber(count)}</span>
                         </div>
                         <div class="h-2 bg-muted rounded-full overflow-hidden">
@@ -2464,7 +3554,7 @@ class CRMDashboard {
                             <span class="font-medium" style="color: ${p.color}">${p.name}</span>
                         </span>
                     </td>
-                    <td class="text-right py-3 text-white font-medium">${this.formatNumber(p.count)}</td>
+                    <td class="text-right py-3 text-foreground font-medium">${this.formatNumber(p.count)}</td>
                     <td class="text-right py-3 text-muted-foreground">${pct}%</td>
                     <td class="py-3">
                         <div class="h-2 bg-muted rounded-full overflow-hidden">
@@ -2505,14 +3595,14 @@ class CRMDashboard {
                             <p class="text-muted-foreground text-xs mt-1">${p.description}</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-white font-bold text-xl">${this.formatNumber(p.count)}</div>
+                            <div class="text-foreground font-bold text-xl">${this.formatNumber(p.count)}</div>
                             <div class="text-muted-foreground text-xs">${pct}%</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2 mb-3">
                         <div class="border border-foreground rounded p-2 text-center">
                             <div class="text-muted-foreground text-xs">Subscribed</div>
-                            <div class="text-white font-medium">${this.formatNumber(p.subscribed || 0)}</div>
+                            <div class="text-foreground font-medium">${this.formatNumber(p.subscribed || 0)}</div>
                         </div>
                         <div class="${cvrBgColor} rounded p-2 text-center">
                             <div class="text-muted-foreground text-xs">CVR</div>
@@ -2526,14 +3616,14 @@ class CRMDashboard {
                         </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Best Channel:</span>
-                            <span class="text-white flex items-center gap-1">
+                            <span class="text-foreground flex items-center gap-1">
                                 ${dynamicBestChannel}
                                 ${isDataDriven ? `<span class="text-xs text-success" title="Based on ${channelCVR}% CVR">(${channelCVR}%)</span>` : '<span class="text-xs text-muted-foreground">(default)</span>'}
                             </span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Offer:</span>
-                            <span class="text-white">${p.recommendedOffer}</span>
+                            <span class="text-foreground">${p.recommendedOffer}</span>
                         </div>
                     </div>
                 </div>
@@ -2600,7 +3690,7 @@ class CRMDashboard {
                         ${isDataDriven ? `<span class="text-xs text-success ml-1">(${channelCVR}%)</span>` : ''}
                     </td>
                     <td class="py-3 text-foreground">
-                        <span class="text-white">${topSourcePct}%</span>
+                        <span class="text-foreground">${topSourcePct}%</span>
                         <span class="text-muted-foreground text-xs ml-1">${topSource}</span>
                     </td>
                     <td class="py-3 ${cvrVsAvgColor} font-medium">
@@ -2731,7 +3821,7 @@ class CRMDashboard {
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <h4 class="font-medium" style="color: ${p.color}">${p.name}</h4>
-                            <div class="text-white font-bold text-xl mt-1">${this.formatNumber(p.currentTotal)}</div>
+                            <div class="text-foreground font-bold text-xl mt-1">${this.formatNumber(p.currentTotal)}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-xs text-muted-foreground">Last ${this.growthPeriod} days</div>
@@ -2744,11 +3834,11 @@ class CRMDashboard {
                     <div class="grid grid-cols-4 gap-2 text-xs">
                         <div class="border border-foreground rounded p-2 text-center">
                             <div class="text-muted-foreground">7d New</div>
-                            <div class="text-white font-medium">+${p.last7}</div>
+                            <div class="text-foreground font-medium">+${p.last7}</div>
                         </div>
                         <div class="border border-foreground rounded p-2 text-center">
                             <div class="text-muted-foreground">Avg/day</div>
-                            <div class="text-white font-medium">${p.avgDaily}</div>
+                            <div class="text-foreground font-medium">${p.avgDaily}</div>
                         </div>
                         <div class="border border-foreground rounded p-2 text-center">
                             <div class="text-muted-foreground">Trend</div>
@@ -2879,7 +3969,7 @@ class CRMDashboard {
                         <td class="py-3">
                             <span style="color: ${zodiacInfo.color}" class="font-medium">${zodiacInfo.symbol} ${sign}</span>
                         </td>
-                        <td class="text-right py-3 text-white">${this.formatNumber(data.total)}</td>
+                        <td class="text-right py-3 text-foreground">${this.formatNumber(data.total)}</td>
                         <td class="text-right py-3 text-muted-foreground">${pct}%</td>
                         <td class="text-right py-3 text-success">${this.formatNumber(data.customers)}</td>
                         <td class="text-right py-3 ${cvrColor} font-medium">${cvr.toFixed(2)}%</td>
@@ -3070,5 +4160,34 @@ function disconnect() {
 function setGrowthPeriod(days) {
     if (dashboard) {
         dashboard.setGrowthPeriod(days);
+    }
+}
+
+// Toggle collapsible sections
+function toggleSection(sectionId) {
+    const content = document.getElementById(`${sectionId}-content`);
+    const icon = document.getElementById(`${sectionId}-icon`);
+
+    if (content) {
+        content.classList.toggle('hidden');
+    }
+    if (icon) {
+        icon.classList.toggle('rotate-180');
+    }
+}
+
+// Reset segment filters
+function resetFilters() {
+    const filterPersona = document.getElementById('filterPersona');
+    const filterGender = document.getElementById('filterGender');
+    const filterSource = document.getElementById('filterSource');
+
+    if (filterPersona) filterPersona.value = '';
+    if (filterGender) filterGender.value = '';
+    if (filterSource) filterSource.value = '';
+
+    // Trigger filter update
+    if (dashboard) {
+        dashboard.updateDeepDive();
     }
 }
