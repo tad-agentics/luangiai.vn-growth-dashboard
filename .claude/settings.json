@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "growth-intelligence": {
+      "command": "node",
+      "args": ["src/mcp/MCPServer.js"],
+      "cwd": "/Users/ductrinh/Desktop/fluentcrm-dashboard",
+      "env": {
+        "SUPABASE_URL": "https://qktiedjahvbeuznpjubv.supabase.co",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrdGllZGphaHZiZXV6bnBqdWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMTg1MDMsImV4cCI6MjA4NTY5NDUwM30.cpoTuuYlqHRgfJWnGIMnnyY7w2vPcLjRALb7X3Qm-Mo"
+      }
+    }
+  }
+}

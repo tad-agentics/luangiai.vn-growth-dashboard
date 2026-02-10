@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "@vercel/node@3.2.0",
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/daily-reports",
+      "schedule": "0 6 * * *"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/oauth/([^/]+)/([^/]+)",
+      "dest": "/api/oauth/[provider]/[action].js?provider=$1&action=$2"
+    },
+    {
+      "src": "/api/reports/generate",
+      "dest": "/api/reports/generate.js"
+    },
+    {
+      "src": "/api/reports/latest",
+      "dest": "/api/reports/latest.js"
+    },
+    {
+      "src": "/api/cron/daily-reports",
+      "dest": "/api/cron/daily-reports.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}

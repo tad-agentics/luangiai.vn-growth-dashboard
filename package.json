@@ -1,0 +1,20 @@
+{
+  "name": "fluentcrm-dashboard",
+  "version": "2.0.0",
+  "description": "Growth Intelligence Platform - CRM Dashboard with AI co-CGO",
+  "engines": {
+    "node": "20.x"
+  },
+  "type": "module",
+  "bin": {
+    "growth-mcp": "src/mcp/MCPServer.js"
+  },
+  "scripts": {
+    "mcp": "node src/mcp/MCPServer.js",
+    "mcp:dev": "node --watch src/mcp/MCPServer.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@supabase/supabase-js": "^2.38.0"
+  }
+}

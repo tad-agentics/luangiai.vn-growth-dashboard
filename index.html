@@ -215,6 +215,15 @@
             <button onclick="setTab('growth')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="growth">
                 Growth Analytics
             </button>
+            <button onclick="setTab('ads')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="ads">
+                <i class="fas fa-ad mr-1"></i>Ads Performance
+            </button>
+            <button onclick="setTab('seo')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="seo">
+                <i class="fas fa-search mr-1"></i>SEO Insights
+            </button>
+            <button onclick="setTab('ai')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="ai">
+                <i class="fas fa-robot mr-1"></i>AI Reports
+            </button>
             <button onclick="setTab('personas')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-gray-400" data-tab="personas">
                 NRU Personas
             </button>
@@ -416,6 +425,561 @@
                 <p class="text-gray-400 text-xs mb-4">Based on last activity date</p>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="engagementGrid">
                     <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ADS PERFORMANCE TAB ==================== -->
+        <div id="tab-ads" class="tab-content space-y-6 hidden">
+            <!-- Platform Connection Status -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="adsConnectionStatus">
+                <!-- Google Ads -->
+                <div class="card p-4 border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fab fa-google text-blue-400 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-white">Google Ads</div>
+                                <div class="text-xs text-gray-400" id="googleAdsStatus">Not connected</div>
+                            </div>
+                        </div>
+                        <button onclick="connectGoogleAds()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors" id="googleAdsBtn">
+                            Connect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Meta Ads -->
+                <div class="card p-4 border-l-4 border-indigo-500">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fab fa-meta text-indigo-400 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-white">Meta Ads</div>
+                                <div class="text-xs text-gray-400" id="metaAdsStatus">Not connected</div>
+                            </div>
+                        </div>
+                        <button onclick="connectMetaAds()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded text-xs font-medium transition-colors" id="metaAdsBtn">
+                            Connect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TikTok Ads -->
+                <div class="card p-4 border-l-4 border-pink-500">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fab fa-tiktok text-pink-400 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-white">TikTok Ads</div>
+                                <div class="text-xs text-gray-400" id="tiktokAdsStatus">Not connected</div>
+                            </div>
+                        </div>
+                        <button onclick="connectTikTokAds()" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 rounded text-xs font-medium transition-colors" id="tiktokAdsBtn">
+                            Connect
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aggregated Ads Metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="card metric-card blue p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Total Spend</div>
+                    <div class="text-2xl font-bold text-white" id="adsTotalSpend">-</div>
+                    <div class="text-gray-500 text-xs mt-1" id="adsTotalSpendPeriod">Last 30 days</div>
+                </div>
+                <div class="card metric-card purple p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Impressions</div>
+                    <div class="text-2xl font-bold text-purple-400" id="adsTotalImpressions">-</div>
+                    <div class="text-gray-500 text-xs mt-1">All platforms</div>
+                </div>
+                <div class="card metric-card cyan p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Clicks</div>
+                    <div class="text-2xl font-bold text-cyan-400" id="adsTotalClicks">-</div>
+                    <div class="text-gray-500 text-xs mt-1" id="adsTotalCTR">CTR: -</div>
+                </div>
+                <div class="card metric-card green p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Conversions</div>
+                    <div class="text-2xl font-bold text-green-400" id="adsTotalConversions">-</div>
+                    <div class="text-gray-500 text-xs mt-1" id="adsTotalCVR">CVR: -</div>
+                </div>
+                <div class="card metric-card orange p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Avg CPA</div>
+                    <div class="text-2xl font-bold text-orange-400" id="adsAvgCPA">-</div>
+                    <div class="text-gray-500 text-xs mt-1">Per conversion</div>
+                </div>
+            </div>
+
+            <!-- Platform Performance Comparison -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Spend by Platform</h3>
+                    <div class="h-64">
+                        <canvas id="adsSpendChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Conversions by Platform</h3>
+                    <div class="h-64">
+                        <canvas id="adsConversionsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Platform Performance Table -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Platform Performance Summary</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Platform</th>
+                                <th class="text-right py-3">Spend</th>
+                                <th class="text-right py-3">Impressions</th>
+                                <th class="text-right py-3">Clicks</th>
+                                <th class="text-right py-3">CTR</th>
+                                <th class="text-right py-3">Conversions</th>
+                                <th class="text-right py-3">CPA</th>
+                                <th class="text-right py-3">ROAS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adsPlatformTable">
+                            <tr class="border-b border-gray-800">
+                                <td colspan="8" class="py-4 text-center text-gray-500">
+                                    Connect ad platforms to view performance data
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Campaign Performance -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <h3 class="text-white font-bold">Top Campaigns</h3>
+                    <div class="flex gap-2 mt-2 md:mt-0">
+                        <select id="adsCampaignFilter" class="px-3 py-1.5 bg-gray-700 rounded text-xs border border-gray-600 focus:border-indigo-500 outline-none">
+                            <option value="all">All Platforms</option>
+                            <option value="google">Google Ads</option>
+                            <option value="meta">Meta Ads</option>
+                            <option value="tiktok">TikTok Ads</option>
+                        </select>
+                        <select id="adsCampaignSort" class="px-3 py-1.5 bg-gray-700 rounded text-xs border border-gray-600 focus:border-indigo-500 outline-none">
+                            <option value="spend">By Spend</option>
+                            <option value="conversions">By Conversions</option>
+                            <option value="cpa">By CPA</option>
+                            <option value="roas">By ROAS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Campaign</th>
+                                <th class="text-left py-3">Platform</th>
+                                <th class="text-right py-3">Spend</th>
+                                <th class="text-right py-3">Impressions</th>
+                                <th class="text-right py-3">Clicks</th>
+                                <th class="text-right py-3">CTR</th>
+                                <th class="text-right py-3">Conversions</th>
+                                <th class="text-right py-3">CPA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adsCampaignTable">
+                            <tr class="border-b border-gray-800">
+                                <td colspan="8" class="py-4 text-center text-gray-500">
+                                    No campaign data available
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Daily Spend Trend -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Daily Spend Trend (Last 30 Days)</h3>
+                <div class="h-64">
+                    <canvas id="adsDailySpendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Persona Attribution -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Ad Performance by Persona</h3>
+                <p class="text-gray-400 text-sm mb-4">Attribution based on UTM tracking and CRM conversion data</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Persona</th>
+                                <th class="text-right py-3">Attributed Spend</th>
+                                <th class="text-right py-3">Conversions</th>
+                                <th class="text-right py-3">CPA</th>
+                                <th class="text-left py-3">Best Platform</th>
+                                <th class="text-left py-3">Best Campaign</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adsPersonaTable">
+                            <tr class="border-b border-gray-800">
+                                <td colspan="6" class="py-4 text-center text-gray-500">
+                                    Connect ad platforms and enable attribution tracking
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SEO INSIGHTS TAB ==================== -->
+        <div id="tab-seo" class="tab-content space-y-6 hidden">
+            <!-- Platform Connection Status -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="seoConnectionStatus">
+                <!-- Google Analytics 4 -->
+                <div class="card p-4 border-l-4 border-orange-500">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chart-line text-orange-400 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-white">Google Analytics 4</div>
+                                <div class="text-xs text-gray-400" id="ga4Status">Not connected</div>
+                            </div>
+                        </div>
+                        <button onclick="connectGA4()" class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 rounded text-xs font-medium transition-colors" id="ga4Btn">
+                            Connect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Google Search Console -->
+                <div class="card p-4 border-l-4 border-green-500">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-search text-green-400 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-white">Search Console</div>
+                                <div class="text-xs text-gray-400" id="gscStatus">Not connected</div>
+                            </div>
+                        </div>
+                        <button onclick="connectGSC()" class="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-xs font-medium transition-colors" id="gscBtn">
+                            Connect
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEO Overview Metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <div class="card metric-card orange p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Sessions</div>
+                    <div class="text-2xl font-bold text-orange-400" id="seoSessions">-</div>
+                    <div class="text-gray-500 text-xs mt-1">GA4 Last 30 days</div>
+                </div>
+                <div class="card metric-card blue p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Users</div>
+                    <div class="text-2xl font-bold text-blue-400" id="seoUsers">-</div>
+                    <div class="text-gray-500 text-xs mt-1" id="seoNewUsers">New: -</div>
+                </div>
+                <div class="card metric-card green p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Organic Clicks</div>
+                    <div class="text-2xl font-bold text-green-400" id="seoClicks">-</div>
+                    <div class="text-gray-500 text-xs mt-1">GSC Last 28 days</div>
+                </div>
+                <div class="card metric-card purple p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Impressions</div>
+                    <div class="text-2xl font-bold text-purple-400" id="seoImpressions">-</div>
+                    <div class="text-gray-500 text-xs mt-1">Search results</div>
+                </div>
+                <div class="card metric-card cyan p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Avg CTR</div>
+                    <div class="text-2xl font-bold text-cyan-400" id="seoCTR">-</div>
+                    <div class="text-gray-500 text-xs mt-1">Click-through rate</div>
+                </div>
+                <div class="card metric-card blue p-4">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Avg Position</div>
+                    <div class="text-2xl font-bold text-blue-400" id="seoPosition">-</div>
+                    <div class="text-gray-500 text-xs mt-1">Search ranking</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Traffic by Channel</h3>
+                    <div class="h-64">
+                        <canvas id="seoChannelChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Search Performance Trend</h3>
+                    <div class="h-64">
+                        <canvas id="seoTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Queries Table -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <h3 class="text-white font-bold">Top Search Queries</h3>
+                    <div class="text-xs text-gray-400">Last 28 days from Google Search Console</div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Query</th>
+                                <th class="text-right py-3">Clicks</th>
+                                <th class="text-right py-3">Impressions</th>
+                                <th class="text-right py-3">CTR</th>
+                                <th class="text-right py-3">Position</th>
+                            </tr>
+                        </thead>
+                        <tbody id="seoQueriesTable">
+                            <tr class="border-b border-gray-800">
+                                <td colspan="5" class="py-4 text-center text-gray-500">
+                                    Connect Google Search Console to view query data
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Top Pages Table -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <h3 class="text-white font-bold">Top Landing Pages</h3>
+                    <div class="text-xs text-gray-400">By organic search traffic</div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Page</th>
+                                <th class="text-right py-3">Clicks</th>
+                                <th class="text-right py-3">Impressions</th>
+                                <th class="text-right py-3">CTR</th>
+                                <th class="text-right py-3">Position</th>
+                            </tr>
+                        </thead>
+                        <tbody id="seoPagesTable">
+                            <tr class="border-b border-gray-800">
+                                <td colspan="5" class="py-4 text-center text-gray-500">
+                                    Connect Google Search Console to view page data
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Keyword Opportunities -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-2">Quick Win Opportunities</h3>
+                <p class="text-gray-400 text-sm mb-4">Keywords ranking 5-20 with high impressions - optimize for top 3</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Query</th>
+                                <th class="text-right py-3">Current Position</th>
+                                <th class="text-right py-3">Impressions</th>
+                                <th class="text-right py-3">Current Clicks</th>
+                                <th class="text-right py-3">Potential Clicks</th>
+                                <th class="text-left py-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="seoOpportunitiesTable">
+                            <tr class="border-b border-gray-800">
+                                <td colspan="6" class="py-4 text-center text-gray-500">
+                                    Connect Search Console to find keyword opportunities
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Device Breakdown -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Traffic by Device (GA4)</h3>
+                    <div class="h-64">
+                        <canvas id="seoDeviceChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-white font-bold mb-4">Search by Device (GSC)</h3>
+                    <div class="h-64">
+                        <canvas id="seoSearchDeviceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Traffic Sources -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4">Top Traffic Sources</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 text-xs border-b border-gray-700">
+                                <th class="text-left py-3">Source / Medium</th>
+                                <th class="text-right py-3">Sessions</th>
+                                <th class="text-right py-3">Users</th>
+                                <th class="text-right py-3">Conversions</th>
+                                <th class="text-right py-3">CVR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="seoSourcesTable">
+                            <tr class="border-b border-gray-800">
+                                <td colspan="5" class="py-4 text-center text-gray-500">
+                                    Connect Google Analytics 4 to view source data
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== AI REPORTS TAB ==================== -->
+        <div id="tab-ai" class="tab-content space-y-6 hidden">
+            <!-- Report Generation Controls -->
+            <div class="card p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <div>
+                        <h3 class="text-white font-bold">AI-Powered Reports</h3>
+                        <p class="text-gray-400 text-sm mt-1">Generate intelligent analysis and recommendations</p>
+                    </div>
+                    <div class="flex gap-2 mt-2 md:mt-0">
+                        <select id="aiReportType" class="px-3 py-2 bg-gray-700 rounded text-sm border border-gray-600 focus:border-indigo-500 outline-none">
+                            <option value="daily_strategy">Daily Strategy</option>
+                            <option value="weekly_summary">Weekly Summary</option>
+                            <option value="channel_analysis">Channel Analysis</option>
+                            <option value="seo_audit">SEO Audit</option>
+                        </select>
+                        <button onclick="generateAIReport()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-medium transition-colors" id="generateReportBtn">
+                            <i class="fas fa-magic mr-2"></i>Generate Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Status -->
+                <div id="aiReportStatus" class="hidden">
+                    <div class="flex items-center gap-2 text-sm text-gray-400">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Generating report...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Latest Reports Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Daily Strategy Report -->
+                <div class="card p-6" id="dailyStrategyReport">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-bold flex items-center gap-2">
+                            <i class="fas fa-calendar-day text-indigo-400"></i>
+                            Daily Strategy
+                        </h3>
+                        <span class="text-xs text-gray-500" id="dailyStrategyDate">-</span>
+                    </div>
+                    <div id="dailyStrategyContent" class="space-y-4">
+                        <p class="text-gray-500 text-sm">No report generated yet. Click "Generate Report" to create one.</p>
+                    </div>
+                </div>
+
+                <!-- Weekly Summary Report -->
+                <div class="card p-6" id="weeklySummaryReport">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-bold flex items-center gap-2">
+                            <i class="fas fa-calendar-week text-green-400"></i>
+                            Weekly Summary
+                        </h3>
+                        <span class="text-xs text-gray-500" id="weeklySummaryDate">-</span>
+                    </div>
+                    <div id="weeklySummaryContent" class="space-y-4">
+                        <p class="text-gray-500 text-sm">No report generated yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Channel Analysis Report -->
+            <div class="card p-6" id="channelAnalysisReport">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-white font-bold flex items-center gap-2">
+                        <i class="fas fa-chart-pie text-purple-400"></i>
+                        Channel Analysis
+                    </h3>
+                    <span class="text-xs text-gray-500" id="channelAnalysisDate">-</span>
+                </div>
+                <div id="channelAnalysisContent">
+                    <p class="text-gray-500 text-sm">No report generated yet.</p>
+                </div>
+            </div>
+
+            <!-- Opportunities & Risks -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Opportunities -->
+                <div class="card p-6 border-l-4 border-green-500">
+                    <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-lightbulb text-green-400"></i>
+                        Opportunities
+                    </h3>
+                    <div id="aiOpportunities" class="space-y-3">
+                        <p class="text-gray-500 text-sm">Generate a report to see opportunities.</p>
+                    </div>
+                </div>
+
+                <!-- Risks -->
+                <div class="card p-6 border-l-4 border-red-500">
+                    <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-exclamation-triangle text-red-400"></i>
+                        Risks & Warnings
+                    </h3>
+                    <div id="aiRisks" class="space-y-3">
+                        <p class="text-gray-500 text-sm">Generate a report to see risks.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Items -->
+            <div class="card p-6">
+                <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+                    <i class="fas fa-tasks text-cyan-400"></i>
+                    Recommended Actions
+                </h3>
+                <div id="aiActions" class="space-y-2">
+                    <p class="text-gray-500 text-sm">Generate a report to see recommended actions.</p>
+                </div>
+            </div>
+
+            <!-- AI Memory -->
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-white font-bold flex items-center gap-2">
+                        <i class="fas fa-brain text-pink-400"></i>
+                        AI Memory
+                    </h3>
+                    <span class="text-xs text-gray-400">Recent insights and decisions</span>
+                </div>
+                <div id="aiMemoryList" class="space-y-3">
+                    <p class="text-gray-500 text-sm">No memories saved yet. Use Claude with MCP to save insights.</p>
                 </div>
             </div>
         </div>
@@ -656,5 +1220,698 @@
     </div>
 
     <script src="dashboard.js"></script>
+
+    <!-- Ads Tab Functionality -->
+    <script>
+    // Ads Tab Manager
+    const AdsTabManager = {
+        charts: {},
+        connectionStatus: { google: false, meta: false, tiktok: false },
+        platformData: { google: null, meta: null, tiktok: null },
+
+        async init() {
+            this.handleOAuthCallback();
+            await this.checkConnectionStatus();
+            this.initCharts();
+        },
+
+        handleOAuthCallback() {
+            const params = new URLSearchParams(window.location.search);
+            const success = params.get('oauth_success');
+            const error = params.get('oauth_error');
+
+            if (success) {
+                this.showNotification(`${success} connected successfully!`, 'success');
+                window.history.replaceState({}, document.title, window.location.pathname);
+                this.checkConnectionStatus();
+            }
+            if (error) {
+                this.showNotification(`OAuth error: ${error}`, 'error');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        },
+
+        showNotification(message, type = 'info') {
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        },
+
+        async checkConnectionStatus() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('oauth_tokens')
+                    .select('provider, account_name, expires_at')
+                    .in('provider', ['google_ads', 'meta_ads', 'tiktok_ads']);
+
+                if (error) throw error;
+
+                data?.forEach(token => {
+                    const isExpired = new Date(token.expires_at) < new Date();
+                    const platform = token.provider.replace('_ads', '');
+                    this.connectionStatus[platform] = !isExpired;
+                    this.updateConnectionUI(platform, !isExpired, token.account_name);
+                });
+            } catch (e) {
+                console.log('Could not check ad connections:', e.message);
+            }
+        },
+
+        updateConnectionUI(platform, connected, accountName = '') {
+            const statusEl = document.getElementById(`${platform}AdsStatus`);
+            const btnEl = document.getElementById(`${platform}AdsBtn`);
+
+            if (statusEl) {
+                statusEl.textContent = connected ? (accountName || 'Connected') : 'Not connected';
+                statusEl.classList.toggle('text-green-400', connected);
+                statusEl.classList.toggle('text-gray-400', !connected);
+            }
+            if (btnEl) {
+                btnEl.textContent = connected ? 'Refresh' : 'Connect';
+                if (connected) {
+                    btnEl.classList.remove('bg-blue-600', 'bg-indigo-600', 'bg-pink-600');
+                    btnEl.classList.add('bg-gray-600');
+                }
+            }
+        },
+
+        initCharts() {
+            const spendCtx = document.getElementById('adsSpendChart')?.getContext('2d');
+            if (spendCtx) {
+                this.charts.spend = new Chart(spendCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Google Ads', 'Meta Ads', 'TikTok Ads'],
+                        datasets: [{ data: [0, 0, 0], backgroundColor: ['#3b82f6', '#6366f1', '#ec4899'], borderWidth: 0 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 20 } } }
+                    }
+                });
+            }
+
+            const convCtx = document.getElementById('adsConversionsChart')?.getContext('2d');
+            if (convCtx) {
+                this.charts.conversions = new Chart(convCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Google Ads', 'Meta Ads', 'TikTok Ads'],
+                        datasets: [{ label: 'Conversions', data: [0, 0, 0], backgroundColor: ['#3b82f6', '#6366f1', '#ec4899'] }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                            x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                        }
+                    }
+                });
+            }
+
+            const dailyCtx = document.getElementById('adsDailySpendChart')?.getContext('2d');
+            if (dailyCtx) {
+                this.charts.dailySpend = new Chart(dailyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            { label: 'Google Ads', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
+                            { label: 'Meta Ads', data: [], borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', fill: true, tension: 0.3 },
+                            { label: 'TikTok Ads', data: [], borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.1)', fill: true, tension: 0.3 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top', labels: { color: '#9ca3af' } } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                            x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                        }
+                    }
+                });
+            }
+        },
+
+        formatCurrency(value) {
+            if (value == null) return '-';
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
+        },
+
+        formatNumber(value) {
+            if (value == null) return '-';
+            return new Intl.NumberFormat('vi-VN').format(value);
+        }
+    };
+
+    // Global functions for connect buttons
+    function connectGoogleAds() {
+        window.location.href = '/api/oauth/google/init';
+    }
+    function connectMetaAds() {
+        window.location.href = '/api/oauth/meta/init';
+    }
+    function connectTikTokAds() {
+        window.location.href = '/api/oauth/tiktok/init';
+    }
+
+    // Initialize Ads tab after DOM loads
+    window.addEventListener('DOMContentLoaded', () => {
+        AdsTabManager.init();
+    });
+    </script>
+
+    <!-- SEO Tab Functionality -->
+    <script>
+    // SEO Tab Manager
+    const SEOTabManager = {
+        charts: {},
+        connectionStatus: { ga4: false, gsc: false },
+
+        async init() {
+            await this.checkConnectionStatus();
+            this.initCharts();
+        },
+
+        async checkConnectionStatus() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('oauth_tokens')
+                    .select('provider, account_name, expires_at')
+                    .in('provider', ['ga4', 'gsc']);
+
+                if (error) throw error;
+
+                data?.forEach(token => {
+                    const isExpired = new Date(token.expires_at) < new Date();
+                    this.connectionStatus[token.provider] = !isExpired;
+                    this.updateConnectionUI(token.provider, !isExpired, token.account_name);
+                });
+            } catch (e) {
+                console.log('Could not check SEO connections:', e.message);
+            }
+        },
+
+        updateConnectionUI(platform, connected, accountName = '') {
+            const statusEl = document.getElementById(`${platform}Status`);
+            const btnEl = document.getElementById(`${platform}Btn`);
+
+            if (statusEl) {
+                statusEl.textContent = connected ? (accountName || 'Connected') : 'Not connected';
+                statusEl.classList.toggle('text-green-400', connected);
+                statusEl.classList.toggle('text-gray-400', !connected);
+            }
+            if (btnEl) {
+                btnEl.textContent = connected ? 'Refresh' : 'Connect';
+                if (connected) {
+                    btnEl.classList.remove('bg-orange-600', 'bg-green-600');
+                    btnEl.classList.add('bg-gray-600');
+                }
+            }
+        },
+
+        initCharts() {
+            // Traffic by Channel Chart
+            const channelCtx = document.getElementById('seoChannelChart')?.getContext('2d');
+            if (channelCtx) {
+                this.charts.channel = new Chart(channelCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Organic Search', 'Direct', 'Referral', 'Social', 'Email'],
+                        datasets: [{ data: [0, 0, 0, 0, 0], backgroundColor: ['#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316'], borderWidth: 0 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 15 } } }
+                    }
+                });
+            }
+
+            // Search Performance Trend Chart
+            const trendCtx = document.getElementById('seoTrendChart')?.getContext('2d');
+            if (trendCtx) {
+                this.charts.trend = new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            { label: 'Clicks', data: [], borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, tension: 0.3, yAxisID: 'y' },
+                            { label: 'Impressions', data: [], borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3, yAxisID: 'y1' }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top', labels: { color: '#9ca3af' } } },
+                        scales: {
+                            y: { type: 'linear', display: true, position: 'left', grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#9ca3af' } },
+                            x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                        }
+                    }
+                });
+            }
+
+            // Device Charts
+            const deviceCtx = document.getElementById('seoDeviceChart')?.getContext('2d');
+            if (deviceCtx) {
+                this.charts.device = new Chart(deviceCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Desktop', 'Mobile', 'Tablet'],
+                        datasets: [{ data: [0, 0, 0], backgroundColor: ['#3b82f6', '#22c55e', '#f97316'], borderWidth: 0 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af' } } }
+                    }
+                });
+            }
+
+            const searchDeviceCtx = document.getElementById('seoSearchDeviceChart')?.getContext('2d');
+            if (searchDeviceCtx) {
+                this.charts.searchDevice = new Chart(searchDeviceCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Desktop', 'Mobile', 'Tablet'],
+                        datasets: [
+                            { label: 'Clicks', data: [0, 0, 0], backgroundColor: '#22c55e' },
+                            { label: 'Impressions', data: [0, 0, 0], backgroundColor: '#8b5cf6' }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top', labels: { color: '#9ca3af' } } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                            x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                        }
+                    }
+                });
+            }
+        },
+
+        formatNumber(value) {
+            if (value == null) return '-';
+            return new Intl.NumberFormat('vi-VN').format(value);
+        },
+
+        formatPercent(value) {
+            if (value == null) return '-';
+            return (value * 100).toFixed(2) + '%';
+        }
+    };
+
+    // Global functions for SEO connect buttons
+    function connectGA4() {
+        window.location.href = '/api/oauth/ga4/init';
+    }
+    function connectGSC() {
+        window.location.href = '/api/oauth/gsc/init';
+    }
+
+    // Initialize SEO tab after DOM loads
+    window.addEventListener('DOMContentLoaded', () => {
+        SEOTabManager.init();
+    });
+    </script>
+
+    <!-- AI Reports Tab Functionality -->
+    <script>
+    // AI Reports Tab Manager
+    const AIReportsManager = {
+        reports: {},
+        memories: [],
+
+        async init() {
+            await this.loadLatestReports();
+            await this.loadMemories();
+        },
+
+        async loadLatestReports() {
+            try {
+                const response = await fetch('/api/reports/latest');
+                if (!response.ok) throw new Error('Failed to fetch reports');
+
+                const data = await response.json();
+
+                if (data.reports) {
+                    data.reports.forEach(report => {
+                        this.reports[report.type] = report;
+                        this.displayReport(report.type, report);
+                    });
+                }
+            } catch (e) {
+                console.log('Could not load AI reports:', e.message);
+            }
+        },
+
+        async loadMemories() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('ai_memory')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (error) throw error;
+
+                this.memories = data || [];
+                this.displayMemories();
+            } catch (e) {
+                console.log('Could not load AI memories:', e.message);
+            }
+        },
+
+        displayReport(type, reportData) {
+            const report = reportData.report;
+            const date = new Date(reportData.date).toLocaleDateString('vi-VN');
+
+            switch (type) {
+                case 'daily_strategy':
+                    this.displayDailyStrategy(report, date);
+                    break;
+                case 'weekly_summary':
+                    this.displayWeeklySummary(report, date);
+                    break;
+                case 'channel_analysis':
+                    this.displayChannelAnalysis(report, date);
+                    break;
+            }
+
+            // Update opportunities, risks, and actions from any report
+            if (report.opportunities) this.displayOpportunities(report.opportunities);
+            if (report.risks) this.displayRisks(report.risks);
+            if (report.action_items) this.displayActions(report.action_items);
+        },
+
+        displayDailyStrategy(report, date) {
+            const dateEl = document.getElementById('dailyStrategyDate');
+            const contentEl = document.getElementById('dailyStrategyContent');
+
+            if (dateEl) dateEl.textContent = date;
+            if (!contentEl) return;
+
+            let html = '';
+
+            if (report.summary) {
+                html += `<p class="text-gray-300 text-sm">${report.summary}</p>`;
+            }
+
+            if (report.key_metrics) {
+                html += `<div class="grid grid-cols-2 gap-2 mt-3">`;
+                Object.entries(report.key_metrics).forEach(([key, value]) => {
+                    const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    html += `
+                        <div class="bg-gray-800 rounded p-2">
+                            <div class="text-gray-500 text-xs">${label}</div>
+                            <div class="text-white font-medium">${this.formatValue(value)}</div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            if (report.focus_today) {
+                html += `
+                    <div class="mt-3 p-3 bg-indigo-900/30 rounded border border-indigo-800">
+                        <div class="text-indigo-400 text-xs font-medium mb-1">Today's Focus</div>
+                        <div class="text-white text-sm">${report.focus_today}</div>
+                    </div>
+                `;
+            }
+
+            contentEl.innerHTML = html || '<p class="text-gray-500 text-sm">Report data unavailable.</p>';
+        },
+
+        displayWeeklySummary(report, date) {
+            const dateEl = document.getElementById('weeklySummaryDate');
+            const contentEl = document.getElementById('weeklySummaryContent');
+
+            if (dateEl) dateEl.textContent = date;
+            if (!contentEl) return;
+
+            let html = '';
+
+            if (report.performance_summary) {
+                html += `<p class="text-gray-300 text-sm">${report.performance_summary}</p>`;
+            }
+
+            if (report.week_highlights) {
+                html += `<ul class="mt-3 space-y-1">`;
+                report.week_highlights.forEach(highlight => {
+                    html += `<li class="text-sm text-gray-400 flex items-start gap-2">
+                        <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
+                        <span>${highlight}</span>
+                    </li>`;
+                });
+                html += `</ul>`;
+            }
+
+            if (report.trends) {
+                html += `<div class="mt-3 flex flex-wrap gap-2">`;
+                Object.entries(report.trends).forEach(([key, trend]) => {
+                    const color = trend > 0 ? 'green' : trend < 0 ? 'red' : 'gray';
+                    const arrow = trend > 0 ? '↑' : trend < 0 ? '↓' : '→';
+                    const label = key.replace(/_/g, ' ');
+                    html += `<span class="badge badge-${color}">${label} ${arrow} ${Math.abs(trend)}%</span>`;
+                });
+                html += `</div>`;
+            }
+
+            contentEl.innerHTML = html || '<p class="text-gray-500 text-sm">Report data unavailable.</p>';
+        },
+
+        displayChannelAnalysis(report, date) {
+            const dateEl = document.getElementById('channelAnalysisDate');
+            const contentEl = document.getElementById('channelAnalysisContent');
+
+            if (dateEl) dateEl.textContent = date;
+            if (!contentEl) return;
+
+            let html = '';
+
+            if (report.channels) {
+                html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">`;
+                report.channels.forEach(channel => {
+                    const performanceColor = channel.performance === 'high' ? 'green' :
+                                            channel.performance === 'medium' ? 'yellow' : 'red';
+                    html += `
+                        <div class="bg-gray-800 rounded p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium text-white">${channel.name}</span>
+                                <span class="badge badge-${performanceColor}">${channel.performance}</span>
+                            </div>
+                            <div class="text-xs text-gray-400 space-y-1">
+                                <div>Leads: ${this.formatValue(channel.leads)}</div>
+                                <div>CVR: ${channel.cvr}%</div>
+                                ${channel.spend ? `<div>Spend: ${this.formatCurrency(channel.spend)}</div>` : ''}
+                                ${channel.roas ? `<div>ROAS: ${channel.roas}x</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            if (report.recommendation) {
+                html += `
+                    <div class="mt-4 p-3 bg-purple-900/30 rounded border border-purple-800">
+                        <div class="text-purple-400 text-xs font-medium mb-1">Recommendation</div>
+                        <div class="text-white text-sm">${report.recommendation}</div>
+                    </div>
+                `;
+            }
+
+            contentEl.innerHTML = html || '<p class="text-gray-500 text-sm">No channel analysis available.</p>';
+        },
+
+        displayOpportunities(opportunities) {
+            const container = document.getElementById('aiOpportunities');
+            if (!container || !opportunities?.length) return;
+
+            container.innerHTML = opportunities.map(opp => `
+                <div class="flex items-start gap-3 p-2 bg-green-900/20 rounded">
+                    <i class="fas fa-arrow-trend-up text-green-400 mt-1"></i>
+                    <div>
+                        <div class="text-white text-sm font-medium">${opp.title || opp}</div>
+                        ${opp.description ? `<div class="text-gray-400 text-xs mt-1">${opp.description}</div>` : ''}
+                        ${opp.impact ? `<span class="badge badge-green mt-1">${opp.impact}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        },
+
+        displayRisks(risks) {
+            const container = document.getElementById('aiRisks');
+            if (!container || !risks?.length) return;
+
+            container.innerHTML = risks.map(risk => `
+                <div class="flex items-start gap-3 p-2 bg-red-900/20 rounded">
+                    <i class="fas fa-exclamation-circle text-red-400 mt-1"></i>
+                    <div>
+                        <div class="text-white text-sm font-medium">${risk.title || risk}</div>
+                        ${risk.description ? `<div class="text-gray-400 text-xs mt-1">${risk.description}</div>` : ''}
+                        ${risk.severity ? `<span class="badge badge-${risk.severity === 'high' ? 'red' : 'yellow'} mt-1">${risk.severity}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        },
+
+        displayActions(actions) {
+            const container = document.getElementById('aiActions');
+            if (!container || !actions?.length) return;
+
+            container.innerHTML = actions.map((action, i) => `
+                <div class="flex items-center gap-3 p-2 hover:bg-gray-800 rounded transition-colors">
+                    <span class="w-6 h-6 bg-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center text-xs font-medium">${i + 1}</span>
+                    <div class="flex-1">
+                        <div class="text-white text-sm">${action.task || action}</div>
+                        ${action.deadline ? `<div class="text-gray-500 text-xs">Due: ${action.deadline}</div>` : ''}
+                    </div>
+                    ${action.priority ? `<span class="badge badge-${action.priority === 'high' ? 'red' : 'yellow'}">${action.priority}</span>` : ''}
+                </div>
+            `).join('');
+        },
+
+        displayMemories() {
+            const container = document.getElementById('aiMemoryList');
+            if (!container) return;
+
+            if (!this.memories.length) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No memories saved yet. Use Claude with MCP to save insights.</p>';
+                return;
+            }
+
+            const typeIcons = {
+                decision: 'fa-gavel',
+                insight: 'fa-lightbulb',
+                preference: 'fa-heart',
+                fact: 'fa-info-circle'
+            };
+
+            const typeColors = {
+                decision: 'text-purple-400',
+                insight: 'text-yellow-400',
+                preference: 'text-pink-400',
+                fact: 'text-blue-400'
+            };
+
+            container.innerHTML = this.memories.map(memory => `
+                <div class="flex items-start gap-3 p-3 bg-gray-800 rounded">
+                    <i class="fas ${typeIcons[memory.memory_type] || 'fa-brain'} ${typeColors[memory.memory_type] || 'text-gray-400'} mt-1"></i>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-white font-medium text-sm truncate">${memory.context}</span>
+                            <span class="badge badge-gray text-xs">${memory.memory_type}</span>
+                        </div>
+                        <div class="text-gray-400 text-xs">${memory.content}</div>
+                        <div class="text-gray-600 text-xs mt-1">
+                            ${new Date(memory.created_at).toLocaleDateString('vi-VN')} ·
+                            Importance: ${memory.importance}/10
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        },
+
+        formatValue(value) {
+            if (value == null) return '-';
+            if (typeof value === 'number') {
+                return new Intl.NumberFormat('vi-VN').format(value);
+            }
+            return value;
+        },
+
+        formatCurrency(value) {
+            if (value == null) return '-';
+            return new Intl.NumberFormat('vi-VN', {
+                style: 'currency',
+                currency: 'VND',
+                maximumFractionDigits: 0
+            }).format(value);
+        }
+    };
+
+    // Global function for generating AI reports
+    async function generateAIReport() {
+        const typeSelect = document.getElementById('aiReportType');
+        const statusEl = document.getElementById('aiReportStatus');
+        const btn = document.getElementById('generateReportBtn');
+
+        if (!typeSelect) return;
+
+        const reportType = typeSelect.value;
+
+        // Show loading state
+        if (statusEl) statusEl.classList.remove('hidden');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+        }
+
+        try {
+            const response = await fetch('/api/reports/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: reportType })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to generate report');
+            }
+
+            const data = await response.json();
+
+            // Update the display
+            AIReportsManager.reports[reportType] = data;
+            AIReportsManager.displayReport(reportType, data);
+
+            // Show success message
+            showToast(`${reportType.replace(/_/g, ' ')} report generated!`, 'success');
+
+        } catch (e) {
+            console.error('Report generation failed:', e);
+            showToast(`Failed to generate report: ${e.message}`, 'error');
+        } finally {
+            // Reset UI
+            if (statusEl) statusEl.classList.add('hidden');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic mr-2"></i>Generate Report';
+            }
+        }
+    }
+
+    // Simple toast notification
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+        toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Initialize AI Reports tab after DOM loads
+    window.addEventListener('DOMContentLoaded', () => {
+        AIReportsManager.init();
+    });
+    </script>
 </body>
 </html>

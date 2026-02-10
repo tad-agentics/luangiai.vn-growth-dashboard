@@ -203,5 +203,176 @@ CREATE POLICY "Allow anon insert audit" ON audit_log FOR INSERT WITH CHECK (true
 CREATE POLICY "Allow anon read audit" ON audit_log FOR SELECT USING (true);
 
 -- ============================================
--- DONE! Your database is ready.
+-- 8. UNIFIED METRICS (Medallion Gold Layer)
+-- Cross-platform normalized metrics
+-- ============================================
+CREATE TABLE IF NOT EXISTS unified_metrics (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    date DATE NOT NULL,
+    source TEXT NOT NULL,           -- 'fluentcrm', 'google_ads', 'meta_ads', 'tiktok_ads', 'ga4', 'gsc'
+
+    -- Traffic Metrics
+    impressions INTEGER DEFAULT 0,
+    clicks INTEGER DEFAULT 0,
+    sessions INTEGER DEFAULT 0,
+
+    -- Conversion Metrics
+    leads INTEGER DEFAULT 0,
+    customers INTEGER DEFAULT 0,
+    conversions INTEGER DEFAULT 0,
+
+    -- Cost Metrics
+    spend DECIMAL(12,2) DEFAULT 0,
+    revenue DECIMAL(12,2) DEFAULT 0,
+    currency TEXT DEFAULT 'VND',
+
+    -- Calculated Fields (stored for performance)
+    ctr DECIMAL(6,4),              -- clicks / impressions
+    cvr DECIMAL(6,4),              -- conversions / clicks
+    cpc DECIMAL(10,2),             -- spend / clicks
+    cpa DECIMAL(10,2),             -- spend / conversions
+    roas DECIMAL(6,2),             -- revenue / spend
+
+    -- Dimensions (for drill-down)
+    campaign_id TEXT,
+    campaign_name TEXT,
+    ad_group_id TEXT,
+    ad_group_name TEXT,
+    persona TEXT,                  -- Linked persona (if attributable)
+
+    raw_data JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    UNIQUE(date, source, campaign_id, ad_group_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_unified_metrics_date ON unified_metrics(date DESC);
+CREATE INDEX IF NOT EXISTS idx_unified_metrics_source ON unified_metrics(source, date DESC);
+CREATE INDEX IF NOT EXISTS idx_unified_metrics_persona ON unified_metrics(persona, date DESC);
+
+-- RLS Policy
+ALTER TABLE unified_metrics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon all unified_metrics" ON unified_metrics FOR ALL USING (true);
+
+-- ============================================
+-- 9. AI CONTEXT MEMORY
+-- Persistent memory for AI co-CGO
+-- ============================================
+CREATE TABLE IF NOT EXISTS ai_memory (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    memory_type TEXT NOT NULL,      -- 'decision', 'insight', 'preference', 'fact'
+    context TEXT NOT NULL,          -- What this memory relates to
+    content TEXT NOT NULL,          -- The actual memory content
+    importance INTEGER DEFAULT 5,   -- 1-10 scale for retrieval priority
+
+    -- Metadata for retrieval
+    tags TEXT[] DEFAULT '{}',
+
+    -- Lifecycle
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_accessed TIMESTAMPTZ DEFAULT NOW(),
+    access_count INTEGER DEFAULT 0,
+    expires_at TIMESTAMPTZ,         -- Optional expiration
+
+    -- Source tracking
+    source_type TEXT,               -- 'user_feedback', 'auto_insight', 'manual'
+    source_id TEXT                  -- Reference to originating data
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_memory_type ON ai_memory(memory_type);
+CREATE INDEX IF NOT EXISTS idx_ai_memory_tags ON ai_memory USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_ai_memory_importance ON ai_memory(importance DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_memory_created ON ai_memory(created_at DESC);
+
+-- RLS Policy
+ALTER TABLE ai_memory ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon all ai_memory" ON ai_memory FOR ALL USING (true);
+
+-- ============================================
+-- 10. SEO PERFORMANCE DATA
+-- Cache for GA4 and GSC data
+-- ============================================
+CREATE TABLE IF NOT EXISTS seo_performance (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    source TEXT NOT NULL,           -- 'ga4' or 'gsc'
+    date DATE NOT NULL,
+
+    -- GSC Metrics
+    query TEXT,
+    page TEXT,
+
+    -- Common Metrics
+    impressions INTEGER DEFAULT 0,
+    clicks INTEGER DEFAULT 0,
+    ctr DECIMAL(6,4),
+    position DECIMAL(6,2),
+
+    -- GA4 Metrics
+    sessions INTEGER DEFAULT 0,
+    users INTEGER DEFAULT 0,
+    new_users INTEGER DEFAULT 0,
+    bounce_rate DECIMAL(6,4),
+    avg_session_duration DECIMAL(10,2),
+    conversions INTEGER DEFAULT 0,
+
+    -- Channel info
+    channel_grouping TEXT,
+    landing_page TEXT,
+
+    raw_data JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    UNIQUE(source, date, query, page)
+);
+
+CREATE INDEX IF NOT EXISTS idx_seo_performance_date ON seo_performance(source, date DESC);
+CREATE INDEX IF NOT EXISTS idx_seo_performance_query ON seo_performance(query) WHERE query IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_seo_performance_page ON seo_performance(page) WHERE page IS NOT NULL;
+
+-- RLS Policy
+ALTER TABLE seo_performance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon all seo_performance" ON seo_performance FOR ALL USING (true);
+
+-- ============================================
+-- 11. ATTRIBUTION PATHS
+-- Multi-touch attribution tracking
+-- ============================================
+CREATE TABLE IF NOT EXISTS attribution_paths (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    subscriber_id TEXT NOT NULL,    -- FluentCRM subscriber ID
+
+    -- Journey tracking
+    touchpoints JSONB NOT NULL,     -- Array of {channel, timestamp, action}
+    first_touch_channel TEXT,
+    last_touch_channel TEXT,
+
+    -- Outcome
+    converted BOOLEAN DEFAULT false,
+    conversion_date TIMESTAMPTZ,
+    conversion_value DECIMAL(12,2),
+
+    -- Attribution weights
+    first_touch_weight DECIMAL(4,2),
+    last_touch_weight DECIMAL(4,2),
+    linear_weight DECIMAL(4,2),
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_attribution_subscriber ON attribution_paths(subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_attribution_converted ON attribution_paths(converted, conversion_date DESC);
+
+-- RLS Policy
+ALTER TABLE attribution_paths ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon all attribution_paths" ON attribution_paths FOR ALL USING (true);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS attribution_paths_updated_at ON attribution_paths;
+CREATE TRIGGER attribution_paths_updated_at
+    BEFORE UPDATE ON attribution_paths
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================
+-- DONE! Your database is ready for Growth Intelligence Platform.
 -- ============================================

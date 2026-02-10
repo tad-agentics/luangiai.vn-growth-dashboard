@@ -401,8 +401,12 @@ class CRMDashboard {
                         source: sub.src,
                         custom_fields: {
                             birth_time: sub.bt,
-                            gender: sub.g
+                            gender: sub.g,
+                            device: sub.dev  // Device for persona assignment
                         },
+                        // Growth analytics fields
+                        last_activity: sub.la,  // For engagement stats
+                        device: sub.dev,        // Fallback device field
                         // Synthetic tags for CVR calculation
                         tags: sub.cv ? [{ title: 'converted' }] : [],
                         _tagCount: sub.tc
@@ -462,6 +466,13 @@ class CRMDashboard {
                            title.includes('thanh-toan') || title.includes('da-mua');
                 }) || false;
 
+                // Extract device info for persona assignment
+                const device = sub.custom_fields?.device ||
+                              sub.device || sub.device_type ||
+                              sub.custom_values?.device ||
+                              sub.meta?.device ||
+                              sub.user_agent || null;
+
                 return {
                     id: sub.id,
                     s: sub.status?.charAt(0), // 's'=subscribed, 'p'=pending, etc (1 char)
@@ -474,7 +485,10 @@ class CRMDashboard {
                     g: gender,        // gender
                     src: sub.source,  // traffic source
                     cv: hasConversionTag ? 1 : 0, // converted (1/0)
-                    tc: sub.tags?.length || 0     // tag count
+                    tc: sub.tags?.length || 0,    // tag count
+                    // Growth analytics fields
+                    la: sub.last_activity,        // last activity (for engagement)
+                    dev: device                    // device (for persona)
                 };
             });
 

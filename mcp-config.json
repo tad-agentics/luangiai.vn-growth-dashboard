@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "growth-intelligence": {
+      "command": "node",
+      "args": ["src/mcp/MCPServer.js"],
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}"
+      }
+    }
+  }
+}
