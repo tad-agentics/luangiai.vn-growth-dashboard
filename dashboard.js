@@ -422,10 +422,23 @@ class CRMDashboard {
                     }));
                 }
 
-                // ALWAYS ensure email field exists (handles both old and new cache formats)
+                // ALWAYS ensure all fields exist (handles both old and new cache formats)
+                // This fallback ensures data works even when isMinimalFormat is false
                 subscribers = subscribers.map(sub => ({
                     ...sub,
-                    email: sub.email || sub.e  // Use email if exists, fallback to 'e'
+                    email: sub.email || sub.e,
+                    created_at: sub.created_at || sub.c,
+                    updated_at: sub.updated_at || sub.u,
+                    date_of_birth: sub.date_of_birth || sub.d,
+                    source: sub.source || sub.src,
+                    last_activity: sub.last_activity || sub.la,
+                    device: sub.device || sub.dev,
+                    custom_fields: {
+                        ...(sub.custom_fields || {}),
+                        gender: sub.custom_fields?.gender || sub.g,
+                        birth_time: sub.custom_fields?.birth_time || sub.bt,
+                        device: sub.custom_fields?.device || sub.dev
+                    }
                 }));
 
                 return {
@@ -1357,10 +1370,17 @@ class CRMDashboard {
                         subscriber.dob ||
                         null;
 
-            const age = parseAge(dob);
-            const ageGroup = getAgeBucket(age);
-            const deviceType = getDeviceType(subscriber);
-            const personaKey = assignPersona(ageGroup, deviceType);
+            // Extract birth year for generation-based persona assignment
+            let birthYear = null;
+            if (dob) {
+                try {
+                    birthYear = new Date(dob).getFullYear();
+                    if (isNaN(birthYear)) birthYear = null;
+                } catch (e) {
+                    birthYear = null;
+                }
+            }
+            const personaKey = assignPersona(birthYear);
 
             personaByDate[dateKey][personaKey]++;
         });
@@ -1482,10 +1502,17 @@ class CRMDashboard {
 
             // === 2. SOURCE BY PERSONA (with conversion tracking) ===
             const dob = subscriber.custom_fields?.dob || subscriber.date_of_birth || null;
-            const age = parseAge(dob);
-            const ageGroup = getAgeBucket(age);
-            const deviceType = getDeviceType(subscriber);
-            const personaKey = assignPersona(ageGroup, deviceType);
+            // Extract birth year for generation-based persona assignment
+            let birthYear = null;
+            if (dob) {
+                try {
+                    birthYear = new Date(dob).getFullYear();
+                    if (isNaN(birthYear)) birthYear = null;
+                } catch (e) {
+                    birthYear = null;
+                }
+            }
+            const personaKey = assignPersona(birthYear);
 
             if (!analytics.sourcesByPersona[personaKey]) {
                 analytics.sourcesByPersona[personaKey] = {};
@@ -2025,11 +2052,17 @@ class CRMDashboard {
             stats.genderCVR[gender].total++;
             if (isCustomer) stats.genderCVR[gender].customers++;
 
-            // Gender by persona
-            const age = parseAge(dob);
-            const ageGroup = getAgeBucket(age);
-            const deviceType = getDeviceType(subscriber);
-            const personaKey = assignPersona(ageGroup, deviceType);
+            // Gender by persona - extract birth year for generation-based persona
+            let birthYear = null;
+            if (dob) {
+                try {
+                    birthYear = new Date(dob).getFullYear();
+                    if (isNaN(birthYear)) birthYear = null;
+                } catch (e) {
+                    birthYear = null;
+                }
+            }
+            const personaKey = assignPersona(birthYear);
 
             if (stats.genderByPersona[personaKey]) {
                 stats.genderByPersona[personaKey][gender].total++;
