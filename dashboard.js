@@ -1704,6 +1704,19 @@ class CRMDashboard {
     }
 
     initCharts() {
+        // Design system chart colors
+        const chartColors = {
+            primary: '#B05B36',
+            secondary: '#D4927A',
+            accent: '#E5B299',
+            success: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            muted: '#666666',
+            grid: 'rgba(42, 43, 47, 0.1)',
+            text: '#666666'
+        };
+
         // Status Chart
         const statusCtx = document.getElementById('statusChart')?.getContext('2d');
         if (statusCtx) {
@@ -1713,7 +1726,7 @@ class CRMDashboard {
                     labels: ['Subscribed', 'Pending', 'Unsubscribed', 'Bounced', 'Complained'],
                     datasets: [{
                         data: [0, 0, 0, 0, 0],
-                        backgroundColor: ['#22c55e', '#eab308', '#ef4444', '#f97316', '#ec4899'],
+                        backgroundColor: [chartColors.success, chartColors.warning, chartColors.danger, chartColors.primary, chartColors.secondary],
                         borderWidth: 0
                     }]
                 },
@@ -1721,7 +1734,7 @@ class CRMDashboard {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 15 } }
+                        legend: { position: 'right', labels: { color: chartColors.text, usePointStyle: true, padding: 15 } }
                     }
                 }
             });
@@ -1744,7 +1757,7 @@ class CRMDashboard {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 15 } }
+                        legend: { position: 'right', labels: { color: chartColors.text, usePointStyle: true, padding: 15 } }
                     }
                 }
             });
@@ -1760,7 +1773,7 @@ class CRMDashboard {
                     datasets: [{
                         label: 'Contacts',
                         data: [],
-                        backgroundColor: '#8b5cf6'
+                        backgroundColor: chartColors.primary
                     }]
                 },
                 options: {
@@ -1768,8 +1781,8 @@ class CRMDashboard {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
-                        y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+                        x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text } },
+                        y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text } }
                     }
                 }
             });
@@ -1784,7 +1797,7 @@ class CRMDashboard {
                     labels: [],
                     datasets: [{
                         data: [],
-                        backgroundColor: ['#3b82f6', '#22c55e', '#f97316', '#6b7280'],
+                        backgroundColor: [chartColors.primary, chartColors.success, chartColors.warning, chartColors.muted],
                         borderWidth: 0
                     }]
                 },
@@ -1792,7 +1805,7 @@ class CRMDashboard {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 15 } }
+                        legend: { position: 'right', labels: { color: chartColors.text, usePointStyle: true, padding: 15 } }
                     }
                 }
             });
@@ -1817,7 +1830,7 @@ class CRMDashboard {
                     plugins: {
                         legend: {
                             position: 'top',
-                            labels: { color: '#9ca3af', usePointStyle: true, padding: 15 }
+                            labels: { color: '#666666', usePointStyle: true, padding: 15 }
                         },
                         tooltip: {
                             mode: 'index',
@@ -1826,12 +1839,12 @@ class CRMDashboard {
                     },
                     scales: {
                         x: {
-                            grid: { color: '#374151' },
-                            ticks: { color: '#9ca3af', maxRotation: 45, minRotation: 45 }
+                            grid: { color: 'rgba(42, 43, 47, 0.1)' },
+                            ticks: { color: '#666666', maxRotation: 45, minRotation: 45 }
                         },
                         y: {
-                            grid: { color: '#374151' },
-                            ticks: { color: '#9ca3af' },
+                            grid: { color: 'rgba(42, 43, 47, 0.1)' },
+                            ticks: { color: '#666666' },
                             beginAtZero: true
                         }
                     }
@@ -1869,7 +1882,7 @@ class CRMDashboard {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 10, font: { size: 11 } } }
+                        legend: { position: 'right', labels: { color: '#666666', usePointStyle: true, padding: 10, font: { size: 11 } } }
                     }
                 }
             });
@@ -1894,8 +1907,8 @@ class CRMDashboard {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
-                        y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' }, beginAtZero: true }
+                        x: { grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666666' } },
+                        y: { grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666666' }, beginAtZero: true }
                     }
                 }
             });
@@ -1932,11 +1945,11 @@ class CRMDashboard {
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { position: 'top', labels: { color: '#9ca3af', usePointStyle: true } }
+                        legend: { position: 'top', labels: { color: '#666666', usePointStyle: true } }
                     },
                     scales: {
-                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', maxRotation: 45, minRotation: 45 } },
-                        y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' }, beginAtZero: true }
+                        x: { grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666666', maxRotation: 45, minRotation: 45 } },
+                        y: { grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666666' }, beginAtZero: true }
                     }
                 }
             });
@@ -1964,8 +1977,8 @@ class CRMDashboard {
                     indexAxis: 'y',
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
-                        y: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                        x: { grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666666' } },
+                        y: { grid: { display: false }, ticks: { color: '#666666' } }
                     }
                 }
             });
@@ -1988,7 +2001,7 @@ class CRMDashboard {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 15 } }
+                        legend: { position: 'right', labels: { color: '#666666', usePointStyle: true, padding: 15 } }
                     }
                 }
             });
@@ -2011,7 +2024,7 @@ class CRMDashboard {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 10 } }
+                        legend: { position: 'right', labels: { color: '#666666', usePointStyle: true, padding: 10 } }
                     }
                 }
             });
@@ -2034,7 +2047,7 @@ class CRMDashboard {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { color: '#9ca3af', usePointStyle: true, padding: 10 } }
+                        legend: { position: 'right', labels: { color: '#666666', usePointStyle: true, padding: 10 } }
                     }
                 }
             });
