@@ -1037,34 +1037,6 @@
 
         <!-- ==================== AI CO-CGO TAB ==================== -->
         <div id="tab-ai-cgo" class="tab-content space-y-6 hidden">
-            <!-- API Key Configuration -->
-            <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-foreground font-bold flex items-center gap-2">
-                        <i class="fas fa-key text-primary"></i>
-                        API Configuration
-                    </h3>
-                    <span id="aiApiStatus" class="text-xs px-2 py-1 rounded bg-muted text-muted-foreground">
-                        Not configured
-                    </span>
-                </div>
-                <div class="flex gap-3 items-end">
-                    <div class="flex-1">
-                        <label class="block text-xs text-muted-foreground mb-1">Anthropic API Key</label>
-                        <input type="password" id="anthropicApiKey"
-                               class="w-full px-3 py-2 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none text-foreground"
-                               placeholder="sk-ant-api...">
-                    </div>
-                    <button onclick="AICGOManager.saveApiKey()"
-                            class="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/80 transition-colors">
-                        <i class="fas fa-save mr-1"></i>Save
-                    </button>
-                </div>
-                <p class="text-xs text-muted-foreground mt-2">
-                    Your API key is stored locally in browser storage and never sent to our servers.
-                </p>
-            </div>
-
             <!-- Business Context (System Prompt) -->
             <div class="card p-6">
                 <div class="flex items-center justify-between mb-3">
