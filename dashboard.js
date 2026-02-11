@@ -5617,8 +5617,9 @@ class CRMDashboard {
             dataCompletenessEl.textContent = `${this.formatNumber(completeData)} (${(completeData / (stats.totalProcessed || 1) * 100).toFixed(1)}%)`;
         }
 
-        // Persona table
-        const tableBody = document.getElementById('personaTable');
+        // NOTE: Persona table is now handled by updatePersonaTableWithLTV() with expandable birth year breakdown
+        // This section only updates persona cards below
+
         const personaArray = Object.entries(personas)
             .map(([key, p]) => ({ key, ...p }))
             .sort((a, b) => b.count - a.count);
@@ -5626,39 +5627,6 @@ class CRMDashboard {
         // Calculate overall CVR for comparison
         const totalConverted = personaArray.reduce((sum, p) => sum + (p.converted || 0), 0);
         const overallCVR = total > 0 ? (totalConverted / total * 100) : 0;
-
-        if (tableBody) {
-            tableBody.innerHTML = personaArray.map(p => {
-                const pct = (p.count / total * 100).toFixed(1);
-                const cvr = p.count > 0 ? (p.converted / p.count * 100).toFixed(2) : 0;
-                const cvrValue = parseFloat(cvr);
-                const priorityColor = p.priority === 'High' ? 'badge-green' : p.priority === 'Medium' ? 'badge-yellow' : 'badge-gray';
-                const cvrColor = cvrValue > overallCVR ? 'text-success' : cvrValue > 0 ? 'text-yellow-400' : 'text-muted-foreground';
-
-                return `
-                    <tr class="border-b border-foreground hover:border border-foreground/50">
-                        <td class="py-3">
-                            <span class="flex items-center gap-2">
-                                <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
-                                <span class="font-medium" style="color: ${p.color}">${p.name}</span>
-                            </span>
-                        </td>
-                        <td class="text-right py-3 text-foreground font-medium">${this.formatNumber(p.count)}</td>
-                        <td class="text-right py-3 text-muted-foreground">${pct}%</td>
-                        <td class="py-3">
-                            <div class="h-2 bg-muted rounded-full overflow-hidden">
-                                <div class="h-full rounded-full" style="width: ${pct}%; background: ${p.color}"></div>
-                            </div>
-                        </td>
-                        <td class="text-right py-3 text-foreground">${this.formatNumber(p.converted || 0)}</td>
-                        <td class="text-right py-3 ${cvrColor} font-medium">${cvr}%</td>
-                        <td class="text-center py-3">
-                            <span class="badge ${priorityColor}">${p.priority}</span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
 
         // Persona cards - with dynamic best channel
         const cardsContainer = document.getElementById('personaCards');
