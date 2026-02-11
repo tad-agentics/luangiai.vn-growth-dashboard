@@ -4662,41 +4662,10 @@ class CRMDashboard {
     }
 
     updateDemographicSections() {
-        // These methods already exist and will populate the collapsible sections
-        this.updateAstrologyData();
-        this.updateGenderData();
-        this.updateAgeDeviceCharts();
+        // These methods populate the collapsible sections
+        this.updatePersonasTab();   // Updates age chart, device chart, persona targeting
+        this.updateAstrologyTab();  // Updates zodiac chart, gender chart, tables
         this.updateTimeOfDaySection();
-    }
-
-    updateAstrologyData() {
-        // Populate zodiac chart and table for the collapsible section
-        const astroData = this.data.astrology || {};
-        const filteredSubs = this.getFilteredSubscribers();
-
-        // Update zodiac metrics
-        const withDOB = filteredSubs.filter(s => s.dob || s.date_of_birth).length;
-        const total = filteredSubs.length || 1;
-        const withDOBEl = document.getElementById('astroWithDOB');
-        if (withDOBEl) withDOBEl.textContent = this.formatNumber(withDOB);
-        const withDOBPctEl = document.getElementById('astroWithDOBPct');
-        if (withDOBPctEl) withDOBPctEl.textContent = `${((withDOB / total) * 100).toFixed(0)}%`;
-
-        const withBirthtime = filteredSubs.filter(s => s.birthtime || s.custom_fields?.birth_time).length;
-        const withBirthtimeEl = document.getElementById('astroWithBirthtime');
-        if (withBirthtimeEl) withBirthtimeEl.textContent = this.formatNumber(withBirthtime);
-        const withBirthtimePctEl = document.getElementById('astroWithBirthtimePct');
-        if (withBirthtimePctEl) withBirthtimePctEl.textContent = `${((withBirthtime / total) * 100).toFixed(0)}%`;
-    }
-
-    updateGenderData() {
-        // Gender chart and table already handled in existing updateAstrologyTab method
-        // Just ensure genderChart and genderPersonaTable are populated
-    }
-
-    updateAgeDeviceCharts() {
-        // These charts are already initialized in initCharts
-        // Just update data if needed
     }
 
     updateTimeOfDaySection() {
