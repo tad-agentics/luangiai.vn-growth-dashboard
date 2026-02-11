@@ -1961,45 +1961,111 @@
             this.apiKey = localStorage.getItem('anthropic_api_key');
             this.updateApiStatus();
 
-            // Load business context from localStorage
+            // Load business context from Supabase (with localStorage fallback)
             this.loadBusinessContext();
         },
 
-        // Business Context Management
-        loadBusinessContext() {
-            const context = localStorage.getItem('ai_business_context') || '';
+        // Business Context Management - stored in Supabase
+        async loadBusinessContext() {
             const contextInput = document.getElementById('businessContext');
-            if (contextInput) {
-                contextInput.value = context;
-                this.updateContextCharCount();
+            if (!contextInput) return;
+
+            // First try localStorage for immediate display
+            const localContext = localStorage.getItem('ai_business_context') || '';
+            contextInput.value = localContext;
+            this.updateContextCharCount();
+
+            // Then try to load from Supabase
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    const { data, error } = await supabaseClient
+                        .from('ai_settings')
+                        .select('value')
+                        .eq('key', 'business_context')
+                        .single();
+
+                    if (!error && data?.value) {
+                        contextInput.value = data.value;
+                        localStorage.setItem('ai_business_context', data.value);
+                        this.updateContextCharCount();
+                    }
+                }
+            } catch (e) {
+                console.log('Using localStorage for business context');
             }
         },
 
-        saveBusinessContext() {
+        async saveBusinessContext() {
             const contextInput = document.getElementById('businessContext');
             if (!contextInput) return;
 
             const context = contextInput.value;
+
+            // Save to localStorage immediately
             localStorage.setItem('ai_business_context', context);
             this.updateContextCharCount();
 
-            // Show save status briefly
+            // Show save status
             const statusEl = document.getElementById('contextSaveStatus');
             if (statusEl) {
                 statusEl.classList.remove('hidden');
-                clearTimeout(this.contextSaveTimeout);
-                this.contextSaveTimeout = setTimeout(() => {
-                    statusEl.classList.add('hidden');
-                }, 2000);
+                statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
             }
+
+            // Save to Supabase
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    const { error } = await supabaseClient
+                        .from('ai_settings')
+                        .upsert({
+                            key: 'business_context',
+                            value: context,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'key' });
+
+                    if (error) throw error;
+
+                    if (statusEl) {
+                        statusEl.innerHTML = '<i class="fas fa-check mr-1"></i>Saved to cloud';
+                    }
+                } else {
+                    if (statusEl) {
+                        statusEl.innerHTML = '<i class="fas fa-check mr-1"></i>Saved locally';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to save to Supabase:', e);
+                if (statusEl) {
+                    statusEl.innerHTML = '<i class="fas fa-check mr-1"></i>Saved locally';
+                }
+            }
+
+            // Hide status after delay
+            clearTimeout(this.contextSaveTimeout);
+            this.contextSaveTimeout = setTimeout(() => {
+                if (statusEl) statusEl.classList.add('hidden');
+            }, 2000);
         },
 
-        clearBusinessContext() {
+        async clearBusinessContext() {
             const contextInput = document.getElementById('businessContext');
             if (contextInput) {
                 contextInput.value = '';
                 localStorage.removeItem('ai_business_context');
                 this.updateContextCharCount();
+
+                // Also clear from Supabase
+                try {
+                    if (typeof supabaseClient !== 'undefined') {
+                        await supabaseClient
+                            .from('ai_settings')
+                            .delete()
+                            .eq('key', 'business_context');
+                    }
+                } catch (e) {
+                    console.error('Failed to clear from Supabase:', e);
+                }
+
                 this.showNotification('Business context cleared', 'info');
             }
         },
@@ -2174,13 +2240,18 @@ Focus on actionable recommendations I can implement immediately.`;
                 sourceBreakdown[source] = (sourceBreakdown[source] || 0) + 1;
             });
 
-            // Persona breakdown
+            // Persona breakdown - calculate CVR from count and converted
             const personaBreakdown = {};
             Object.entries(personas).forEach(([key, data]) => {
+                const count = data.count || 0;
+                const converted = data.converted || 0;
+                // Calculate CVR as converted / count * 100
+                const cvr = count > 0 ? ((converted / count) * 100).toFixed(2) : '0.00';
                 personaBreakdown[key] = {
-                    count: data.count || 0,
-                    cvr: data.cvr?.toFixed(2) || 0,
-                    percentage: ((data.count / subscribers.length) * 100).toFixed(1) || 0
+                    count: count,
+                    converted: converted,
+                    cvr: cvr,
+                    percentage: subscribers.length > 0 ? ((count / subscribers.length) * 100).toFixed(1) : '0.0'
                 };
             });
 
@@ -2332,8 +2403,8 @@ ${data.woocommerce.top1stPurchaseProducts.map((p, i) => `${i + 1}. ${p.name}: ${
 ### TOP 2ND PURCHASE PRODUCTS
 ${data.woocommerce.top2ndPurchaseProducts.map((p, i) => `${i + 1}. ${p.name}: ${p.count} purchases`).join('\n') || 'No data'}
 
-### PERSONA BREAKDOWN
-${Object.entries(data.personas).map(([key, p]) => `- ${key}: ${p.count} subscribers (CVR: ${p.cvr}%)`).join('\n')}
+### PERSONA BREAKDOWN (by generation/birth year)
+${Object.entries(data.personas).map(([key, p]) => `- ${key}: ${p.count} subscribers, ${p.converted} converted (CVR: ${p.cvr}%)`).join('\n')}
 
 ### ENGAGEMENT STATUS
 - Active: ${data.growthAnalytics.engagement?.active || 0}
@@ -2459,7 +2530,7 @@ All monetary values are in VND (Vietnamese Dong).`;
                     'anthropic-dangerous-direct-browser-access': 'true'
                 },
                 body: JSON.stringify({
-                    model: 'claude-sonnet-4-20250514',
+                    model: 'claude-opus-4-20250514',
                     max_tokens: 4096,
                     messages: [{
                         role: 'user',
@@ -2502,7 +2573,7 @@ All monetary values are in VND (Vietnamese Dong).`;
             // Timestamp
             document.getElementById('aiAnalysisTimestamp').textContent =
                 `Generated: ${new Date().toLocaleString()}`;
-            document.getElementById('aiAnalysisModel').textContent = 'Claude Sonnet 4';
+            document.getElementById('aiAnalysisModel').textContent = 'Claude Opus 4';
         },
 
         parseMarkdownSections(markdown) {
