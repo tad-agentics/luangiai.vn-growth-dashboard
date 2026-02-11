@@ -293,6 +293,39 @@ class CRMDashboard {
             preset: 'all'     // 'all', '7d', '30d', '90d', 'ytd', 'custom'
         };
 
+        // Internal team & test account exclusions
+        this.excludedEmails = new Set([
+            'thaido.hn@gmail.com',
+            'dominhthai94@gmail.com',
+            'oxgarp@gmail.com',
+            'thangdm@agentics.vn',
+            'thang.arsenal@gmail.com',
+            'hongnt@agentics.vn',
+            'hongnt.mgc@gmail.com',
+            'hongng.1607@gmail.com',
+            'tad@agentics.vn',
+            'tad@accel3.com',
+            'trinhad@gmail.com',
+            'hangpt@agentics.vn',
+            'quangtt@agentics.vn',
+            'truongtuequang@gmail.com',
+            'locnv@agentics.vn',
+            'phankhue1711996@gmail.com',
+            'phankhue171@gmail.com',
+            'khanh077@gmail.com',
+            'ducnguyen.88880@gmail.com',
+            'maymancuatoi90+1@gmail.com',
+            'ducnguyen.88880+1@gmail.com',
+            'maymancuatoi2017+2@gmail.com',
+            'maymancuatoi2017+3@gmail.com',
+            'khue@gmail.com',
+            'phuongbich@gmail.com',
+            'truongtueanan@gmail.com'
+        ]);
+
+        // Pattern to match test emails
+        this.testEmailPattern = /test|testing|tester/i;
+
         // Sync management to prevent server overload
         this.isSyncing = false;
         this.lastSyncTime = localStorage.getItem('fluentcrm_last_sync') || null;
@@ -1476,44 +1509,67 @@ class CRMDashboard {
         this.data.personaHistory = history;
     }
 
-    // ==================== DATE FILTER HELPERS ====================
+    // ==================== EMAIL EXCLUSION & DATE FILTER HELPERS ====================
 
-    // Filter subscribers by active date range
+    // Check if email should be excluded (internal team or test account)
+    isExcludedEmail(email) {
+        if (!email) return false;
+        const lowerEmail = email.toLowerCase();
+
+        // Check explicit exclusion list
+        if (this.excludedEmails.has(lowerEmail)) return true;
+
+        // Check test patterns
+        if (this.testEmailPattern.test(lowerEmail)) return true;
+
+        return false;
+    }
+
+    // Filter subscribers by email exclusions and date range
     getFilteredSubscribers() {
         const subscribers = this.data.subscribers || [];
         const { startDate, endDate } = this.dateFilter;
 
-        if (!startDate && !endDate) return subscribers;
-
-        const start = startDate ? new Date(startDate) : null;
-        const end = endDate ? new Date(endDate) : new Date();
-        if (end) end.setHours(23, 59, 59, 999);
-
         return subscribers.filter(sub => {
-            if (!sub.created_at) return false;
-            const created = new Date(sub.created_at);
-            if (start && created < start) return false;
-            if (end && created > end) return false;
+            // Exclude internal team & test emails
+            if (this.isExcludedEmail(sub.email)) return false;
+
+            // Date filter (if active)
+            if (startDate || endDate) {
+                if (!sub.created_at) return false;
+                const created = new Date(sub.created_at);
+                const start = startDate ? new Date(startDate) : null;
+                const end = endDate ? new Date(endDate) : new Date();
+                if (end) end.setHours(23, 59, 59, 999);
+                if (start && created < start) return false;
+                if (end && created > end) return false;
+            }
+
             return true;
         });
     }
 
-    // Filter orders by active date range
+    // Filter orders by email exclusions and date range
     getFilteredOrders() {
         const orders = this.data.woocommerce?.orders || [];
         const { startDate, endDate } = this.dateFilter;
 
-        if (!startDate && !endDate) return orders;
-
-        const start = startDate ? new Date(startDate) : null;
-        const end = endDate ? new Date(endDate) : new Date();
-        if (end) end.setHours(23, 59, 59, 999);
-
         return orders.filter(order => {
-            if (!order.date_created) return false;
-            const created = new Date(order.date_created);
-            if (start && created < start) return false;
-            if (end && created > end) return false;
+            // Exclude orders from internal team & test emails
+            const email = order.billing?.email || order.billing_email;
+            if (this.isExcludedEmail(email)) return false;
+
+            // Date filter (if active)
+            if (startDate || endDate) {
+                if (!order.date_created) return false;
+                const created = new Date(order.date_created);
+                const start = startDate ? new Date(startDate) : null;
+                const end = endDate ? new Date(endDate) : new Date();
+                if (end) end.setHours(23, 59, 59, 999);
+                if (start && created < start) return false;
+                if (end && created > end) return false;
+            }
+
             return true;
         });
     }
