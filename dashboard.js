@@ -2900,6 +2900,25 @@ class CRMDashboard {
         const filteredOrders = this.getFilteredOrders();
         if (!filteredOrders || filteredOrders.length === 0) {
             debugLog('No WooCommerce orders in selected date range');
+            // Set empty/default metrics instead of returning early
+            this.data.woocommerce.metrics = {
+                timeToFirstPurchase: { avg: 0, count: 0, data: [] },
+                timeFirstToSecond: { avg: 0, count: 0, data: [] },
+                aovSecondPurchase: { avg: 0, count: 0 },
+                aovFirstPurchase: { avg: 0, count: 0 },
+                ltv: { avg: 0, max: 0, data: [] },
+                revenueNew: 0,
+                revenueReturning: 0,
+                sku1st: [],
+                sku2nd: [],
+                sku3rd: [],
+                totalCustomers: 0,
+                totalOrders: 0,
+                repeatCustomers: 0,
+                funnel: { subscribers: 0, firstPurchase: 0, secondPurchase: 0, thirdPurchase: 0, fourPlus: 0 },
+                topCustomers: []
+            };
+            this.data.woocommerce.customerOrders = {};
             return;
         }
 

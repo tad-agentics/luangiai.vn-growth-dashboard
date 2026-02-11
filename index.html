@@ -2350,11 +2350,27 @@ Focus on actionable recommendations I can implement immediately.`;
         },
 
         collectAnalysisData() {
+            // Debug: Log what data is available
+            console.log('=== AI Data Collection Debug ===');
+            console.log('All WooCommerce orders:', dashboard.data.woocommerce?.orders?.length || 0);
+            console.log('Date filter:', dashboard.dateFilter);
+
             const subscribers = dashboard.getFilteredSubscribers();
-            const orders = dashboard.getFilteredOrders();
+            const filteredOrders = dashboard.getFilteredOrders();
+            // Also get ALL orders for total metrics (in case date filter is too restrictive)
+            const allOrders = dashboard.data.woocommerce?.orders || [];
             const metrics = dashboard.data.woocommerce?.metrics || {};
             const growthAnalytics = dashboard.data.growthAnalytics || {};
             const personas = dashboard.data.personas || {};
+
+            console.log('Filtered subscribers:', subscribers.length);
+            console.log('Filtered orders:', filteredOrders.length);
+            console.log('All orders (unfiltered):', allOrders.length);
+            console.log('Metrics:', metrics);
+            console.log('=== End Debug ===');
+
+            // Use filtered orders if available, otherwise fall back to all orders
+            const orders = filteredOrders.length > 0 ? filteredOrders : allOrders;
 
             // Calculate summary statistics
             const customerCount = subscribers.filter(s => s.contact_type === 'customer').length;
@@ -2420,11 +2436,14 @@ Focus on actionable recommendations I can implement immediately.`;
                 revenue: {
                     totalRevenue: Math.round(totalRevenue),
                     orderCount: orders.length,
+                    allTimeOrderCount: allOrders.length, // Total orders regardless of filter
                     avgOrderValue: Math.round(avgOrderValue),
                     currency: 'VND'
                 },
                 woocommerce: {
                     avgLTV: Math.round(metrics.ltv?.avg || 0),
+                    totalCustomers: metrics.totalCustomers || 0,
+                    repeatCustomers: metrics.repeatCustomers || 0,
                     repeatRate: metrics.totalCustomers > 0
                         ? ((metrics.repeatCustomers / metrics.totalCustomers) * 100).toFixed(1)
                         : 0,
@@ -2538,11 +2557,14 @@ Filter Applied: ${data.conditionalFilter}
 - Week-over-Week Change: ${data.trends.weekOverWeekChange}%
 
 ### REVENUE METRICS (VND)
-- Total Revenue: ${data.revenue.totalRevenue.toLocaleString()} VND
-- Total Orders: ${data.revenue.orderCount}
+- Total Revenue (in range): ${data.revenue.totalRevenue.toLocaleString()} VND
+- Orders (in range): ${data.revenue.orderCount}
+- All-Time Orders: ${data.revenue.allTimeOrderCount}
 - Average Order Value: ${data.revenue.avgOrderValue.toLocaleString()} VND
 
-### CUSTOMER LIFETIME VALUE
+### CUSTOMER METRICS
+- Total Paying Customers: ${data.woocommerce.totalCustomers}
+- Repeat Customers: ${data.woocommerce.repeatCustomers}
 - Average LTV: ${data.woocommerce.avgLTV.toLocaleString()} VND
 - Repeat Purchase Rate: ${data.woocommerce.repeatRate}%
 - Avg Days to First Purchase: ${data.woocommerce.timeToFirstPurchase} days
