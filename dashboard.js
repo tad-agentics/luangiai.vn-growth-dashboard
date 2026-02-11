@@ -168,10 +168,23 @@ function assignPersona(birthYear) {
     return 'unknown';
 }
 
-// Helper: Parse gender (1 = Male, -1 = Female in your data)
+// Helper: Parse gender (supports multiple formats)
 function parseGender(genderValue) {
-    if (genderValue === '1' || genderValue === 1) return 'Male';
-    if (genderValue === '-1' || genderValue === -1) return 'Female';
+    if (genderValue === null || genderValue === undefined || genderValue === '') return 'Unknown';
+
+    // Handle numeric values
+    if (genderValue === 1 || genderValue === '1') return 'Male';
+    if (genderValue === -1 || genderValue === '-1' || genderValue === 0 || genderValue === '0') return 'Female';
+
+    // Handle string values (case-insensitive)
+    const strVal = String(genderValue).toLowerCase().trim();
+
+    // Male variations
+    if (['male', 'm', 'nam', 'man', 'boy'].includes(strVal)) return 'Male';
+
+    // Female variations
+    if (['female', 'f', 'nữ', 'nu', 'woman', 'girl'].includes(strVal)) return 'Female';
+
     return 'Unknown';
 }
 
@@ -202,25 +215,33 @@ const ZODIAC_ORDER = ['Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tị', 'Ngọ',
 function getZodiacSign(dob) {
     if (!dob) return null;
     try {
-        let birthDate;
+        let year;
+
         if (typeof dob === 'string') {
-            const parts = dob.split(/[\/\-]/);
-            if (parts.length === 3) {
-                if (parseInt(parts[0]) > 31) {
-                    birthDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                } else {
-                    birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
-                }
+            // Try parsing ISO date first (e.g., "2023-05-15T00:00:00" or "2023-05-15")
+            const isoDate = new Date(dob);
+            if (!isNaN(isoDate.getTime()) && isoDate.getFullYear() >= 1900 && isoDate.getFullYear() <= 2100) {
+                year = isoDate.getFullYear();
             } else {
-                birthDate = new Date(dob);
+                // Fallback to manual parsing for formats like DD/MM/YYYY, MM-DD-YYYY, etc.
+                const parts = dob.split(/[\/\-\.]/);
+                if (parts.length >= 1) {
+                    // Find the 4-digit year in the parts
+                    const yearPart = parts.find(p => p.length === 4 && !isNaN(parseInt(p)));
+                    if (yearPart) {
+                        year = parseInt(yearPart);
+                    }
+                }
             }
-        } else {
-            birthDate = new Date(dob);
+        } else if (dob instanceof Date) {
+            year = dob.getFullYear();
+        } else if (typeof dob === 'number') {
+            // Might be a year directly or a timestamp
+            year = dob > 1900 && dob < 2100 ? dob : new Date(dob).getFullYear();
         }
 
-        if (isNaN(birthDate.getTime())) return null;
+        if (!year || isNaN(year) || year < 1900 || year > 2100) return null;
 
-        const year = birthDate.getFullYear();
         // 2020 is year of the Rat (Tý), index 0
         // Formula: (year - 2020) mod 12, adjusted for negative years
         const index = ((year - 2020) % 12 + 12) % 12;
@@ -2285,7 +2306,8 @@ class CRMDashboard {
             elements: { Kim: 0, Mộc: 0, Thủy: 0, Hỏa: 0, Thổ: 0 },
             genderByPersona: {},
             zodiacCVR: {},
-            genderCVR: { Male: { total: 0, customers: 0 }, Female: { total: 0, customers: 0 }, Unknown: { total: 0, customers: 0 } }
+            genderCVR: { Male: { total: 0, customers: 0 }, Female: { total: 0, customers: 0 }, Unknown: { total: 0, customers: 0 } },
+            ageDistribution: { '18-24': 0, '25-34': 0, '35-44': 0, '45-54': 0, '55+': 0, 'Unknown': 0 }
         };
 
         // Initialize zodiac signs
@@ -2345,6 +2367,14 @@ class CRMDashboard {
                     const element = ZODIAC_SIGNS[zodiac].element;
                     stats.elements[element]++;
                 }
+
+                // Count age distribution
+                const age = parseAge(dob);
+                const ageBucket = getAgeBucket(age);
+                stats.ageDistribution[ageBucket]++;
+            } else {
+                // No DOB, count as Unknown age
+                stats.ageDistribution['Unknown']++;
             }
 
             // Count birthtime
