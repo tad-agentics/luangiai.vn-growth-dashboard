@@ -3719,13 +3719,31 @@ class CRMDashboard {
     }
 
     updateDashboard() {
-        // New 3-tab structure
-        this.updateExecutiveSummary();
-        this.updateDeepDive();
-        this.updateRevenue();
+        // New 3-tab structure - wrapped in try-catch to prevent one section from breaking others
+        try {
+            this.updateExecutiveSummary();
+        } catch (e) {
+            console.error('Error updating Executive Summary:', e);
+        }
+
+        try {
+            this.updateDeepDive();
+        } catch (e) {
+            console.error('Error updating Deep Dive:', e);
+        }
+
+        try {
+            this.updateRevenue();
+        } catch (e) {
+            console.error('Error updating Revenue:', e);
+        }
 
         // Legacy updates for shared data
-        this.updateWooCommerceSection();
+        try {
+            this.updateWooCommerceSection();
+        } catch (e) {
+            console.error('Error updating WooCommerce Section:', e);
+        }
     }
 
     // ==================== EXECUTIVE SUMMARY TAB ====================
@@ -3740,10 +3758,13 @@ class CRMDashboard {
         // Get filtered counts
         const filteredSubscribers = this.getFilteredSubscribers();
 
-        // Acquisition metrics - use filtered count
-        document.getElementById('metricTotal').textContent = this.formatNumber(filteredSubscribers.length);
-        document.getElementById('metricTotalTrend').textContent = `+${analytics.thisWeekNew || 0} this week`;
-        document.getElementById('metricWeekNew').textContent = this.formatNumber(analytics.thisWeekNew || 0);
+        // Acquisition metrics - use filtered count (with null checks)
+        const metricTotalEl = document.getElementById('metricTotal');
+        const metricTotalTrendEl = document.getElementById('metricTotalTrend');
+        const metricWeekNewEl = document.getElementById('metricWeekNew');
+        if (metricTotalEl) metricTotalEl.textContent = this.formatNumber(filteredSubscribers.length);
+        if (metricTotalTrendEl) metricTotalTrendEl.textContent = `+${analytics.thisWeekNew || 0} this week`;
+        if (metricWeekNewEl) metricWeekNewEl.textContent = this.formatNumber(analytics.thisWeekNew || 0);
 
         // CVR
         const total = (analytics.leads || 0) + (analytics.customers || 0);
@@ -4174,16 +4195,32 @@ class CRMDashboard {
     // ==================== DEEP DIVE TAB ====================
     updateDeepDive() {
         // Update persona performance table with LTV
-        this.updatePersonaTableWithLTV();
+        try {
+            this.updatePersonaTableWithLTV();
+        } catch (e) {
+            console.error('Error updating Persona Table:', e);
+        }
 
         // Update cohort table (limited to 4 weeks)
-        this.updateCohortTableLimited();
+        try {
+            this.updateCohortTableLimited();
+        } catch (e) {
+            console.error('Error updating Cohort Table:', e);
+        }
 
         // Update source chart and table
-        this.updateSourceData();
+        try {
+            this.updateSourceData();
+        } catch (e) {
+            console.error('Error updating Source Data:', e);
+        }
 
         // Update demographic sections (collapsible content)
-        this.updateDemographicSections();
+        try {
+            this.updateDemographicSections();
+        } catch (e) {
+            console.error('Error updating Demographic Sections:', e);
+        }
     }
 
     updatePersonaTableWithLTV() {
@@ -4663,9 +4700,23 @@ class CRMDashboard {
 
     updateDemographicSections() {
         // These methods populate the collapsible sections
-        this.updatePersonasTab();   // Updates age chart, device chart, persona targeting
-        this.updateAstrologyTab();  // Updates zodiac chart, gender chart, tables
-        this.updateTimeOfDaySection();
+        try {
+            this.updatePersonasTab();   // Updates age chart, device chart, persona targeting
+        } catch (e) {
+            console.error('Error updating Personas Tab:', e);
+        }
+
+        try {
+            this.updateAstrologyTab();  // Updates zodiac chart, gender chart, tables
+        } catch (e) {
+            console.error('Error updating Astrology Tab:', e);
+        }
+
+        try {
+            this.updateTimeOfDaySection();
+        } catch (e) {
+            console.error('Error updating Time of Day Section:', e);
+        }
     }
 
     updateTimeOfDaySection() {
@@ -5822,12 +5873,16 @@ class CRMDashboard {
         const stats = this.data.astrologyStats || {};
         const total = this.getFilteredSubscribers().length || 1;
 
-        // Summary cards
-        document.getElementById('astroWithDOB').textContent = this.formatNumber(stats.withDOB || 0);
-        document.getElementById('astroWithDOBPct').textContent = `${((stats.withDOB || 0) / total * 100).toFixed(1)}% of contacts`;
+        // Summary cards - with null checks
+        const astroWithDOBEl = document.getElementById('astroWithDOB');
+        const astroWithDOBPctEl = document.getElementById('astroWithDOBPct');
+        if (astroWithDOBEl) astroWithDOBEl.textContent = this.formatNumber(stats.withDOB || 0);
+        if (astroWithDOBPctEl) astroWithDOBPctEl.textContent = `${((stats.withDOB || 0) / total * 100).toFixed(1)}% of contacts`;
 
-        document.getElementById('astroWithBirthtime').textContent = this.formatNumber(stats.withBirthtime || 0);
-        document.getElementById('astroWithBirthtimePct').textContent = `${((stats.withBirthtime || 0) / total * 100).toFixed(1)}% of contacts`;
+        const astroWithBirthtimeEl = document.getElementById('astroWithBirthtime');
+        const astroWithBirthtimePctEl = document.getElementById('astroWithBirthtimePct');
+        if (astroWithBirthtimeEl) astroWithBirthtimeEl.textContent = this.formatNumber(stats.withBirthtime || 0);
+        if (astroWithBirthtimePctEl) astroWithBirthtimePctEl.textContent = `${((stats.withBirthtime || 0) / total * 100).toFixed(1)}% of contacts`;
 
         // Top zodiac sign
         const zodiacSigns = stats.zodiacSigns || {};
@@ -5838,8 +5893,10 @@ class CRMDashboard {
         if (sortedZodiac.length > 0) {
             const [topSign, topData] = sortedZodiac[0];
             const zodiacInfo = ZODIAC_SIGNS[topSign];
-            document.getElementById('astroTopZodiac').textContent = `${zodiacInfo.symbol} ${topSign}`;
-            document.getElementById('astroTopZodiacPct').textContent = `${this.formatNumber(topData.total)} contacts`;
+            const astroTopZodiacEl = document.getElementById('astroTopZodiac');
+            const astroTopZodiacPctEl = document.getElementById('astroTopZodiacPct');
+            if (astroTopZodiacEl && zodiacInfo) astroTopZodiacEl.textContent = `${zodiacInfo.symbol} ${topSign}`;
+            if (astroTopZodiacPctEl) astroTopZodiacPctEl.textContent = `${this.formatNumber(topData.total)} contacts`;
         }
 
         // Best converting zodiac sign
@@ -5851,8 +5908,10 @@ class CRMDashboard {
         if (sortedByCVR.length > 0) {
             const [bestSign, bestCVR] = sortedByCVR[0];
             const zodiacInfo = ZODIAC_SIGNS[bestSign];
-            document.getElementById('astroBestCVR').textContent = `${zodiacInfo.symbol} ${bestSign}`;
-            document.getElementById('astroBestCVRPct').textContent = `${bestCVR.toFixed(2)}% CVR`;
+            const astroBestCVREl = document.getElementById('astroBestCVR');
+            const astroBestCVRPctEl = document.getElementById('astroBestCVRPct');
+            if (astroBestCVREl && zodiacInfo) astroBestCVREl.textContent = `${zodiacInfo.symbol} ${bestSign}`;
+            if (astroBestCVRPctEl) astroBestCVRPctEl.textContent = `${bestCVR.toFixed(2)}% CVR`;
         }
 
         // Update Zodiac Chart
