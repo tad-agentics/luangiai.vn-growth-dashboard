@@ -3537,6 +3537,19 @@ class CRMDashboard {
         const subscribers = this.data.subscribers || [];
         const orders = this.data.woocommerce?.orders || [];
 
+        // Helper to extract date string (handles multiple formats)
+        const getDateStr = (dateValue) => {
+            if (!dateValue) return null;
+            try {
+                // Handle ISO format, space-separated, or date-only
+                const d = new Date(dateValue);
+                if (isNaN(d.getTime())) return null;
+                return d.toISOString().split('T')[0];
+            } catch (e) {
+                return null;
+            }
+        };
+
         for (let i = 6; i >= 0; i--) {
             // This week
             const thisDate = new Date();
@@ -3550,20 +3563,20 @@ class CRMDashboard {
 
             labels.push(thisDate.toLocaleDateString('en-US', { weekday: 'short' }));
 
-            // This week counts
+            // This week counts - use robust date parsing
             thisWeekLeads.push(subscribers.filter(s =>
-                s.created_at?.split('T')[0] === thisDateStr
+                getDateStr(s.created_at) === thisDateStr
             ).length);
             thisWeekOrders.push(orders.filter(o =>
-                o.date_created?.split('T')[0] === thisDateStr
+                getDateStr(o.date_created) === thisDateStr
             ).length);
 
             // Last week counts
             lastWeekLeads.push(subscribers.filter(s =>
-                s.created_at?.split('T')[0] === lastDateStr
+                getDateStr(s.created_at) === lastDateStr
             ).length);
             lastWeekOrders.push(orders.filter(o =>
-                o.date_created?.split('T')[0] === lastDateStr
+                getDateStr(o.date_created) === lastDateStr
             ).length);
         }
 
