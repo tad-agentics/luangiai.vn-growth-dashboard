@@ -2260,11 +2260,11 @@ All monetary values are in VND (Vietnamese Dong).`;
                 risks: ''
             };
 
-            // Simple section parsing
-            const execMatch = markdown.match(/##?\s*(?:1\.\s*)?EXECUTIVE SUMMARY[^#]*([\s\S]*?)(?=##?\s*(?:2\.\s*)?KEY|$)/i);
-            const insightsMatch = markdown.match(/##?\s*(?:2\.\s*)?KEY INSIGHTS[^#]*([\s\S]*?)(?=##?\s*(?:3\.\s*)?RECOMMENDED|$)/i);
-            const actionsMatch = markdown.match(/##?\s*(?:3\.\s*)?RECOMMENDED ACTIONS[^#]*([\s\S]*?)(?=##?\s*(?:4\.\s*)?RISKS|$)/i);
-            const risksMatch = markdown.match(/##?\s*(?:4\.\s*)?RISKS[^#]*([\s\S]*?)$/i);
+            // Simple section parsing - capture content after header until next ## section
+            const execMatch = markdown.match(/##?\s*(?:1\.\s*)?EXECUTIVE SUMMARY\s*\n([\s\S]*?)(?=\n##?\s*(?:2\.\s*)?KEY|$)/i);
+            const insightsMatch = markdown.match(/##?\s*(?:2\.\s*)?KEY INSIGHTS\s*\n([\s\S]*?)(?=\n##?\s*(?:3\.\s*)?RECOMMENDED|$)/i);
+            const actionsMatch = markdown.match(/##?\s*(?:3\.\s*)?RECOMMENDED ACTIONS\s*\n([\s\S]*?)(?=\n##?\s*(?:4\.\s*)?RISKS|$)/i);
+            const risksMatch = markdown.match(/##?\s*(?:4\.\s*)?RISKS[^\n]*\n([\s\S]*?)$/i);
 
             if (execMatch) sections.executiveSummary = execMatch[1].trim();
             if (insightsMatch) sections.keyInsights = insightsMatch[1].trim();
