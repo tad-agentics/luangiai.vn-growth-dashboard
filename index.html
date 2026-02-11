@@ -1957,12 +1957,37 @@
         lastAnalysis: null,
 
         init() {
-            // Load API key from localStorage
-            this.apiKey = localStorage.getItem('anthropic_api_key');
-            this.updateApiStatus();
+            // Load API key from Supabase (with localStorage fallback)
+            this.loadApiKey();
 
             // Load business context from Supabase (with localStorage fallback)
             this.loadBusinessContext();
+        },
+
+        // API Key Management - stored in Supabase
+        async loadApiKey() {
+            // First try localStorage for immediate use
+            this.apiKey = localStorage.getItem('anthropic_api_key');
+            this.updateApiStatus();
+
+            // Then try to load from Supabase
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    const { data, error } = await supabaseClient
+                        .from('ai_settings')
+                        .select('value')
+                        .eq('key', 'anthropic_api_key')
+                        .single();
+
+                    if (!error && data?.value) {
+                        this.apiKey = data.value;
+                        localStorage.setItem('anthropic_api_key', data.value);
+                        this.updateApiStatus();
+                    }
+                }
+            } catch (e) {
+                console.log('Using localStorage for API key');
+            }
         },
 
         // Business Context Management - stored in Supabase
@@ -2153,7 +2178,7 @@ Focus on actionable recommendations I can implement immediately.`;
             promptInput.focus();
         },
 
-        saveApiKey() {
+        async saveApiKey() {
             const input = document.getElementById('anthropicApiKey');
             const key = input.value.trim();
 
@@ -2167,11 +2192,32 @@ Focus on actionable recommendations I can implement immediately.`;
                 return;
             }
 
+            // Save to localStorage immediately
             localStorage.setItem('anthropic_api_key', key);
             this.apiKey = key;
             input.value = '';
             this.updateApiStatus();
-            this.showNotification('API key saved successfully', 'success');
+
+            // Save to Supabase for persistence across devices/sessions
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    const { error } = await supabaseClient
+                        .from('ai_settings')
+                        .upsert({
+                            key: 'anthropic_api_key',
+                            value: key,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'key' });
+
+                    if (error) throw error;
+                    this.showNotification('API key saved to cloud', 'success');
+                } else {
+                    this.showNotification('API key saved locally', 'success');
+                }
+            } catch (e) {
+                console.error('Failed to save API key to Supabase:', e);
+                this.showNotification('API key saved locally', 'success');
+            }
         },
 
         updateApiStatus() {
