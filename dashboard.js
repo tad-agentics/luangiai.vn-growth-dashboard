@@ -1,6 +1,14 @@
 // Luangiai.vn CRM Dashboard - FluentCRM Integration
 // ==================================================
 
+// Debug mode - set to false in production to disable verbose logging
+const DEBUG_MODE = window.location.hostname === 'localhost' || window.location.search.includes('debug=true');
+
+// Conditional logging - only logs in debug mode
+const debugLog = (...args) => { if (DEBUG_MODE) debugLog(...args); };
+const debugWarn = (...args) => { if (DEBUG_MODE) debugWarn(...args); };
+const debugError = (...args) => debugError(...args); // Always log errors
+
 // Supabase Configuration
 const SUPABASE_URL = 'https://qktiedjahvbeuznpjubv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrdGllZGphaHZiZXV6bnBqdWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMTg1MDMsImV4cCI6MjA4NTY5NDUwM30.cpoTuuYlqHRgfJWnGIMnnyY7w2vPcLjRALb7X3Qm-Mo';
@@ -80,6 +88,18 @@ const PERSONA_DEFINITIONS = {
         nurturePriority: 'Medium - needs data collection'
     }
 };
+
+// Helper: Sanitize HTML to prevent XSS attacks
+// Use this for any user-provided data before inserting into innerHTML
+function sanitizeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+// Alias for common use
+const escapeHtml = sanitizeHtml;
 
 // Helper: Parse DOB to age
 function parseAge(dob) {
@@ -411,24 +431,35 @@ class CRMDashboard {
     }
 
     // Sync lock management - prevents multiple tabs from syncing simultaneously
+    // Uses sessionStorage (cleared on tab close) with 30-second timeout for faster recovery
     acquireSyncLock() {
         const SYNC_LOCK_KEY = 'fluentcrm_sync_lock';
-        const lock = localStorage.getItem(SYNC_LOCK_KEY);
+        const LOCK_TIMEOUT_MS = 30000; // 30 seconds (reduced from 2 minutes)
+
+        // Try sessionStorage first (per-tab), fallback to localStorage (cross-tab)
+        const sessionLock = sessionStorage.getItem(SYNC_LOCK_KEY);
+        const localLock = localStorage.getItem(SYNC_LOCK_KEY);
         const now = Date.now();
 
-        // If lock exists and is less than 2 minutes old, another tab is syncing
-        if (lock && now - parseInt(lock) < 120000) {
-            console.log('Another tab is syncing, skipping...');
-            return false;
+        // Check if any lock is active and not expired
+        if (sessionLock && now - parseInt(sessionLock) < LOCK_TIMEOUT_MS) {
+            return false; // This tab is already syncing
+        }
+        if (localLock && now - parseInt(localLock) < LOCK_TIMEOUT_MS) {
+            return false; // Another tab is syncing
         }
 
-        // Acquire lock
-        localStorage.setItem(SYNC_LOCK_KEY, now.toString());
+        // Acquire lock in both storages
+        const lockValue = now.toString();
+        sessionStorage.setItem(SYNC_LOCK_KEY, lockValue);
+        localStorage.setItem(SYNC_LOCK_KEY, lockValue);
         return true;
     }
 
     releaseSyncLock() {
-        localStorage.removeItem('fluentcrm_sync_lock');
+        const SYNC_LOCK_KEY = 'fluentcrm_sync_lock';
+        sessionStorage.removeItem(SYNC_LOCK_KEY);
+        localStorage.removeItem(SYNC_LOCK_KEY);
     }
 
     async init() {
@@ -449,12 +480,12 @@ class CRMDashboard {
 
             if (data && !error) {
                 config = data.value;
-                console.log('Loaded credentials from Supabase');
+                debugLog('Loaded credentials from Supabase');
             } else {
-                console.log('Using fallback credentials:', error?.message);
+                debugLog('Using fallback credentials:', error?.message);
             }
         } catch (e) {
-            console.log('Supabase unavailable, using fallback:', e.message);
+            debugLog('Supabase unavailable, using fallback:', e.message);
         }
 
         // Log dashboard access to audit log
@@ -485,7 +516,7 @@ class CRMDashboard {
     // Load cached subscribers from Supabase
     async loadSubscriberCache() {
         try {
-            console.log('Loading subscriber cache from Supabase...');
+            debugLog('Loading subscriber cache from Supabase...');
             const { data, error } = await supabaseClient
                 .from('subscriber_cache')
                 .select('*')
@@ -494,7 +525,7 @@ class CRMDashboard {
 
             if (error) {
                 if (error.code === 'PGRST116') {
-                    console.log('No cache found in Supabase (first run)');
+                    debugLog('No cache found in Supabase (first run)');
                     return null;
                 }
                 throw error;
@@ -503,7 +534,7 @@ class CRMDashboard {
             if (data && data.subscribers && data.subscribers.length > 0) {
                 const cacheAge = Date.now() - new Date(data.updated_at).getTime();
                 const cacheAgeHours = (cacheAge / (1000 * 60 * 60)).toFixed(1);
-                console.log(`Loaded ${data.subscriber_count} subscribers from Supabase cache (${cacheAgeHours}h old)`);
+                debugLog(`Loaded ${data.subscriber_count} subscribers from Supabase cache (${cacheAgeHours}h old)`);
 
                 // Expand minimal format back to full field names
                 const isMinimalFormat = data.metadata?.format === 'minimal_v2';
@@ -570,7 +601,7 @@ class CRMDashboard {
 
             return null;
         } catch (e) {
-            console.log('Failed to load cache from Supabase:', e.message);
+            debugLog('Failed to load cache from Supabase:', e.message);
             return null;
         }
     }
@@ -579,13 +610,13 @@ class CRMDashboard {
     async saveSubscriberCache() {
         try {
             if (!this.data.subscribers || this.data.subscribers.length === 0) {
-                console.log('No subscribers to cache');
+                debugLog('No subscribers to cache');
                 return;
             }
 
             // Aggressively trim to absolute minimum - only IDs and essential fields
             // Tags are excluded (too large) - they'll be fetched on incremental sync
-            console.log(`Preparing ${this.data.subscribers.length} subscribers for Supabase cache...`);
+            debugLog(`Preparing ${this.data.subscribers.length} subscribers for Supabase cache...`);
 
             const subscribersToCache = this.data.subscribers.map(sub => {
                 // Extract DOB from various possible locations
@@ -646,7 +677,7 @@ class CRMDashboard {
             // Average ~150 bytes per minimal subscriber object
             const estimatedSize = subscribersToCache.length * 150;
             const estimatedMB = (estimatedSize / (1024 * 1024)).toFixed(2);
-            console.log(`Estimated payload: ${estimatedMB} MB (${subscribersToCache.length} subscribers)`);
+            debugLog(`Estimated payload: ${estimatedMB} MB (${subscribersToCache.length} subscribers)`);
 
             // If estimated too large (>4MB with buffer), do actual check
             let payloadMB = estimatedMB;
@@ -654,7 +685,7 @@ class CRMDashboard {
                 const actualSize = JSON.stringify(subscribersToCache).length;
                 payloadMB = (actualSize / (1024 * 1024)).toFixed(2);
                 if (actualSize > 5 * 1024 * 1024) {
-                    console.log('⚠️ Payload too large for Supabase, skipping cache save');
+                    debugLog('⚠️ Payload too large for Supabase, skipping cache save');
                     return;
                 }
             }
@@ -677,18 +708,18 @@ class CRMDashboard {
                 .select();
 
             if (error) {
-                console.error('Supabase upsert error:', error);
+                debugError('Supabase upsert error:', error);
                 throw error;
             }
 
-            console.log('✅ Subscriber cache saved to Supabase successfully');
+            debugLog('✅ Subscriber cache saved to Supabase successfully');
             this.logAuditEvent('cache_saved', {
                 subscriber_count: this.data.subscribers.length,
                 payload_mb: payloadMB
             });
         } catch (e) {
-            console.error('❌ Failed to save cache to Supabase:', e);
-            console.error('Error details:', e.message, e.code, e.details);
+            debugError('❌ Failed to save cache to Supabase:', e);
+            debugError('Error details:', e.message, e.code, e.details);
         }
     }
 
@@ -709,7 +740,7 @@ class CRMDashboard {
     // Load cached orders from Supabase
     async loadOrderCache() {
         try {
-            console.log('Loading order cache from Supabase...');
+            debugLog('Loading order cache from Supabase...');
             const { data, error } = await supabaseClient
                 .from('order_cache')
                 .select('*')
@@ -718,7 +749,7 @@ class CRMDashboard {
 
             if (error) {
                 if (error.code === 'PGRST116') {
-                    console.log('No order cache found in Supabase (first run)');
+                    debugLog('No order cache found in Supabase (first run)');
                     return null;
                 }
                 throw error;
@@ -727,7 +758,7 @@ class CRMDashboard {
             if (data && data.orders && data.orders.length > 0) {
                 const cacheAge = Date.now() - new Date(data.updated_at).getTime();
                 const cacheAgeHours = (cacheAge / (1000 * 60 * 60)).toFixed(1);
-                console.log(`Loaded ${data.order_count} orders from Supabase cache (${cacheAgeHours}h old)`);
+                debugLog(`Loaded ${data.order_count} orders from Supabase cache (${cacheAgeHours}h old)`);
 
                 // Expand cached flat format to expected nested structure
                 // Note: Names removed from order cache - use FluentCRM as single source of truth
@@ -750,7 +781,7 @@ class CRMDashboard {
 
             return null;
         } catch (e) {
-            console.log('Failed to load order cache from Supabase:', e.message);
+            debugLog('Failed to load order cache from Supabase:', e.message);
             return null;
         }
     }
@@ -760,11 +791,11 @@ class CRMDashboard {
         try {
             const orders = this.data.woocommerce?.orders || [];
             if (orders.length === 0) {
-                console.log('No orders to cache');
+                debugLog('No orders to cache');
                 return;
             }
 
-            console.log(`Preparing ${orders.length} orders for Supabase cache...`);
+            debugLog(`Preparing ${orders.length} orders for Supabase cache...`);
 
             // Trim orders to essential fields only
             // Note: Billing names removed - use FluentCRM as single source of truth for customer names
@@ -790,11 +821,11 @@ class CRMDashboard {
 
             const payloadSize = JSON.stringify(ordersToCache).length;
             const payloadMB = (payloadSize / (1024 * 1024)).toFixed(2);
-            console.log(`Order cache payload: ${payloadMB} MB (${ordersToCache.length} orders)`);
+            debugLog(`Order cache payload: ${payloadMB} MB (${ordersToCache.length} orders)`);
 
             // If too large (>5MB), skip caching
             if (payloadSize > 5 * 1024 * 1024) {
-                console.log('⚠️ Order payload too large for Supabase, skipping cache save');
+                debugLog('⚠️ Order payload too large for Supabase, skipping cache save');
                 return;
             }
 
@@ -815,19 +846,19 @@ class CRMDashboard {
                 .upsert(cacheData, { onConflict: 'cache_key' });
 
             if (error) {
-                console.error('Supabase order cache upsert error:', error);
+                debugError('Supabase order cache upsert error:', error);
                 throw error;
             }
 
-            console.log('✅ Order cache saved to Supabase successfully');
+            debugLog('✅ Order cache saved to Supabase successfully');
             this.logAuditEvent('order_cache_saved', {
                 order_count: ordersToCache.length,
                 payload_mb: payloadMB,
                 max_order_id: maxOrderId
             });
         } catch (e) {
-            console.error('❌ Failed to save order cache to Supabase:', e);
-            console.error('Error details:', e.message, e.code, e.details);
+            debugError('❌ Failed to save order cache to Supabase:', e);
+            debugError('Error details:', e.message, e.code, e.details);
         }
     }
 
@@ -863,9 +894,9 @@ class CRMDashboard {
 
         try {
             await supabaseClient.from('daily_metrics').upsert(metrics, { onConflict: 'date' });
-            console.log('Saved daily metrics to Supabase');
+            debugLog('Saved daily metrics to Supabase');
         } catch (e) {
-            console.log('Failed to save metrics:', e.message);
+            debugLog('Failed to save metrics:', e.message);
         }
     }
 
@@ -914,7 +945,7 @@ class CRMDashboard {
             // MANUAL REFRESH MODE - Auto-refresh disabled to protect WordPress server
             // Users click the Refresh button when they need updated data
             // This prevents the 174K+ DB queries that crashed the server
-            console.log('Dashboard running in manual refresh mode - click Refresh button to update data');
+            debugLog('Dashboard running in manual refresh mode - click Refresh button to update data');
 
         } catch (error) {
             this.showError(`Connection failed: ${error.message}`);
@@ -957,20 +988,39 @@ class CRMDashboard {
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === 'AbortError') {
-                console.error(`API Timeout (${endpoint}): Request took longer than ${timeoutMs}ms`);
+                debugError(`API Timeout (${endpoint}): Request took longer than ${timeoutMs}ms`);
                 return { error: 'Request timeout' };
             }
-            console.error(`API Error (${endpoint}):`, error);
+            debugError(`API Error (${endpoint}):`, error);
             return { error: error.message };
         }
     }
 
     extractArray(response, key) {
-        if (!response) return [];
+        // Validate response exists and handle errors
+        if (!response) {
+            debugWarn(`extractArray: Empty response for key "${key}"`);
+            return [];
+        }
+
+        // Check for API error responses
+        if (response.error) {
+            debugWarn(`extractArray: API returned error for key "${key}":`, response.error);
+            return [];
+        }
+
         if (Array.isArray(response)) return response;
 
         const nested = response[key];
-        if (!nested) return [];
+        if (!nested) {
+            // Only warn if response has other keys (indicating unexpected structure)
+            const hasOtherData = Object.keys(response).length > 0;
+            if (hasOtherData) {
+                debugWarn(`extractArray: Key "${key}" not found in response. Available keys:`, Object.keys(response));
+            }
+            return [];
+        }
+
         if (Array.isArray(nested)) return nested;
         if (nested.data && Array.isArray(nested.data)) return nested.data;
 
@@ -982,25 +1032,26 @@ class CRMDashboard {
             }
         }
 
+        debugWarn(`extractArray: Could not extract array for key "${key}" from response type:`, typeof nested);
         return [];
     }
 
     async refreshData(forceFullSync = false) {
         // Prevent concurrent syncs (same tab)
         if (this.isSyncing) {
-            console.log('Sync already in progress, skipping...');
+            debugLog('Sync already in progress, skipping...');
             return;
         }
 
         // Prevent concurrent syncs (cross-tab)
         if (!this.acquireSyncLock()) {
-            console.log('Another tab is syncing, using cached data...');
+            debugLog('Another tab is syncing, using cached data...');
             this.loadFromCache();
             return;
         }
 
         this.isSyncing = true;
-        console.log('Refreshing dashboard data...');
+        debugLog('Refreshing dashboard data...');
 
         // Show loading indicator immediately
         this.updateSyncSourceUI('supabase', '(checking cache...)');
@@ -1071,7 +1122,7 @@ class CRMDashboard {
             document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 
         } catch (error) {
-            console.error('Error refreshing data:', error);
+            debugError('Error refreshing data:', error);
         } finally {
             this.isSyncing = false;
             this.releaseSyncLock();
@@ -1088,12 +1139,12 @@ class CRMDashboard {
                 const { timestamp, subscriberCount } = JSON.parse(cached);
                 // Just log that we have cache info - actual data loads from Supabase
                 if (Date.now() - timestamp < 3600000) {
-                    console.log(`Cache metadata found: ${subscriberCount} subscribers (will load from Supabase)`);
+                    debugLog(`Cache metadata found: ${subscriberCount} subscribers (will load from Supabase)`);
                     return false; // Return false so Supabase cache is used
                 }
             }
         } catch (e) {
-            console.log('Could not load cache:', e.message);
+            debugLog('Could not load cache:', e.message);
         }
         return false;
     }
@@ -1109,9 +1160,9 @@ class CRMDashboard {
                 subscriberCount: this.data.subscribers?.length || 0
             };
             localStorage.setItem('fluentcrm_cache_meta', JSON.stringify(cacheData));
-            console.log(`Cache metadata saved (${cacheData.subscriberCount} subscribers in Supabase)`);
+            debugLog(`Cache metadata saved (${cacheData.subscriberCount} subscribers in Supabase)`);
         } catch (e) {
-            console.log('Could not save cache metadata:', e.message);
+            debugLog('Could not save cache metadata:', e.message);
         }
     }
 
@@ -1131,7 +1182,7 @@ class CRMDashboard {
                 stats[status] = count;
                 stats.total += count;
             } catch (e) {
-                console.log(`Could not fetch ${status} count:`, e);
+                debugLog(`Could not fetch ${status} count:`, e);
             }
         }
 
@@ -1143,7 +1194,7 @@ class CRMDashboard {
                 stats.total = allResponse.subscribers.total;
             }
         } catch (e) {
-            console.log('Could not fetch all subscribers:', e);
+            debugLog('Could not fetch all subscribers:', e);
         }
 
         this.data.contacts = stats;
@@ -1189,11 +1240,11 @@ class CRMDashboard {
                     localStorage.setItem('fluentcrm_last_sync', this.lastSyncTime);
 
                     const cacheAge = ((Date.now() - new Date(cache.updatedAt).getTime()) / (1000 * 60 * 60)).toFixed(1);
-                    console.log(`✅ Loaded ${cache.subscriberCount} subscribers from Supabase cache (${cacheAge}h old)`);
+                    debugLog(`✅ Loaded ${cache.subscriberCount} subscribers from Supabase cache (${cacheAge}h old)`);
                     this.updateSyncSourceUI('supabase', `(${cache.subscriberCount} loaded, fetching updates...)`);
 
                     // Do incremental sync to get any new changes from FluentCRM
-                    console.log('🔄 Fetching updates from FluentCRM...');
+                    debugLog('🔄 Fetching updates from FluentCRM...');
                     await this.incrementalSubscriberSync();
 
                     // Save updated cache back to Supabase
@@ -1232,7 +1283,7 @@ class CRMDashboard {
             } else {
                 // Full sync required - first time or force refresh
                 this.updateSyncSourceUI('full', '(syncing...)');
-                console.log('⚠️ Full sync required - fetching all subscribers from FluentCRM...');
+                debugLog('⚠️ Full sync required - fetching all subscribers from FluentCRM...');
                 await this.fullSubscriberSync();
                 this.updateSyncSourceUI('full', `(${this.data.subscribers.length} fetched)`);
             }
@@ -1241,7 +1292,7 @@ class CRMDashboard {
             await this.saveSubscriberCache();
 
         } catch (e) {
-            console.log('Could not fetch subscribers:', e);
+            debugLog('Could not fetch subscribers:', e);
             // Keep existing data if we have it
             if (this.data.subscribers.length === 0) {
                 this.data.subscribers = [];
@@ -1257,7 +1308,7 @@ class CRMDashboard {
         const knownTotal = this.data.contacts.total || 15000;
         const totalPages = Math.ceil(knownTotal / perPage);
 
-        console.log(`Full sync: Fetching all ${knownTotal} subscribers...`);
+        debugLog(`Full sync: Fetching all ${knownTotal} subscribers...`);
         this.updateSyncSourceUI('full', `(0/${knownTotal})`);
 
         while (allSubscribers.length < knownTotal && page <= 50) {
@@ -1268,7 +1319,7 @@ class CRMDashboard {
 
             // Use push with spread instead of concat (better memory efficiency)
             allSubscribers.push(...subscribers);
-            console.log(`Fetched page ${page}: ${subscribers.length} (total: ${allSubscribers.length})`);
+            debugLog(`Fetched page ${page}: ${subscribers.length} (total: ${allSubscribers.length})`);
 
             // Update UI with progress
             const pct = Math.round((allSubscribers.length / knownTotal) * 100);
@@ -1281,13 +1332,13 @@ class CRMDashboard {
             page++;
         }
 
-        console.log(`Full sync complete: ${allSubscribers.length} subscribers`);
+        debugLog(`Full sync complete: ${allSubscribers.length} subscribers`);
         this.data.subscribers = allSubscribers;
     }
 
     // Incremental sync - fetches only new/updated subscribers since last sync
     async incrementalSubscriberSync() {
-        console.log(`Incremental sync: Fetching changes since ${this.lastSyncTime}...`);
+        debugLog(`Incremental sync: Fetching changes since ${this.lastSyncTime}...`);
 
         let page = 1;
         let updatedCount = 0;
@@ -1336,7 +1387,7 @@ class CRMDashboard {
                 }
             }
 
-            console.log(`Incremental page ${page}: ${subscribers.length} records processed`);
+            debugLog(`Incremental page ${page}: ${subscribers.length} records processed`);
 
             if (hasOlderRecords || subscribers.length < perPage) break;
 
@@ -1345,7 +1396,7 @@ class CRMDashboard {
             page++;
         }
 
-        console.log(`Incremental sync complete: ${newCount} new, ${updatedCount} updated`);
+        debugLog(`Incremental sync complete: ${newCount} new, ${updatedCount} updated`);
     }
 
     categorizePersonas() {
@@ -1552,7 +1603,7 @@ class CRMDashboard {
                 history = JSON.parse(saved);
             }
         } catch (e) {
-            console.log('Could not load persona history:', e);
+            debugLog('Could not load persona history:', e);
         }
 
         // Save today's persona counts
@@ -1572,7 +1623,7 @@ class CRMDashboard {
         try {
             localStorage.setItem(historyKey, JSON.stringify(history));
         } catch (e) {
-            console.log('Could not save persona history:', e);
+            debugLog('Could not save persona history:', e);
         }
 
         this.data.personaHistory = history;
@@ -2006,7 +2057,7 @@ class CRMDashboard {
 
         this.data.growthAnalytics = analytics;
         } catch (error) {
-            console.error('Error calculating growth analytics:', error);
+            debugError('Error calculating growth analytics:', error);
             // Set safe defaults so dashboard doesn't crash
             this.data.growthAnalytics = {
                 sources: {},
@@ -2545,13 +2596,13 @@ class CRMDashboard {
     // ==================== WOOCOMMERCE ORDER ANALYTICS ====================
 
     async fetchWooCommerceOrders(forceFullSync = false) {
-        console.log('Fetching WooCommerce orders...');
+        debugLog('Fetching WooCommerce orders...');
         const auth = btoa(`${this.wcCredentials.consumerKey}:${this.wcCredentials.consumerSecret}`);
 
         try {
             // Step 1: Try to load from Supabase cache first
             if (!forceFullSync) {
-                console.log('Checking order cache...');
+                debugLog('Checking order cache...');
                 this.updateOrderSyncUI('checking', '(checking cache...)');
                 const cache = await this.loadOrderCache();
 
@@ -2559,7 +2610,7 @@ class CRMDashboard {
                     // Use cached orders
                     this.data.woocommerce.orders = cache.orders;
                     const cacheAge = ((Date.now() - new Date(cache.updatedAt).getTime()) / (1000 * 60 * 60)).toFixed(1);
-                    console.log(`✅ Loaded ${cache.orderCount} orders from cache (${cacheAge}h old)`);
+                    debugLog(`✅ Loaded ${cache.orderCount} orders from cache (${cacheAge}h old)`);
                     this.updateOrderSyncUI('cached', `(${cache.orderCount} cached)`);
 
                     // Incremental sync: fetch only new orders since lastOrderId
@@ -2567,21 +2618,21 @@ class CRMDashboard {
                     const newOrders = await this.fetchNewOrders(cache.lastOrderId, auth);
 
                     if (newOrders.length > 0) {
-                        console.log(`🔄 Found ${newOrders.length} new orders since ID ${cache.lastOrderId}`);
+                        debugLog(`🔄 Found ${newOrders.length} new orders since ID ${cache.lastOrderId}`);
 
                         // Merge new orders with cached orders (avoid duplicates)
                         const existingIds = new Set(this.data.woocommerce.orders.map(o => o.id));
                         const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
 
                         this.data.woocommerce.orders.push(...uniqueNewOrders);
-                        console.log(`Total orders after merge: ${this.data.woocommerce.orders.length}`);
+                        debugLog(`Total orders after merge: ${this.data.woocommerce.orders.length}`);
 
                         // Save updated cache
                         this.updateOrderSyncUI('saving', '(saving cache...)');
                         await this.saveOrderCache();
                         this.updateOrderSyncUI('cached', `(${this.data.woocommerce.orders.length} total, +${newOrders.length} new)`);
                     } else {
-                        console.log('No new orders since last sync');
+                        debugLog('No new orders since last sync');
                         this.updateOrderSyncUI('cached', `(${cache.orderCount} cached, up-to-date)`);
                     }
 
@@ -2591,12 +2642,12 @@ class CRMDashboard {
             }
 
             // Step 2: Full sync (first time or forced)
-            console.log('⚠️ Full order sync required...');
+            debugLog('⚠️ Full order sync required...');
             this.updateOrderSyncUI('full', '(full sync...)');
             const allOrders = await this.fetchAllOrders(auth);
 
             this.data.woocommerce.orders = allOrders;
-            console.log(`Total WooCommerce orders: ${allOrders.length}`);
+            debugLog(`Total WooCommerce orders: ${allOrders.length}`);
 
             // Save to cache
             this.updateOrderSyncUI('saving', '(saving cache...)');
@@ -2606,7 +2657,7 @@ class CRMDashboard {
             this.calculateWooCommerceMetrics();
 
         } catch (error) {
-            console.error('Error fetching WooCommerce orders:', error);
+            debugError('Error fetching WooCommerce orders:', error);
             this.updateOrderSyncUI('error', '(error)');
         }
     }
@@ -2659,7 +2710,7 @@ class CRMDashboard {
             );
 
             if (!response.ok) {
-                console.error('WooCommerce API error:', response.status);
+                debugError('WooCommerce API error:', response.status);
                 break;
             }
 
@@ -2667,7 +2718,7 @@ class CRMDashboard {
             if (!orders || orders.length === 0) break;
 
             allOrders.push(...orders);
-            console.log(`Fetched ${allOrders.length} WooCommerce orders (page ${page})`);
+            debugLog(`Fetched ${allOrders.length} WooCommerce orders (page ${page})`);
 
             if (orders.length < perPage) break;
 
@@ -2684,7 +2735,7 @@ class CRMDashboard {
         let page = 1;
         const perPage = 100;
 
-        console.log(`Fetching orders newer than ID ${lastOrderId}...`);
+        debugLog(`Fetching orders newer than ID ${lastOrderId}...`);
 
         while (page <= 10) { // Max 1000 new orders per incremental sync
             // Use 'after' parameter or filter by order_id
@@ -2695,7 +2746,7 @@ class CRMDashboard {
             );
 
             if (!response.ok) {
-                console.error('WooCommerce API error:', response.status);
+                debugError('WooCommerce API error:', response.status);
                 break;
             }
 
@@ -2848,7 +2899,7 @@ class CRMDashboard {
         // Get date-filtered orders
         const filteredOrders = this.getFilteredOrders();
         if (!filteredOrders || filteredOrders.length === 0) {
-            console.log('No WooCommerce orders in selected date range');
+            debugLog('No WooCommerce orders in selected date range');
             return;
         }
 
@@ -2909,7 +2960,7 @@ class CRMDashboard {
         };
 
         this.data.woocommerce.metrics = metrics;
-        console.log('WooCommerce metrics calculated:', metrics);
+        debugLog('WooCommerce metrics calculated:', metrics);
     }
 
     wcCalcTimeToFirstPurchase(customerOrders) {
@@ -3831,26 +3882,26 @@ class CRMDashboard {
         try {
             this.updateExecutiveSummary();
         } catch (e) {
-            console.error('Error updating Executive Summary:', e);
+            debugError('Error updating Executive Summary:', e);
         }
 
         try {
             this.updateDeepDive();
         } catch (e) {
-            console.error('Error updating Deep Dive:', e);
+            debugError('Error updating Deep Dive:', e);
         }
 
         try {
             this.updateRevenue();
         } catch (e) {
-            console.error('Error updating Revenue:', e);
+            debugError('Error updating Revenue:', e);
         }
 
         // Legacy updates for shared data
         try {
             this.updateWooCommerceSection();
         } catch (e) {
-            console.error('Error updating WooCommerce Section:', e);
+            debugError('Error updating WooCommerce Section:', e);
         }
     }
 
@@ -4306,28 +4357,28 @@ class CRMDashboard {
         try {
             this.updatePersonaTableWithLTV();
         } catch (e) {
-            console.error('Error updating Persona Table:', e);
+            debugError('Error updating Persona Table:', e);
         }
 
         // Update cohort table (limited to 4 weeks)
         try {
             this.updateCohortTableLimited();
         } catch (e) {
-            console.error('Error updating Cohort Table:', e);
+            debugError('Error updating Cohort Table:', e);
         }
 
         // Update source chart and table
         try {
             this.updateSourceData();
         } catch (e) {
-            console.error('Error updating Source Data:', e);
+            debugError('Error updating Source Data:', e);
         }
 
         // Update demographic sections (collapsible content)
         try {
             this.updateDemographicSections();
         } catch (e) {
-            console.error('Error updating Demographic Sections:', e);
+            debugError('Error updating Demographic Sections:', e);
         }
     }
 
@@ -4801,19 +4852,19 @@ class CRMDashboard {
         try {
             this.updatePersonasTab();   // Updates age chart, device chart, persona targeting
         } catch (e) {
-            console.error('Error updating Personas Tab:', e);
+            debugError('Error updating Personas Tab:', e);
         }
 
         try {
             this.updateAstrologyTab();  // Updates zodiac chart, gender chart, tables
         } catch (e) {
-            console.error('Error updating Astrology Tab:', e);
+            debugError('Error updating Astrology Tab:', e);
         }
 
         try {
             this.updateTimeOfDaySection();
         } catch (e) {
-            console.error('Error updating Time of Day Section:', e);
+            debugError('Error updating Time of Day Section:', e);
         }
     }
 
@@ -6341,7 +6392,7 @@ function applyDateFilter() {
                 }, 1000);
             }
         } catch (err) {
-            console.error('Error applying date filter:', err);
+            debugError('Error applying date filter:', err);
             if (btn) {
                 btn.innerHTML = '<i class="fas fa-times mr-1"></i>Error';
                 setTimeout(() => {
@@ -6849,7 +6900,7 @@ function expandPersonaRow(personaKey) {
             const details = dashboard.calculatePersonaDetails(personaName);
             detailContent.innerHTML = dashboard.renderPersonaDetails(personaName, details);
         } catch (err) {
-            console.error('Error calculating persona details:', err);
+            debugError('Error calculating persona details:', err);
             detailContent.innerHTML = '<div class="text-center text-destructive">Error loading details</div>';
         }
     }, 50);
