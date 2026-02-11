@@ -1065,6 +1065,86 @@
                 </p>
             </div>
 
+            <!-- Business Context (System Prompt) -->
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-foreground font-bold flex items-center gap-2">
+                        <i class="fas fa-building text-primary"></i>
+                        Business Context
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <span id="contextSaveStatus" class="text-xs text-success hidden">
+                            <i class="fas fa-check mr-1"></i>Saved
+                        </span>
+                        <button onclick="AICGOManager.toggleContextExpand()" id="contextExpandBtn"
+                                class="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                            <i class="fas fa-chevron-down" id="contextExpandIcon"></i>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs text-muted-foreground mb-3">
+                    Provide background information about your business. This context helps Claude generate more relevant and accurate recommendations.
+                    <strong>Saved automatically</strong> and persists across sessions.
+                </p>
+                <div id="contextInputWrapper">
+                    <textarea id="businessContext" rows="4"
+                              class="w-full px-3 py-2 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none text-foreground resize-y"
+                              placeholder="Example: We are Luangiai.vn, a Vietnamese astrology service offering personalized horoscope readings and fortune-telling. Our main products are detailed birth chart readings (Tử Vi) and annual fortune predictions. Our target customers are Vietnamese adults aged 25-55 who believe in astrology. Our average order value is around 250,000 VND..."
+                              oninput="AICGOManager.saveBusinessContext()"></textarea>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-xs text-muted-foreground">
+                            <span id="contextCharCount">0</span> characters
+                        </span>
+                        <button onclick="AICGOManager.clearBusinessContext()"
+                                class="text-xs text-muted-foreground hover:text-danger transition-colors">
+                            <i class="fas fa-trash mr-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Prompt (Specific Request) -->
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-foreground font-bold flex items-center gap-2">
+                        <i class="fas fa-comment-dots text-warning"></i>
+                        Analysis Request
+                    </h3>
+                    <button onclick="AICGOManager.loadPromptTemplate()"
+                            class="text-xs text-primary hover:underline">
+                        <i class="fas fa-file-alt mr-1"></i>Load Template
+                    </button>
+                </div>
+                <p class="text-xs text-muted-foreground mb-3">
+                    Tell Claude specifically what you want to analyze or what questions you want answered. Leave empty to use the default comprehensive growth analysis.
+                </p>
+                <textarea id="userPrompt" rows="3"
+                          class="w-full px-3 py-2 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none text-foreground resize-y"
+                          placeholder="Example: Focus on why our conversion rate is dropping. What specific actions can we take this week to improve lead-to-customer conversion? Also analyze which traffic sources have the best ROI."></textarea>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <button onclick="AICGOManager.setQuickPrompt('conversion')"
+                            class="text-xs px-3 py-1 bg-muted hover:bg-muted/80 rounded-full transition-colors">
+                        🎯 Conversion Analysis
+                    </button>
+                    <button onclick="AICGOManager.setQuickPrompt('retention')"
+                            class="text-xs px-3 py-1 bg-muted hover:bg-muted/80 rounded-full transition-colors">
+                        🔄 Retention Focus
+                    </button>
+                    <button onclick="AICGOManager.setQuickPrompt('revenue')"
+                            class="text-xs px-3 py-1 bg-muted hover:bg-muted/80 rounded-full transition-colors">
+                        💰 Revenue Growth
+                    </button>
+                    <button onclick="AICGOManager.setQuickPrompt('acquisition')"
+                            class="text-xs px-3 py-1 bg-muted hover:bg-muted/80 rounded-full transition-colors">
+                        📈 Acquisition Strategy
+                    </button>
+                    <button onclick="AICGOManager.setQuickPrompt('persona')"
+                            class="text-xs px-3 py-1 bg-muted hover:bg-muted/80 rounded-full transition-colors">
+                        👥 Persona Deep Dive
+                    </button>
+                </div>
+            </div>
+
             <!-- Analysis Control Panel -->
             <div class="card p-6 border-l-4 border-primary">
                 <div class="flex items-start gap-4">
@@ -1880,6 +1960,131 @@
             // Load API key from localStorage
             this.apiKey = localStorage.getItem('anthropic_api_key');
             this.updateApiStatus();
+
+            // Load business context from localStorage
+            this.loadBusinessContext();
+        },
+
+        // Business Context Management
+        loadBusinessContext() {
+            const context = localStorage.getItem('ai_business_context') || '';
+            const contextInput = document.getElementById('businessContext');
+            if (contextInput) {
+                contextInput.value = context;
+                this.updateContextCharCount();
+            }
+        },
+
+        saveBusinessContext() {
+            const contextInput = document.getElementById('businessContext');
+            if (!contextInput) return;
+
+            const context = contextInput.value;
+            localStorage.setItem('ai_business_context', context);
+            this.updateContextCharCount();
+
+            // Show save status briefly
+            const statusEl = document.getElementById('contextSaveStatus');
+            if (statusEl) {
+                statusEl.classList.remove('hidden');
+                clearTimeout(this.contextSaveTimeout);
+                this.contextSaveTimeout = setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                }, 2000);
+            }
+        },
+
+        clearBusinessContext() {
+            const contextInput = document.getElementById('businessContext');
+            if (contextInput) {
+                contextInput.value = '';
+                localStorage.removeItem('ai_business_context');
+                this.updateContextCharCount();
+                this.showNotification('Business context cleared', 'info');
+            }
+        },
+
+        updateContextCharCount() {
+            const contextInput = document.getElementById('businessContext');
+            const countEl = document.getElementById('contextCharCount');
+            if (contextInput && countEl) {
+                countEl.textContent = contextInput.value.length.toLocaleString();
+            }
+        },
+
+        toggleContextExpand() {
+            const wrapper = document.getElementById('contextInputWrapper');
+            const icon = document.getElementById('contextExpandIcon');
+            if (wrapper && icon) {
+                wrapper.classList.toggle('hidden');
+                icon.classList.toggle('fa-chevron-down');
+                icon.classList.toggle('fa-chevron-up');
+            }
+        },
+
+        // User Prompt Quick Templates
+        setQuickPrompt(type) {
+            const promptInput = document.getElementById('userPrompt');
+            if (!promptInput) return;
+
+            const templates = {
+                conversion: `Focus on conversion rate optimization:
+1. Why is our lead-to-customer conversion rate at its current level?
+2. Which specific actions can we take THIS WEEK to improve conversion?
+3. What are the top 3 friction points in our conversion funnel?
+4. Which traffic sources have the best conversion rates and why?`,
+
+                retention: `Analyze customer retention and repeat purchases:
+1. Why do customers not come back for a second purchase?
+2. What is the optimal timing for follow-up campaigns?
+3. Which products drive the most repeat purchases?
+4. What retention strategies should we prioritize?`,
+
+                revenue: `Focus on revenue growth opportunities:
+1. How can we increase our Average Order Value (AOV)?
+2. Which customer segments have the highest LTV potential?
+3. What pricing or bundling strategies should we test?
+4. Where are the biggest revenue leakage points?`,
+
+                acquisition: `Analyze customer acquisition strategy:
+1. Which traffic sources are most cost-effective?
+2. How can we scale our best-performing channels?
+3. What new acquisition channels should we explore?
+4. How do we reduce customer acquisition cost (CAC)?`,
+
+                persona: `Deep dive into customer personas:
+1. Which demographic segments convert best?
+2. What are the behavioral patterns of our best customers?
+3. How should we tailor messaging for each persona?
+4. Which underperforming personas have hidden potential?`
+            };
+
+            promptInput.value = templates[type] || '';
+            promptInput.focus();
+        },
+
+        loadPromptTemplate() {
+            const promptInput = document.getElementById('userPrompt');
+            if (!promptInput) return;
+
+            promptInput.value = `Please analyze my business data and provide:
+
+1. EXECUTIVE SUMMARY: A 2-3 sentence overview of business health
+
+2. KEY INSIGHTS: 3-5 data-driven observations about:
+   - Conversion performance
+   - Revenue trends
+   - Customer behavior patterns
+
+3. RECOMMENDED ACTIONS: 3-5 prioritized actions with:
+   - Urgency level (Immediate/This Week/This Month)
+   - Expected impact
+   - Specific implementation steps
+
+4. RISKS & CONCERNS: 2-3 potential issues to monitor
+
+Focus on actionable recommendations I can implement immediately.`;
+            promptInput.focus();
         },
 
         saveApiKey() {
@@ -2062,8 +2267,29 @@
         },
 
         buildPrompt(data) {
-            return `You are an AI Chief Growth Officer (CGO) analyzing customer data for Luangiai.vn, a Vietnamese astrology/fortune-telling service.
-Your role is to provide strategic insights and actionable recommendations based on the data provided.
+            // Get user-provided context and prompt
+            const businessContext = document.getElementById('businessContext')?.value.trim() || '';
+            const userPrompt = document.getElementById('userPrompt')?.value.trim() || '';
+
+            // Build system context section
+            let systemContext = `You are an AI Chief Growth Officer (CGO) analyzing customer data.
+Your role is to provide strategic insights and actionable recommendations based on the data provided.`;
+
+            // Add business context if provided
+            if (businessContext) {
+                systemContext += `
+
+## BUSINESS CONTEXT (PROVIDED BY USER)
+${businessContext}`;
+            } else {
+                systemContext += `
+
+## BUSINESS CONTEXT
+This appears to be a Vietnamese e-commerce/service business. Analyze the data accordingly.`;
+            }
+
+            // Build the data section
+            const dataSection = `
 
 ## CURRENT DATA SNAPSHOT (${data.dateRange.start} to ${data.dateRange.end})
 Filter Applied: ${data.conditionalFilter}
@@ -2113,13 +2339,38 @@ ${Object.entries(data.personas).map(([key, p]) => `- ${key}: ${p.count} subscrib
 - Active: ${data.growthAnalytics.engagement?.active || 0}
 - Recent: ${data.growthAnalytics.engagement?.recent || 0}
 - Dormant: ${data.growthAnalytics.engagement?.dormant || 0}
-- Inactive: ${data.growthAnalytics.engagement?.inactive || 0}
+- Inactive: ${data.growthAnalytics.engagement?.inactive || 0}`;
+
+            // Build the task section based on user prompt
+            let taskSection;
+            if (userPrompt) {
+                taskSection = `
+
+---
+
+## USER'S SPECIFIC REQUEST
+${userPrompt}
+
+---
+
+## YOUR TASK
+Address the user's specific request above using the data provided. Structure your response with:
+
+1. **EXECUTIVE SUMMARY** (2-3 sentences addressing the user's focus)
+2. **KEY INSIGHTS** (3-5 bullet points relevant to the request)
+3. **RECOMMENDED ACTIONS** (3-5 prioritized actions with urgency levels)
+4. **RISKS & CONCERNS** (2-3 items to monitor)
+
+Format your response in clean Markdown with clear headers. Be specific with numbers and percentages.
+All monetary values are in VND (Vietnamese Dong).`;
+            } else {
+                taskSection = `
 
 ---
 
 ## YOUR TASK
 
-Based on this data, provide a strategic growth analysis with the following sections:
+Based on this data, provide a comprehensive strategic growth analysis with the following sections:
 
 1. **EXECUTIVE SUMMARY** (2-3 sentences)
    - Overall health assessment of the business
@@ -2140,8 +2391,10 @@ Based on this data, provide a strategic growth analysis with the following secti
    - Areas needing attention
 
 Format your response in clean Markdown with clear headers. Be specific with numbers and percentages.
-Focus on actionable insights for a Vietnamese e-commerce business in the astrology/spiritual services niche.
 All monetary values are in VND (Vietnamese Dong).`;
+            }
+
+            return systemContext + dataSection + taskSection;
         },
 
         async runAnalysis() {
