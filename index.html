@@ -1207,6 +1207,115 @@
                         <i class="fas fa-copy mr-1"></i>Copy Full Report
                     </button>
                 </div>
+
+                <!-- Feedback Section -->
+                <div class="card p-6 border-l-4 border-primary mt-6">
+                    <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-comment-dots text-primary"></i>
+                        Feedback & Learning
+                    </h3>
+                    <p class="text-muted-foreground text-sm mb-4">
+                        Help the AI learn what's relevant for your business. Your feedback improves future analyses.
+                    </p>
+
+                    <!-- Quick Rating -->
+                    <div class="flex items-center gap-4 mb-4">
+                        <span class="text-sm text-muted-foreground">Rate this analysis:</span>
+                        <div class="flex gap-2">
+                            <button onclick="AICGOManager.rateAnalysis(5)" class="rating-btn px-3 py-1 rounded-full text-sm bg-muted hover:bg-success/20 hover:text-success transition-colors" data-rating="5">
+                                🎯 Very Useful
+                            </button>
+                            <button onclick="AICGOManager.rateAnalysis(3)" class="rating-btn px-3 py-1 rounded-full text-sm bg-muted hover:bg-warning/20 hover:text-warning transition-colors" data-rating="3">
+                                👍 Somewhat Useful
+                            </button>
+                            <button onclick="AICGOManager.rateAnalysis(1)" class="rating-btn px-3 py-1 rounded-full text-sm bg-muted hover:bg-danger/20 hover:text-danger transition-colors" data-rating="1">
+                                🤔 Not Relevant
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Feedback Input -->
+                    <div class="space-y-3">
+                        <textarea id="aiFeedbackText" rows="2"
+                                  class="w-full px-3 py-2 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none text-foreground resize-y"
+                                  placeholder="What did you find useful? What was missing? What actions will you take? This helps improve future analyses..."></textarea>
+
+                        <!-- Action Tracking -->
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-xs text-muted-foreground">Mark actions you'll implement:</span>
+                        </div>
+                        <div id="actionCheckboxes" class="flex flex-wrap gap-2 text-xs">
+                            <!-- Populated dynamically based on recommendations -->
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <button onclick="AICGOManager.submitFeedback()"
+                                    class="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/80 transition-colors">
+                                <i class="fas fa-save mr-1"></i>Save Feedback & Learn
+                            </button>
+                            <button onclick="AICGOManager.viewLearnings()"
+                                    class="px-4 py-2 text-primary text-sm hover:underline">
+                                <i class="fas fa-brain mr-1"></i>View AI Learnings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Learnings Modal (hidden by default) -->
+                <div id="aiLearningsModal" class="card p-6 mt-4 hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-foreground font-bold flex items-center gap-2">
+                            <i class="fas fa-brain text-success"></i>
+                            AI Memory & Learnings
+                        </h3>
+                        <button onclick="AICGOManager.closeLearnings()" class="text-muted-foreground hover:text-foreground">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Memory Stats -->
+                    <div class="grid grid-cols-3 gap-4 mb-4">
+                        <div class="bg-muted/50 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-primary" id="memoryTotalFeedback">0</div>
+                            <div class="text-xs text-muted-foreground">Total Feedback</div>
+                        </div>
+                        <div class="bg-muted/50 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-success" id="memoryActionsTracked">0</div>
+                            <div class="text-xs text-muted-foreground">Actions Tracked</div>
+                        </div>
+                        <div class="bg-muted/50 rounded-lg p-3 text-center">
+                            <div class="text-2xl font-bold text-warning" id="memoryAvgRating">-</div>
+                            <div class="text-xs text-muted-foreground">Avg Rating</div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Learnings -->
+                    <div class="space-y-3">
+                        <h4 class="text-sm font-bold text-foreground">Recent Learnings</h4>
+                        <div id="recentLearnings" class="space-y-2 max-h-60 overflow-y-auto">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Auto-Generated Insights -->
+                    <div class="mt-4 p-3 bg-primary/10 rounded-lg">
+                        <h4 class="text-sm font-bold text-foreground mb-2">
+                            <i class="fas fa-lightbulb text-warning mr-1"></i>
+                            What AI Has Learned About Your Business
+                        </h4>
+                        <div id="aiLearnedInsights" class="text-sm text-muted-foreground">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Clear Memory -->
+                    <div class="mt-4 pt-4 border-t border-foreground/10 flex justify-between items-center">
+                        <span class="text-xs text-muted-foreground">Memory helps improve future analyses</span>
+                        <button onclick="AICGOManager.clearMemory()" class="text-xs text-danger hover:underline">
+                            <i class="fas fa-trash mr-1"></i>Clear All Memory
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Empty State -->
@@ -2355,7 +2464,7 @@ Focus on actionable recommendations I can implement immediately.`;
             return 'Organic/Direct';
         },
 
-        buildPrompt(data) {
+        buildPrompt(data, memories = null) {
             // Get user-provided context and prompt
             const businessContext = document.getElementById('businessContext')?.value.trim() || '';
             const userPrompt = document.getElementById('userPrompt')?.value.trim() || '';
@@ -2375,6 +2484,40 @@ ${businessContext}`;
 
 ## BUSINESS CONTEXT
 This appears to be a Vietnamese e-commerce/service business. Analyze the data accordingly.`;
+            }
+
+            // Add learnings from past feedback if available
+            if (memories) {
+                let memoriesSection = '';
+
+                if (memories.businessLearnings?.length > 0) {
+                    memoriesSection += `
+
+## PREVIOUS LEARNINGS & INSIGHTS
+The following insights have been learned from previous analyses:
+${memories.businessLearnings.slice(0, 5).map(l => `- ${l}`).join('\n')}`;
+                }
+
+                if (memories.recentFeedback?.length > 0) {
+                    memoriesSection += `
+
+## USER PREFERENCES (from past feedback)
+${memories.recentFeedback.slice(0, 3).map(f => `- ${f}`).join('\n')}`;
+                }
+
+                if (memories.successfulActions?.length > 0) {
+                    memoriesSection += `
+
+## PREVIOUSLY IMPLEMENTED ACTIONS
+${memories.successfulActions.slice(0, 5).map(a => `- ${a}`).join('\n')}`;
+                }
+
+                if (memoriesSection) {
+                    systemContext += memoriesSection;
+                    systemContext += `
+
+NOTE: Consider the above learnings to provide more relevant and personalized recommendations.`;
+                }
             }
 
             // Build the data section
@@ -2509,9 +2652,13 @@ All monetary values are in VND (Vietnamese Dong).`;
                 statusText.textContent = 'Collecting filtered data...';
                 const analysisData = this.collectAnalysisData();
 
-                // Build prompt
+                // Load memories from past feedback
+                statusText.textContent = 'Loading past learnings...';
+                const memories = await this.loadMemoriesForPrompt();
+
+                // Build prompt with memories
                 statusText.textContent = 'Building analysis prompt...';
-                const prompt = this.buildPrompt(analysisData);
+                const prompt = this.buildPrompt(analysisData, memories);
 
                 // Call Claude API
                 statusText.textContent = 'Calling Claude API...';
@@ -2692,6 +2839,292 @@ Data Summary:
             navigator.clipboard.writeText(text).then(() => {
                 this.showNotification('Analysis copied to clipboard', 'success');
             });
+        },
+
+        // ==================== FEEDBACK & LEARNING SYSTEM ====================
+
+        currentRating: null,
+
+        rateAnalysis(rating) {
+            this.currentRating = rating;
+
+            // Update UI to show selected rating
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.classList.remove('bg-success/30', 'bg-warning/30', 'bg-danger/30', 'ring-2');
+                if (parseInt(btn.dataset.rating) === rating) {
+                    const colorClass = rating === 5 ? 'bg-success/30' : rating === 3 ? 'bg-warning/30' : 'bg-danger/30';
+                    btn.classList.add(colorClass, 'ring-2');
+                }
+            });
+
+            // Auto-populate action checkboxes from recommendations
+            this.populateActionCheckboxes();
+        },
+
+        populateActionCheckboxes() {
+            const container = document.getElementById('actionCheckboxes');
+            if (!container || !this.lastAnalysis) return;
+
+            // Extract action items from the analysis
+            const actions = this.extractActionsFromAnalysis(this.lastAnalysis.markdown);
+
+            container.innerHTML = actions.slice(0, 5).map((action, i) => `
+                <label class="flex items-center gap-2 bg-muted/50 px-3 py-2 rounded cursor-pointer hover:bg-muted transition-colors">
+                    <input type="checkbox" class="action-checkbox" data-action="${action.substring(0, 100)}" />
+                    <span class="truncate max-w-xs">${action.substring(0, 60)}${action.length > 60 ? '...' : ''}</span>
+                </label>
+            `).join('');
+        },
+
+        extractActionsFromAnalysis(markdown) {
+            const actions = [];
+            // Match lines that look like action items
+            const patterns = [
+                /(?:###?\s*\d+\.?\s*)(.+?)(?:\n|$)/gi,
+                /(?:^|\n)-\s*\*\*(.+?)\*\*/g,
+                /(?:IMMEDIATE|URGENT|THIS WEEK|THIS MONTH)[:\s]*(.+?)(?:\n|$)/gi
+            ];
+
+            patterns.forEach(pattern => {
+                let match;
+                while ((match = pattern.exec(markdown)) !== null) {
+                    const action = match[1]?.trim();
+                    if (action && action.length > 10 && action.length < 200) {
+                        actions.push(action);
+                    }
+                }
+            });
+
+            return [...new Set(actions)].slice(0, 10);
+        },
+
+        async submitFeedback() {
+            if (!this.lastAnalysis) {
+                this.showNotification('No analysis to provide feedback on', 'error');
+                return;
+            }
+
+            const feedbackText = document.getElementById('aiFeedbackText')?.value.trim();
+            const selectedActions = Array.from(document.querySelectorAll('.action-checkbox:checked'))
+                .map(cb => cb.dataset.action);
+
+            // Build feedback object
+            const feedback = {
+                timestamp: new Date().toISOString(),
+                rating: this.currentRating || 3,
+                feedback_text: feedbackText,
+                actions_to_implement: selectedActions,
+                analysis_summary: this.lastAnalysis.markdown.substring(0, 500),
+                data_snapshot: {
+                    subscribers: this.lastAnalysis.rawData?.subscribers?.total,
+                    customers: this.lastAnalysis.rawData?.subscribers?.customers,
+                    cvr: this.lastAnalysis.rawData?.subscribers?.cvr
+                }
+            };
+
+            // Save to Supabase ai_memory table
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    // Save the feedback
+                    await supabaseClient.from('ai_memory').insert({
+                        memory_type: 'feedback',
+                        context: 'analysis_feedback',
+                        content: JSON.stringify(feedback),
+                        importance: this.currentRating === 5 ? 8 : this.currentRating === 1 ? 6 : 5,
+                        tags: ['feedback', `rating_${this.currentRating}`],
+                        source_type: 'user_feedback'
+                    });
+
+                    // Save each action as a separate memory for tracking
+                    for (const action of selectedActions) {
+                        await supabaseClient.from('ai_memory').insert({
+                            memory_type: 'decision',
+                            context: 'planned_action',
+                            content: action,
+                            importance: 7,
+                            tags: ['action', 'pending'],
+                            source_type: 'user_feedback'
+                        });
+                    }
+
+                    // If there's feedback text, extract learnings
+                    if (feedbackText && feedbackText.length > 20) {
+                        await supabaseClient.from('ai_memory').insert({
+                            memory_type: 'insight',
+                            context: 'user_learning',
+                            content: feedbackText,
+                            importance: this.currentRating === 5 ? 9 : 6,
+                            tags: ['learning', 'user_input'],
+                            source_type: 'user_feedback'
+                        });
+                    }
+
+                    this.showNotification('Feedback saved! AI will learn from this.', 'success');
+
+                    // Clear form
+                    document.getElementById('aiFeedbackText').value = '';
+                    document.querySelectorAll('.action-checkbox').forEach(cb => cb.checked = false);
+                    this.currentRating = null;
+                    document.querySelectorAll('.rating-btn').forEach(btn => {
+                        btn.classList.remove('bg-success/30', 'bg-warning/30', 'bg-danger/30', 'ring-2');
+                    });
+
+                } else {
+                    this.showNotification('Feedback saved locally', 'success');
+                }
+            } catch (e) {
+                console.error('Failed to save feedback:', e);
+                this.showNotification('Failed to save feedback', 'error');
+            }
+        },
+
+        async viewLearnings() {
+            const modal = document.getElementById('aiLearningsModal');
+            if (!modal) return;
+
+            modal.classList.remove('hidden');
+
+            // Load stats and learnings from Supabase
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    // Get all feedback
+                    const { data: feedbacks } = await supabaseClient
+                        .from('ai_memory')
+                        .select('*')
+                        .eq('memory_type', 'feedback')
+                        .order('created_at', { ascending: false });
+
+                    // Get all actions
+                    const { data: actions } = await supabaseClient
+                        .from('ai_memory')
+                        .select('*')
+                        .eq('memory_type', 'decision')
+                        .order('created_at', { ascending: false });
+
+                    // Get learnings/insights
+                    const { data: insights } = await supabaseClient
+                        .from('ai_memory')
+                        .select('*')
+                        .eq('memory_type', 'insight')
+                        .order('importance', { ascending: false })
+                        .limit(10);
+
+                    // Update stats
+                    document.getElementById('memoryTotalFeedback').textContent = feedbacks?.length || 0;
+                    document.getElementById('memoryActionsTracked').textContent = actions?.length || 0;
+
+                    // Calculate average rating
+                    if (feedbacks && feedbacks.length > 0) {
+                        const ratings = feedbacks.map(f => {
+                            try {
+                                return JSON.parse(f.content).rating;
+                            } catch { return 3; }
+                        }).filter(r => r);
+                        const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+                        document.getElementById('memoryAvgRating').textContent = avg.toFixed(1);
+                    }
+
+                    // Display recent learnings
+                    const learningsContainer = document.getElementById('recentLearnings');
+                    if (learningsContainer && feedbacks) {
+                        learningsContainer.innerHTML = feedbacks.slice(0, 5).map(f => {
+                            let content;
+                            try { content = JSON.parse(f.content); } catch { content = {}; }
+                            const ratingEmoji = content.rating === 5 ? '🎯' : content.rating === 3 ? '👍' : '🤔';
+                            return `
+                                <div class="p-3 bg-muted/30 rounded-lg">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs text-muted-foreground">${new Date(f.created_at).toLocaleDateString()}</span>
+                                        <span>${ratingEmoji} Rating: ${content.rating || '-'}</span>
+                                    </div>
+                                    ${content.feedback_text ? `<p class="text-sm">${content.feedback_text.substring(0, 150)}...</p>` : ''}
+                                    ${content.actions_to_implement?.length ? `<div class="text-xs text-success mt-1">📋 ${content.actions_to_implement.length} actions planned</div>` : ''}
+                                </div>
+                            `;
+                        }).join('') || '<p class="text-muted-foreground text-sm">No feedback yet. Rate analyses to help AI learn!</p>';
+                    }
+
+                    // Display AI-learned insights
+                    const insightsContainer = document.getElementById('aiLearnedInsights');
+                    if (insightsContainer && insights && insights.length > 0) {
+                        insightsContainer.innerHTML = insights.map(i => `
+                            <div class="mb-2">• ${i.content.substring(0, 200)}${i.content.length > 200 ? '...' : ''}</div>
+                        `).join('');
+                    } else if (insightsContainer) {
+                        insightsContainer.innerHTML = 'Keep providing feedback and the AI will learn your preferences and what works for your business.';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load learnings:', e);
+            }
+        },
+
+        closeLearnings() {
+            document.getElementById('aiLearningsModal')?.classList.add('hidden');
+        },
+
+        async clearMemory() {
+            if (!confirm('Are you sure you want to clear all AI memory? This cannot be undone.')) {
+                return;
+            }
+
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    await supabaseClient
+                        .from('ai_memory')
+                        .delete()
+                        .in('memory_type', ['feedback', 'decision', 'insight']);
+
+                    this.showNotification('AI memory cleared', 'success');
+                    this.closeLearnings();
+                }
+            } catch (e) {
+                console.error('Failed to clear memory:', e);
+                this.showNotification('Failed to clear memory', 'error');
+            }
+        },
+
+        // Load memories to include in prompt
+        async loadMemoriesForPrompt() {
+            const memories = {
+                recentFeedback: [],
+                userPreferences: [],
+                successfulActions: [],
+                businessLearnings: []
+            };
+
+            try {
+                if (typeof supabaseClient !== 'undefined') {
+                    // Get high-importance memories
+                    const { data } = await supabaseClient
+                        .from('ai_memory')
+                        .select('*')
+                        .gte('importance', 6)
+                        .order('importance', { ascending: false })
+                        .limit(20);
+
+                    if (data) {
+                        data.forEach(m => {
+                            if (m.memory_type === 'feedback') {
+                                try {
+                                    const content = JSON.parse(m.content);
+                                    if (content.rating >= 4 && content.feedback_text) {
+                                        memories.recentFeedback.push(content.feedback_text);
+                                    }
+                                } catch {}
+                            } else if (m.memory_type === 'insight') {
+                                memories.businessLearnings.push(m.content);
+                            } else if (m.memory_type === 'decision' && m.tags?.includes('completed')) {
+                                memories.successfulActions.push(m.content);
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load memories for prompt');
+            }
+
+            return memories;
         },
 
         showNotification(message, type = 'info') {
