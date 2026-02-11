@@ -1299,7 +1299,10 @@ class CRMDashboard {
             deviceTypes: {}
         };
 
-        this.data.subscribers.forEach(subscriber => {
+        // Use filtered subscribers to respect conditional filter & email exclusions
+        const filteredSubscribers = this.getFilteredSubscribers();
+
+        filteredSubscribers.forEach(subscriber => {
             stats.totalProcessed++;
 
             const dob = subscriber.custom_fields?.dob ||
@@ -1369,7 +1372,7 @@ class CRMDashboard {
                 (personas[personaKey].deviceDistribution[deviceType] || 0) + 1;
         });
 
-        if (this.data.subscribers.length === 0 && this.data.contacts.total > 0) {
+        if (filteredSubscribers.length === 0 && this.data.contacts.total > 0) {
             personas['unknown'].count = this.data.contacts.total;
             personas['unknown'].subscribed = this.data.contacts.subscribed;
         }
@@ -1425,7 +1428,10 @@ class CRMDashboard {
         }
 
         // Count subscribers by registration date and persona
-        this.data.subscribers.forEach(subscriber => {
+        // Use filtered subscribers to respect conditional filter & email exclusions
+        const filteredSubscribers = this.getFilteredSubscribers();
+
+        filteredSubscribers.forEach(subscriber => {
             const createdAt = subscriber.created_at || subscriber.date_created;
             if (!createdAt) return;
 
@@ -2126,13 +2132,14 @@ class CRMDashboard {
             : (thisWeekAOV > 0 ? 100 : 0);
 
         // 6. PERSONA GROWTH - This week vs last week by persona
+        // Use filtered subscribers to respect conditional filter & email exclusions
         const personas = this.data.personas || {};
-        const subscribers = this.data.subscribers || [];
+        const filteredSubscribers = this.getFilteredSubscribers();
 
         Object.keys(personas).forEach(personaKey => {
             let thisWeekCount = 0, lastWeekCount = 0;
 
-            subscribers.forEach(sub => {
+            filteredSubscribers.forEach(sub => {
                 if (sub._persona !== personaKey) return;
                 const createdAt = new Date(sub.created_at);
 
