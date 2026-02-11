@@ -188,6 +188,50 @@ function parseGender(genderValue) {
     return 'Unknown';
 }
 
+// Helper: Extract DOB from subscriber with all possible field names
+function extractDOB(subscriber) {
+    return subscriber.custom_fields?.dob ||
+           subscriber.custom_fields?.date_of_birth ||
+           subscriber.custom_fields?.birthday ||
+           subscriber.custom_fields?.ngay_sinh ||  // Vietnamese
+           subscriber.date_of_birth ||
+           subscriber.dob ||
+           subscriber.d ||  // Compressed format
+           null;
+}
+
+// Helper: Parse birth year from DOB string (handles DD/MM/YYYY format used by FluentCRM)
+function parseBirthYear(dob) {
+    if (!dob) return null;
+    try {
+        const dobStr = String(dob).trim();
+
+        // Method 1: Parse DD/MM/YYYY or DD-MM-YYYY format (FluentCRM format)
+        const ddmmyyyy = dobStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (ddmmyyyy) {
+            const year = parseInt(ddmmyyyy[3]);
+            if (year >= 1920 && year <= 2015) return year;
+        }
+
+        // Method 2: Parse YYYY-MM-DD or YYYY/MM/DD format (ISO format)
+        const yyyymmdd = dobStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+        if (yyyymmdd) {
+            const year = parseInt(yyyymmdd[1]);
+            if (year >= 1920 && year <= 2015) return year;
+        }
+
+        // Method 3: Look for any 4-digit year in the string (1920-2015)
+        const yearMatch = dobStr.match(/\b(19[2-9]\d|20[0-1]\d)\b/);
+        if (yearMatch) {
+            return parseInt(yearMatch[1]);
+        }
+
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
 // Vietnamese Eastern Zodiac (12 con giáp / Tử Vi) - based on birth year
 // Each animal corresponds to a year in a 12-year cycle
 // Order: Tý(Rat), Sửu(Buffalo), Dần(Tiger), Mão(Cat), Thìn(Dragon), Tị(Snake),
@@ -1332,25 +1376,9 @@ class CRMDashboard {
         filteredSubscribers.forEach(subscriber => {
             stats.totalProcessed++;
 
-            const dob = subscriber.custom_fields?.dob ||
-                        subscriber.custom_fields?.date_of_birth ||
-                        subscriber.custom_fields?.birthday ||
-                        subscriber.date_of_birth ||
-                        subscriber.dob ||
-                        null;
-
-            // Parse birth year for generation-based persona
-            let birthYear = null;
-            if (dob) {
-                try {
-                    birthYear = new Date(dob).getFullYear();
-                    if (isNaN(birthYear) || birthYear < 1920 || birthYear > 2015) {
-                        birthYear = null;
-                    }
-                } catch (e) {
-                    birthYear = null;
-                }
-            }
+            // Use helper functions for robust DOB extraction and parsing
+            const dob = extractDOB(subscriber);
+            const birthYear = parseBirthYear(dob);
 
             const age = parseAge(dob);
             const ageGroup = getAgeBucket(age);
@@ -2331,13 +2359,8 @@ class CRMDashboard {
 
         // Process each subscriber
         subscribers.forEach(subscriber => {
-            // Get DOB
-            const dob = subscriber.custom_fields?.dob ||
-                        subscriber.custom_fields?.date_of_birth ||
-                        subscriber.custom_fields?.birthday ||
-                        subscriber.date_of_birth ||
-                        subscriber.dob ||
-                        null;
+            // Get DOB using helper function
+            const dob = extractDOB(subscriber);
 
             // Get gender
             const genderRaw = subscriber.custom_fields?.gender ||
