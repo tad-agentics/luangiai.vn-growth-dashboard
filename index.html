@@ -165,6 +165,20 @@
             color: white;
         }
 
+        /* Date filter preset buttons */
+        .date-preset-btn {
+            transition: all 0.2s ease;
+            color: var(--lg-muted-foreground);
+        }
+        .date-preset-btn.active {
+            background-color: var(--lg-primary);
+            color: white;
+        }
+        .date-preset-btn:not(.active):hover {
+            background-color: var(--lg-background);
+            color: var(--lg-foreground);
+        }
+
         /* Mini sparkline container */
         .sparkline-container {
             height: 40px;
@@ -250,6 +264,41 @@
                 <button onclick="disconnect()" class="px-3 py-2 bg-danger/10 hover:bg-danger/20 text-danger rounded-lg text-sm transition-colors">
                     <i class="fas fa-sign-out-alt mr-2"></i>Disconnect
                 </button>
+            </div>
+        </div>
+
+        <!-- Global Date Filter -->
+        <div class="card p-4 mb-6">
+            <div class="flex flex-wrap gap-3 items-center">
+                <span class="text-muted-foreground text-sm font-medium">
+                    <i class="fas fa-calendar-alt mr-1"></i>Date Range:
+                </span>
+
+                <!-- Quick Preset Buttons -->
+                <div class="flex gap-1 bg-muted p-1 rounded-lg">
+                    <button onclick="setDateRange('7d')" class="date-preset-btn px-3 py-1.5 rounded text-sm" data-preset="7d">7 Days</button>
+                    <button onclick="setDateRange('30d')" class="date-preset-btn px-3 py-1.5 rounded text-sm" data-preset="30d">30 Days</button>
+                    <button onclick="setDateRange('90d')" class="date-preset-btn px-3 py-1.5 rounded text-sm" data-preset="90d">90 Days</button>
+                    <button onclick="setDateRange('ytd')" class="date-preset-btn px-3 py-1.5 rounded text-sm" data-preset="ytd">YTD</button>
+                    <button onclick="setDateRange('all')" class="date-preset-btn active px-3 py-1.5 rounded text-sm" data-preset="all">All Time</button>
+                </div>
+
+                <!-- Custom Date Range -->
+                <div class="flex items-center gap-2 ml-2">
+                    <input type="date" id="dateFilterStart" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/30 focus:border-primary outline-none" onchange="setDateRange('custom')">
+                    <span class="text-muted-foreground">to</span>
+                    <input type="date" id="dateFilterEnd" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/30 focus:border-primary outline-none" onchange="setDateRange('custom')">
+                </div>
+
+                <!-- Apply Button -->
+                <button onclick="applyDateFilter()" class="px-4 py-1.5 bg-primary text-white rounded text-sm font-medium hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-check mr-1"></i>Apply
+                </button>
+
+                <!-- Filter Indicator -->
+                <span id="dateFilterIndicator" class="text-xs text-muted-foreground ml-2 hidden">
+                    Showing: <span id="dateFilterLabel" class="font-medium text-foreground">All Time</span>
+                </span>
             </div>
         </div>
 

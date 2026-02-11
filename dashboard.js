@@ -286,6 +286,13 @@ class CRMDashboard {
         this.refreshInterval = null;
         this.growthPeriod = 30; // Default to 30 days
 
+        // Global date filter state
+        this.dateFilter = {
+            startDate: null,  // null = all time
+            endDate: null,
+            preset: 'all'     // 'all', '7d', '30d', '90d', 'ytd', 'custom'
+        };
+
         // Sync management to prevent server overload
         this.isSyncing = false;
         this.lastSyncTime = localStorage.getItem('fluentcrm_last_sync') || null;
@@ -1469,8 +1476,52 @@ class CRMDashboard {
         this.data.personaHistory = history;
     }
 
+    // ==================== DATE FILTER HELPERS ====================
+
+    // Filter subscribers by active date range
+    getFilteredSubscribers() {
+        const subscribers = this.data.subscribers || [];
+        const { startDate, endDate } = this.dateFilter;
+
+        if (!startDate && !endDate) return subscribers;
+
+        const start = startDate ? new Date(startDate) : null;
+        const end = endDate ? new Date(endDate) : new Date();
+        if (end) end.setHours(23, 59, 59, 999);
+
+        return subscribers.filter(sub => {
+            if (!sub.created_at) return false;
+            const created = new Date(sub.created_at);
+            if (start && created < start) return false;
+            if (end && created > end) return false;
+            return true;
+        });
+    }
+
+    // Filter orders by active date range
+    getFilteredOrders() {
+        const orders = this.data.woocommerce?.orders || [];
+        const { startDate, endDate } = this.dateFilter;
+
+        if (!startDate && !endDate) return orders;
+
+        const start = startDate ? new Date(startDate) : null;
+        const end = endDate ? new Date(endDate) : new Date();
+        if (end) end.setHours(23, 59, 59, 999);
+
+        return orders.filter(order => {
+            if (!order.date_created) return false;
+            const created = new Date(order.date_created);
+            if (start && created < start) return false;
+            if (end && created > end) return false;
+            return true;
+        });
+    }
+
+    // ==================== GROWTH ANALYTICS ====================
+
     calculateGrowthAnalytics() {
-        const subscribers = this.data.subscribers;
+        const subscribers = this.getFilteredSubscribers();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -1914,7 +1965,7 @@ class CRMDashboard {
             : (thisWeekCVR > 0 ? 100 : 0);
 
         // 4. REVENUE COMPARISON - This week vs last week (from WooCommerce orders)
-        const orders = wc.orders || [];
+        const orders = this.getFilteredOrders();
         orders.forEach(order => {
             const orderDate = new Date(order.date_created);
             const orderTotal = parseFloat(order.total) || 0;
@@ -2305,7 +2356,7 @@ class CRMDashboard {
     }
 
     calculateWooCommerceMetrics() {
-        const orders = this.data.woocommerce.orders;
+        const orders = this.getFilteredOrders();
         if (!orders || orders.length === 0) {
             console.log('No WooCommerce orders to analyze');
             return;
@@ -3161,8 +3212,11 @@ class CRMDashboard {
         // Calculate historical comparisons
         const comparisons = this.calculateComparisons();
 
-        // Acquisition metrics
-        document.getElementById('metricTotal').textContent = this.formatNumber(this.data.subscribers?.length || 0);
+        // Get filtered counts
+        const filteredSubscribers = this.getFilteredSubscribers();
+
+        // Acquisition metrics - use filtered count
+        document.getElementById('metricTotal').textContent = this.formatNumber(filteredSubscribers.length);
         document.getElementById('metricTotalTrend').textContent = `+${analytics.thisWeekNew || 0} this week`;
         document.getElementById('metricWeekNew').textContent = this.formatNumber(analytics.thisWeekNew || 0);
 
@@ -3534,8 +3588,8 @@ class CRMDashboard {
         const lastWeekLeads = [];
         const lastWeekOrders = [];
 
-        const subscribers = this.data.subscribers || [];
-        const orders = this.data.woocommerce?.orders || [];
+        const subscribers = this.getFilteredSubscribers();
+        const orders = this.getFilteredOrders();
 
         // Helper to extract date string (handles multiple formats)
         const getDateStr = (dateValue) => {
@@ -3666,7 +3720,7 @@ class CRMDashboard {
     calculatePersonaLTV() {
         const personaLTV = {};
         const customerOrders = this.data.woocommerce?.customerOrders || {};
-        const subscribers = this.data.subscribers || [];
+        const subscribers = this.getFilteredSubscribers();
 
         // Map emails to personas
         const emailToPersona = {};
@@ -5450,6 +5504,131 @@ function setGrowthPeriod(days) {
     if (dashboard) {
         dashboard.setGrowthPeriod(days);
     }
+}
+
+// ==================== GLOBAL DATE FILTER FUNCTIONS ====================
+
+function setDateRange(preset) {
+    if (!dashboard) return;
+
+    const today = new Date();
+    let startDate = null, endDate = null;
+
+    // Update active button styling
+    document.querySelectorAll('.date-preset-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === preset);
+    });
+
+    switch (preset) {
+        case '7d':
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 6);
+            endDate = today;
+            break;
+        case '30d':
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 29);
+            endDate = today;
+            break;
+        case '90d':
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 89);
+            endDate = today;
+            break;
+        case 'ytd':
+            startDate = new Date(today.getFullYear(), 0, 1);
+            endDate = today;
+            break;
+        case 'custom':
+            const startInput = document.getElementById('dateFilterStart');
+            const endInput = document.getElementById('dateFilterEnd');
+            startDate = startInput?.value ? new Date(startInput.value) : null;
+            endDate = endInput?.value ? new Date(endInput.value) : today;
+            break;
+        case 'all':
+        default:
+            startDate = null;
+            endDate = null;
+            break;
+    }
+
+    // Update date inputs to reflect selection
+    const startInput = document.getElementById('dateFilterStart');
+    const endInput = document.getElementById('dateFilterEnd');
+    if (startInput) startInput.value = startDate ? startDate.toISOString().split('T')[0] : '';
+    if (endInput) endInput.value = endDate ? endDate.toISOString().split('T')[0] : '';
+
+    // Store filter state in dashboard
+    dashboard.dateFilter = {
+        startDate: startDate ? startDate.toISOString().split('T')[0] : null,
+        endDate: endDate ? endDate.toISOString().split('T')[0] : null,
+        preset: preset
+    };
+
+    // Update filter indicator
+    updateDateFilterIndicator(preset, startDate, endDate);
+}
+
+function applyDateFilter() {
+    if (!dashboard) return;
+
+    const btn = document.querySelector('button[onclick="applyDateFilter()"]');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Applying...';
+        btn.disabled = true;
+    }
+
+    setTimeout(() => {
+        try {
+            // Recalculate all analytics with new date filter
+            dashboard.calculateGrowthAnalytics();
+            dashboard.calculateWooCommerceMetrics();
+            dashboard.updateDashboard();
+
+            // Show success feedback
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-check mr-1"></i>Applied!';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-check mr-1"></i>Apply';
+                    btn.disabled = false;
+                }, 1000);
+            }
+        } catch (err) {
+            console.error('Error applying date filter:', err);
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-times mr-1"></i>Error';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-check mr-1"></i>Apply';
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+    }, 50);
+}
+
+function updateDateFilterIndicator(preset, startDate, endDate) {
+    const indicator = document.getElementById('dateFilterIndicator');
+    const label = document.getElementById('dateFilterLabel');
+
+    if (!indicator || !label) return;
+
+    const labels = {
+        '7d': 'Last 7 Days',
+        '30d': 'Last 30 Days',
+        '90d': 'Last 90 Days',
+        'ytd': 'Year to Date',
+        'all': 'All Time'
+    };
+
+    let labelText = labels[preset] || 'All Time';
+
+    if (preset === 'custom' && startDate && endDate) {
+        const formatDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        labelText = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+    }
+
+    label.textContent = labelText;
+    indicator.classList.toggle('hidden', preset === 'all');
 }
 
 // Toggle collapsible sections
