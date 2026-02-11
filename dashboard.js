@@ -2541,24 +2541,30 @@ class CRMDashboard {
 
         this.data.woocommerce.customerOrders = customerOrders;
 
+        // When a conditional filter is active (like "1st Purchase = Product X"),
+        // the funnel should show the COMPLETE journey of those customers, not just orders within date range
+        const funnelCustomerOrders = (conditionalEmails !== null)
+            ? conditionalCustomerOrders  // Use all orders from filtered customers
+            : customerOrders;            // Use date-filtered orders when no conditional filter
+
         const metrics = {
             timeToFirstPurchase: this.wcCalcTimeToFirstPurchase(customerOrders),
             timeFirstToSecond: this.wcCalcTimeBetweenPurchases(customerOrders, 1, 2),
             aovSecondPurchase: this.wcCalcAOVByPurchaseNum(customerOrders, 2),
             aovFirstPurchase: this.wcCalcAOVByPurchaseNum(customerOrders, 1),
-            ltv: this.wcCalcLTV(customerOrders),
+            ltv: this.wcCalcLTV(funnelCustomerOrders),  // Use full data for LTV
             revenueNew: this.wcCalcRevenueByType(customerOrders, 'new'),
             revenueReturning: this.wcCalcRevenueByType(customerOrders, 'returning'),
-            sku1st: this.wcCalcSKUBreakdown(customerOrders, 1),
-            sku2nd: this.wcCalcSKUBreakdown(customerOrders, 2),
-            sku3rd: this.wcCalcSKUBreakdown(customerOrders, 3),
-            totalCustomers: Object.keys(customerOrders).length,
-            totalOrders: filteredOrders.length,
-            repeatCustomers: Object.values(customerOrders).filter(orders =>
+            sku1st: this.wcCalcSKUBreakdown(funnelCustomerOrders, 1),  // Use full data for SKU analysis
+            sku2nd: this.wcCalcSKUBreakdown(funnelCustomerOrders, 2),
+            sku3rd: this.wcCalcSKUBreakdown(funnelCustomerOrders, 3),
+            totalCustomers: Object.keys(funnelCustomerOrders).length,  // Total filtered customers
+            totalOrders: Object.values(funnelCustomerOrders).reduce((sum, orders) => sum + orders.length, 0),
+            repeatCustomers: Object.values(funnelCustomerOrders).filter(orders =>
                 orders.some(o => o._purchaseNumber > 1)
             ).length,
-            funnel: this.wcCalcPurchaseFunnel(customerOrders),
-            topCustomers: this.wcCalcTopCustomers(customerOrders)
+            funnel: this.wcCalcPurchaseFunnel(funnelCustomerOrders),  // Use full data for funnel
+            topCustomers: this.wcCalcTopCustomers(funnelCustomerOrders)
         };
 
         this.data.woocommerce.metrics = metrics;
