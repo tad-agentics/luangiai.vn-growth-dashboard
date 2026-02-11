@@ -3905,12 +3905,29 @@ class CRMDashboard {
     }
 
     updateCohortTableLimited() {
-        const cohorts = this.data.cohorts || [];
+        const analytics = this.data.growthAnalytics || {};
+        const cohortsObj = analytics.cohorts || {};
         const table = document.getElementById('cohortTable');
         if (!table) return;
 
+        // Convert cohorts object to array and sort by week (most recent first)
+        const cohortsArray = Object.entries(cohortsObj)
+            .map(([weekKey, cohort]) => ({
+                weekLabel: weekKey,
+                total: cohort.total || 0,
+                converted: cohort.customers || 0,  // 'customers' is the converted count
+                cvr: cohort.cvr || 0,
+                avgDaysToConvert: cohort.avgDaysToConvert
+            }))
+            .sort((a, b) => b.weekLabel.localeCompare(a.weekLabel));  // Sort descending by week
+
         // Limit to 4 weeks
-        const limitedCohorts = cohorts.slice(0, 4);
+        const limitedCohorts = cohortsArray.slice(0, 4);
+
+        if (limitedCohorts.length === 0) {
+            table.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-muted-foreground">No cohort data available</td></tr>';
+            return;
+        }
 
         table.innerHTML = limitedCohorts.map(cohort => {
             const cvr = cohort.total > 0 ? ((cohort.converted / cohort.total) * 100).toFixed(1) : 0;
@@ -3927,7 +3944,7 @@ class CRMDashboard {
                             <div class="bg-success h-2 rounded-full" style="width: ${barWidth}%"></div>
                         </div>
                     </td>
-                    <td class="py-2 text-right text-muted-foreground">${cohort.avgDaysToConvert?.toFixed(1) || '-'}</td>
+                    <td class="py-2 text-right text-muted-foreground">${cohort.avgDaysToConvert || '-'}</td>
                 </tr>
             `;
         }).join('');
