@@ -125,6 +125,7 @@ function getAgeBucket(age) {
 
 // Helper: Get device type
 function getDeviceType(subscriber) {
+    if (!subscriber) return 'Unknown';
     const device = subscriber.custom_fields?.device ||
                    subscriber.device || subscriber.device_type ||
                    subscriber.custom_values?.device ||
@@ -190,6 +191,7 @@ function parseGender(genderValue) {
 
 // Helper: Extract DOB from subscriber with all possible field names
 function extractDOB(subscriber) {
+    if (!subscriber) return null;
     return subscriber.custom_fields?.dob ||
            subscriber.custom_fields?.date_of_birth ||
            subscriber.custom_fields?.birthday ||
