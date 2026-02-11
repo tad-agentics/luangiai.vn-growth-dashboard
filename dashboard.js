@@ -3419,27 +3419,71 @@ class CRMDashboard {
     }
 
     initSummaryCharts() {
-        // Lead Trend Chart (7 days)
+        // Growth Pulse Chart (7 days) - Shows leads & orders, this week vs last week
         const leadCtx = document.getElementById('summaryLeadChart')?.getContext('2d');
         if (leadCtx && !this.charts.summaryLead) {
-            const last7Days = this.getLast7DaysData();
+            const pulse = this.getGrowthPulseData();
             this.charts.summaryLead = new Chart(leadCtx, {
                 type: 'line',
                 data: {
-                    labels: last7Days.labels,
-                    datasets: [{
-                        label: 'New Leads',
-                        data: last7Days.data,
-                        borderColor: '#B05B36',
-                        backgroundColor: 'rgba(176, 91, 54, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }]
+                    labels: pulse.labels,
+                    datasets: [
+                        {
+                            label: 'Leads (This Week)',
+                            data: pulse.thisWeekLeads,
+                            borderColor: '#B05B36',
+                            backgroundColor: 'rgba(176, 91, 54, 0.15)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'Orders (This Week)',
+                            data: pulse.thisWeekOrders,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'Leads (Last Week)',
+                            data: pulse.lastWeekLeads,
+                            borderColor: '#B05B36',
+                            borderDash: [5, 5],
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            tension: 0.3,
+                            borderWidth: 1,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Orders (Last Week)',
+                            data: pulse.lastWeekOrders,
+                            borderColor: '#10B981',
+                            borderDash: [5, 5],
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            tension: 0.3,
+                            borderWidth: 1,
+                            pointRadius: 0
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: { color: '#666', padding: 8, usePointStyle: true, font: { size: 10 } }
+                        },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
                     scales: {
                         y: { beginAtZero: true, grid: { color: 'rgba(42, 43, 47, 0.1)' }, ticks: { color: '#666' } },
                         x: { grid: { display: false }, ticks: { color: '#666' } }
@@ -3447,9 +3491,12 @@ class CRMDashboard {
                 }
             });
         } else if (this.charts.summaryLead) {
-            const last7Days = this.getLast7DaysData();
-            this.charts.summaryLead.data.labels = last7Days.labels;
-            this.charts.summaryLead.data.datasets[0].data = last7Days.data;
+            const pulse = this.getGrowthPulseData();
+            this.charts.summaryLead.data.labels = pulse.labels;
+            this.charts.summaryLead.data.datasets[0].data = pulse.thisWeekLeads;
+            this.charts.summaryLead.data.datasets[1].data = pulse.thisWeekOrders;
+            this.charts.summaryLead.data.datasets[2].data = pulse.lastWeekLeads;
+            this.charts.summaryLead.data.datasets[3].data = pulse.lastWeekOrders;
             this.charts.summaryLead.update();
         }
 
@@ -3480,25 +3527,47 @@ class CRMDashboard {
         }
     }
 
-    getLast7DaysData() {
+    getGrowthPulseData() {
         const labels = [];
-        const data = [];
+        const thisWeekLeads = [];
+        const thisWeekOrders = [];
+        const lastWeekLeads = [];
+        const lastWeekOrders = [];
+
         const subscribers = this.data.subscribers || [];
+        const orders = this.data.woocommerce?.orders || [];
 
         for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+            // This week
+            const thisDate = new Date();
+            thisDate.setDate(thisDate.getDate() - i);
+            const thisDateStr = thisDate.toISOString().split('T')[0];
 
-            const count = subscribers.filter(s => {
-                const created = s.created_at?.split('T')[0];
-                return created === dateStr;
-            }).length;
-            data.push(count);
+            // Last week (same weekday)
+            const lastDate = new Date();
+            lastDate.setDate(lastDate.getDate() - i - 7);
+            const lastDateStr = lastDate.toISOString().split('T')[0];
+
+            labels.push(thisDate.toLocaleDateString('en-US', { weekday: 'short' }));
+
+            // This week counts
+            thisWeekLeads.push(subscribers.filter(s =>
+                s.created_at?.split('T')[0] === thisDateStr
+            ).length);
+            thisWeekOrders.push(orders.filter(o =>
+                o.date_created?.split('T')[0] === thisDateStr
+            ).length);
+
+            // Last week counts
+            lastWeekLeads.push(subscribers.filter(s =>
+                s.created_at?.split('T')[0] === lastDateStr
+            ).length);
+            lastWeekOrders.push(orders.filter(o =>
+                o.date_created?.split('T')[0] === lastDateStr
+            ).length);
         }
 
-        return { labels, data };
+        return { labels, thisWeekLeads, thisWeekOrders, lastWeekLeads, lastWeekOrders };
     }
 
     // ==================== DEEP DIVE TAB ====================
