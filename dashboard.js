@@ -2100,7 +2100,16 @@ class CRMDashboard {
             : (thisWeekCVR > 0 ? 100 : 0);
 
         // 4. REVENUE COMPARISON - This week vs last week (from WooCommerce orders)
-        const orders = this.getFilteredOrders();
+        // Respect conditional filter (if active)
+        const { emails: conditionalEmails } = this.getConditionallyFilteredCustomers();
+        const allOrders = this.getFilteredOrders();
+        const orders = conditionalEmails !== null
+            ? allOrders.filter(order => {
+                const email = (order.billing?.email || order.billing_email)?.toLowerCase();
+                return conditionalEmails.has(email);
+            })
+            : allOrders;
+
         orders.forEach(order => {
             const orderDate = new Date(order.date_created);
             const orderTotal = parseFloat(order.total) || 0;
@@ -2492,15 +2501,8 @@ class CRMDashboard {
     }
 
     calculateWooCommerceMetrics() {
-        // Get ALL orders (excluding internal emails only, NOT date filtered)
-        // This is needed to determine TRUE purchase sequence numbers
-        const allOrders = (this.data.woocommerce?.orders || []).filter(order => {
-            const email = order.billing?.email || order.billing_email;
-            return !this.isExcludedEmail(email);
-        });
-
-        // Group ALL orders to get TRUE purchase sequence numbers
-        const allTimeCustomerOrders = this.groupOrdersByCustomer(allOrders);
+        // Get conditional filter results (includes all-time customer orders with TRUE purchase numbers)
+        const { emails: conditionalEmails, customerOrders: conditionalCustomerOrders } = this.getConditionallyFilteredCustomers();
 
         // Get date-filtered orders
         const filteredOrders = this.getFilteredOrders();
@@ -2510,13 +2512,19 @@ class CRMDashboard {
         }
 
         // Build filtered customerOrders but PRESERVE true _purchaseNumber from all-time grouping
+        // AND respect conditional filter (if active)
         const customerOrders = {};
         filteredOrders.forEach(order => {
             const email = (order.billing?.email || order.billing_email)?.toLowerCase();
             if (!email) return;
 
+            // Apply conditional filter (if active)
+            if (conditionalEmails !== null && !conditionalEmails.has(email)) {
+                return; // Skip orders from customers not in conditional filter
+            }
+
             // Find the TRUE _purchaseNumber from all-time data
-            const allTimeOrders = allTimeCustomerOrders[email] || [];
+            const allTimeOrders = conditionalCustomerOrders[email] || [];
             const matchingOrder = allTimeOrders.find(o => o.id === order.id);
             if (matchingOrder) {
                 order._purchaseNumber = matchingOrder._purchaseNumber;
@@ -3835,7 +3843,16 @@ class CRMDashboard {
         const lastWeekOrders = [];
 
         const subscribers = this.getFilteredSubscribers();
-        const orders = this.getFilteredOrders();
+
+        // Apply conditional filter to orders (if active)
+        const { emails: conditionalEmails } = this.getConditionallyFilteredCustomers();
+        const allOrders = this.getFilteredOrders();
+        const orders = conditionalEmails !== null
+            ? allOrders.filter(order => {
+                const email = (order.billing?.email || order.billing_email)?.toLowerCase();
+                return conditionalEmails.has(email);
+            })
+            : allOrders;
 
         // Helper to extract date string (handles multiple formats)
         const getDateStr = (dateValue) => {
