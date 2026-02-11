@@ -275,13 +275,13 @@
                 </span>
 
                 <!-- AND/OR Toggle -->
-                <div class="flex bg-muted p-1 rounded-lg">
-                    <button id="filterModeAnd" onclick="setFilterMode('AND')" class="px-3 py-1 rounded text-xs font-medium bg-primary text-white">AND</button>
-                    <button id="filterModeOr" onclick="setFilterMode('OR')" class="px-3 py-1 rounded text-xs font-medium text-muted-foreground hover:text-foreground">OR</button>
+                <div class="flex bg-muted p-1 rounded-lg border border-foreground/10">
+                    <button type="button" id="filterModeAnd" onclick="setFilterMode('AND')" class="px-3 py-1 rounded text-xs font-medium bg-primary text-white transition-colors">AND</button>
+                    <button type="button" id="filterModeOr" onclick="setFilterMode('OR')" class="px-3 py-1 rounded text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">OR</button>
                 </div>
 
                 <!-- Add Condition Button -->
-                <button onclick="addFilterCondition()" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 hover:bg-muted/80 transition-colors">
+                <button type="button" onclick="addFilterCondition()" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 hover:bg-muted/80 transition-colors">
                     <i class="fas fa-plus mr-1"></i>Add Condition
                 </button>
 
@@ -310,37 +310,6 @@
                 <!-- Active filter badges will appear here -->
             </div>
         </div>
-
-        <!-- Filter Condition Template (hidden) -->
-        <template id="filterConditionTemplate">
-            <div class="filter-condition flex flex-wrap items-center gap-2 p-2 bg-muted/50 rounded-lg" data-condition-id="">
-                <!-- Condition connector (AND/OR badge) - hidden for first condition -->
-                <span class="condition-connector text-xs font-medium px-2 py-1 rounded bg-primary/20 text-primary hidden">AND</span>
-
-                <!-- Filter Type Selector -->
-                <select class="condition-type px-3 py-1.5 bg-background rounded text-sm border border-foreground/20 focus:border-primary outline-none"
-                        onchange="toggleConditionInputs(this)">
-                    <option value="">Select filter...</option>
-                    <option value="subscriberDateRange">Subscribers Created Between</option>
-                    <option value="firstPurchaseProduct">1st Purchase = Product</option>
-                    <option value="firstPurchaseValue">1st Purchase Value</option>
-                    <option value="source">Traffic Source</option>
-                    <option value="gender">Gender</option>
-                    <option value="dobRange">Date of Birth Range</option>
-                    <option value="device">Device Type</option>
-                </select>
-
-                <!-- Dynamic inputs container -->
-                <div class="condition-inputs flex items-center gap-2">
-                    <!-- Inputs will be shown/hidden based on filter type -->
-                </div>
-
-                <!-- Remove condition button -->
-                <button onclick="removeFilterCondition(this)" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </template>
 
         <!-- Global Date Filter -->
         <div class="card p-4 mb-6">
@@ -1694,5 +1663,36 @@
         AIReportsManager.init();
     });
     </script>
+
+    <!-- Filter Condition Template (must be outside other elements) -->
+    <template id="filterConditionTemplate">
+        <div class="filter-condition flex flex-wrap items-center gap-2 p-2 bg-muted/50 rounded-lg" data-condition-id="">
+            <!-- Condition connector (AND/OR badge) - hidden for first condition -->
+            <span class="condition-connector text-xs font-medium px-2 py-1 rounded bg-primary/20 text-primary hidden">AND</span>
+
+            <!-- Filter Type Selector -->
+            <select class="condition-type px-3 py-1.5 bg-background rounded text-sm border border-foreground/20 focus:border-primary outline-none"
+                    onchange="toggleConditionInputs(this)">
+                <option value="">Select filter...</option>
+                <option value="subscriberDateRange">Subscribers Created Between</option>
+                <option value="firstPurchaseProduct">1st Purchase = Product</option>
+                <option value="firstPurchaseValue">1st Purchase Value</option>
+                <option value="source">Traffic Source</option>
+                <option value="gender">Gender</option>
+                <option value="dobRange">Date of Birth Range</option>
+                <option value="device">Device Type</option>
+            </select>
+
+            <!-- Dynamic inputs container -->
+            <div class="condition-inputs flex items-center gap-2">
+                <!-- Inputs will be shown/hidden based on filter type -->
+            </div>
+
+            <!-- Remove condition button -->
+            <button type="button" onclick="removeFilterCondition(this)" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </template>
 </body>
 </html>
