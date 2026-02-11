@@ -732,6 +732,75 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Time of Day Analysis (Collapsible) -->
+                <div class="card overflow-hidden">
+                    <button onclick="toggleSection('timeofday')" class="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                        <h3 class="text-foreground font-bold flex items-center gap-2">
+                            <i class="fas fa-clock text-primary"></i>
+                            Best Time of Day Analysis
+                        </h3>
+                        <i class="fas fa-chevron-down text-muted-foreground transition-transform" id="timeofday-icon"></i>
+                    </button>
+                    <div id="timeofday-content" class="hidden border-t border-foreground/10">
+                        <div class="p-6">
+                            <!-- Summary Cards -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                <div class="card p-4 text-center border-l-4 border-primary">
+                                    <div class="text-muted-foreground text-xs uppercase mb-1">Best Time to Subscribe</div>
+                                    <div class="text-2xl font-bold text-primary" id="bestSubscribeTime">-</div>
+                                    <div class="text-muted-foreground text-xs" id="bestSubscribeTimeCount">-</div>
+                                </div>
+                                <div class="card p-4 text-center border-l-4 border-success">
+                                    <div class="text-muted-foreground text-xs uppercase mb-1">Best Time to Purchase</div>
+                                    <div class="text-2xl font-bold text-success" id="bestPurchaseTime">-</div>
+                                    <div class="text-muted-foreground text-xs" id="bestPurchaseTimeCount">-</div>
+                                </div>
+                                <div class="card p-4 text-center border-l-4 border-accent">
+                                    <div class="text-muted-foreground text-xs uppercase mb-1">Best Time for Repeat Purchase</div>
+                                    <div class="text-2xl font-bold text-accent" id="bestRepeatTime">-</div>
+                                    <div class="text-muted-foreground text-xs" id="bestRepeatTimeCount">-</div>
+                                </div>
+                            </div>
+
+                            <!-- Charts -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                                <div class="h-64">
+                                    <h4 class="text-sm font-medium text-muted-foreground mb-2 text-center">Subscriptions by Hour</h4>
+                                    <canvas id="subscribeTimeChart"></canvas>
+                                </div>
+                                <div class="h-64">
+                                    <h4 class="text-sm font-medium text-muted-foreground mb-2 text-center">First Purchases by Hour</h4>
+                                    <canvas id="purchaseTimeChart"></canvas>
+                                </div>
+                                <div class="h-64">
+                                    <h4 class="text-sm font-medium text-muted-foreground mb-2 text-center">Repeat Purchases by Hour</h4>
+                                    <canvas id="repeatTimeChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Detailed Table -->
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="text-muted-foreground text-xs border-b border-foreground">
+                                            <th class="text-left py-3">Time Period</th>
+                                            <th class="text-right py-3">Subscriptions</th>
+                                            <th class="text-right py-3">% of Total</th>
+                                            <th class="text-right py-3">First Purchases</th>
+                                            <th class="text-right py-3">% of Total</th>
+                                            <th class="text-right py-3">Repeat Purchases</th>
+                                            <th class="text-right py-3">% of Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="timeOfDayTable">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

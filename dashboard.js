@@ -291,6 +291,7 @@ class CRMDashboard {
             personaHistory: {}, // Store historical persona data
             growthAnalytics: {}, // Store growth metrics
             astrologyStats: {}, // Store zodiac, gender, birthtime data
+            timeOfDayStats: null, // Store time of day analysis data
             woocommerce: { // WooCommerce order analytics
                 orders: [],
                 customerOrders: {},
@@ -969,6 +970,7 @@ class CRMDashboard {
                     this.calculatePersonaGrowth();
                     this.calculateGrowthAnalytics();
                     this.calculateAstrologyStats();
+                    this.calculateTimeOfDayStats();
                     this.updateDashboard();
                 }
             }
@@ -1002,6 +1004,9 @@ class CRMDashboard {
             // Step 4: Fetch WooCommerce orders
             this.updateSyncSourceUI('full', '(fetching orders...)');
             await this.fetchWooCommerceOrders(forceFullSync);
+
+            // Step 5: Calculate time of day stats (needs both subscribers and orders)
+            this.calculateTimeOfDayStats();
 
             // Update sync status to show completion
             this.updateSyncSourceUI('supabase', `(${this.data.subscribers.length} synced)`);
@@ -2422,6 +2427,72 @@ class CRMDashboard {
         this.data.astrologyStats = stats;
     }
 
+    // Calculate time of day statistics for subscriptions, purchases, and repeat purchases
+    calculateTimeOfDayStats() {
+        const subscribers = this.getFilteredSubscribers();
+        const orders = this.getDateFilteredOrders();
+
+        // Initialize hourly buckets (0-23)
+        const stats = {
+            subscriptions: Array(24).fill(0),
+            firstPurchases: Array(24).fill(0),
+            repeatPurchases: Array(24).fill(0),
+            totalSubscriptions: 0,
+            totalFirstPurchases: 0,
+            totalRepeatPurchases: 0
+        };
+
+        // Count subscriptions by hour
+        subscribers.forEach(sub => {
+            if (!sub.created_at) return;
+            try {
+                const date = new Date(sub.created_at);
+                if (!isNaN(date.getTime())) {
+                    const hour = date.getHours();
+                    stats.subscriptions[hour]++;
+                    stats.totalSubscriptions++;
+                }
+            } catch (e) {}
+        });
+
+        // Group orders by customer email
+        const customerOrders = {};
+        orders.forEach(order => {
+            const email = order.billing?.email?.toLowerCase();
+            if (!email || !order.date_created) return;
+            if (!customerOrders[email]) {
+                customerOrders[email] = [];
+            }
+            customerOrders[email].push(order);
+        });
+
+        // Sort each customer's orders by date and categorize
+        Object.values(customerOrders).forEach(orderList => {
+            // Sort by date
+            orderList.sort((a, b) => new Date(a.date_created) - new Date(b.date_created));
+
+            orderList.forEach((order, index) => {
+                try {
+                    const date = new Date(order.date_created);
+                    if (isNaN(date.getTime())) return;
+                    const hour = date.getHours();
+
+                    if (index === 0) {
+                        // First purchase
+                        stats.firstPurchases[hour]++;
+                        stats.totalFirstPurchases++;
+                    } else {
+                        // Repeat purchase (2nd, 3rd, etc.)
+                        stats.repeatPurchases[hour]++;
+                        stats.totalRepeatPurchases++;
+                    }
+                } catch (e) {}
+            });
+        });
+
+        this.data.timeOfDayStats = stats;
+    }
+
     // ==================== WOOCOMMERCE ORDER ANALYTICS ====================
 
     async fetchWooCommerceOrders(forceFullSync = false) {
@@ -3555,6 +3626,80 @@ class CRMDashboard {
                 }
             });
         }
+
+        // Time of Day Charts
+        const timeChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#666666', maxRotation: 45, minRotation: 45, font: { size: 9 } },
+                    grid: { display: false }
+                },
+                y: {
+                    ticks: { color: '#666666' },
+                    grid: { color: 'rgba(102, 102, 102, 0.1)' },
+                    beginAtZero: true
+                }
+            }
+        };
+
+        const subscribeTimeCtx = document.getElementById('subscribeTimeChart')?.getContext('2d');
+        if (subscribeTimeCtx) {
+            this.charts.subscribeTime = new Chart(subscribeTimeCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Subscriptions',
+                        data: [],
+                        backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: timeChartOptions
+            });
+        }
+
+        const purchaseTimeCtx = document.getElementById('purchaseTimeChart')?.getContext('2d');
+        if (purchaseTimeCtx) {
+            this.charts.purchaseTime = new Chart(purchaseTimeCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'First Purchases',
+                        data: [],
+                        backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: timeChartOptions
+            });
+        }
+
+        const repeatTimeCtx = document.getElementById('repeatTimeChart')?.getContext('2d');
+        if (repeatTimeCtx) {
+            this.charts.repeatTime = new Chart(repeatTimeCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Repeat Purchases',
+                        data: [],
+                        backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                        borderColor: 'rgba(168, 85, 247, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: timeChartOptions
+            });
+        }
     }
 
     setGrowthPeriod(days) {
@@ -4521,6 +4666,7 @@ class CRMDashboard {
         this.updateAstrologyData();
         this.updateGenderData();
         this.updateAgeDeviceCharts();
+        this.updateTimeOfDaySection();
     }
 
     updateAstrologyData() {
@@ -4551,6 +4697,111 @@ class CRMDashboard {
     updateAgeDeviceCharts() {
         // These charts are already initialized in initCharts
         // Just update data if needed
+    }
+
+    updateTimeOfDaySection() {
+        const stats = this.data.timeOfDayStats;
+        if (!stats) return;
+
+        // Define time periods for grouping
+        const timePeriods = [
+            { name: 'Early Morning (5-8)', hours: [5, 6, 7], icon: '🌅' },
+            { name: 'Morning (8-12)', hours: [8, 9, 10, 11], icon: '☀️' },
+            { name: 'Afternoon (12-17)', hours: [12, 13, 14, 15, 16], icon: '🌤️' },
+            { name: 'Evening (17-21)', hours: [17, 18, 19, 20], icon: '🌆' },
+            { name: 'Night (21-24)', hours: [21, 22, 23], icon: '🌙' },
+            { name: 'Late Night (0-5)', hours: [0, 1, 2, 3, 4], icon: '🌃' }
+        ];
+
+        // Find best hours
+        const findBestHour = (data) => {
+            let maxVal = 0;
+            let bestHour = 0;
+            data.forEach((val, hour) => {
+                if (val > maxVal) {
+                    maxVal = val;
+                    bestHour = hour;
+                }
+            });
+            return { hour: bestHour, count: maxVal };
+        };
+
+        const formatHour = (hour) => {
+            if (hour === 0) return '12 AM';
+            if (hour < 12) return `${hour} AM`;
+            if (hour === 12) return '12 PM';
+            return `${hour - 12} PM`;
+        };
+
+        // Update best time cards
+        const bestSubscribe = findBestHour(stats.subscriptions);
+        const bestPurchase = findBestHour(stats.firstPurchases);
+        const bestRepeat = findBestHour(stats.repeatPurchases);
+
+        const bestSubscribeEl = document.getElementById('bestSubscribeTime');
+        const bestSubscribeCountEl = document.getElementById('bestSubscribeTimeCount');
+        if (bestSubscribeEl) bestSubscribeEl.textContent = formatHour(bestSubscribe.hour);
+        if (bestSubscribeCountEl) bestSubscribeCountEl.textContent = `${this.formatNumber(bestSubscribe.count)} subscriptions`;
+
+        const bestPurchaseEl = document.getElementById('bestPurchaseTime');
+        const bestPurchaseCountEl = document.getElementById('bestPurchaseTimeCount');
+        if (bestPurchaseEl) bestPurchaseEl.textContent = formatHour(bestPurchase.hour);
+        if (bestPurchaseCountEl) bestPurchaseCountEl.textContent = `${this.formatNumber(bestPurchase.count)} purchases`;
+
+        const bestRepeatEl = document.getElementById('bestRepeatTime');
+        const bestRepeatCountEl = document.getElementById('bestRepeatTimeCount');
+        if (bestRepeatEl) bestRepeatEl.textContent = formatHour(bestRepeat.hour);
+        if (bestRepeatCountEl) bestRepeatCountEl.textContent = `${this.formatNumber(bestRepeat.count)} repeat purchases`;
+
+        // Update charts
+        const hourLabels = Array.from({ length: 24 }, (_, i) => formatHour(i));
+
+        // Subscription time chart
+        if (this.charts.subscribeTime) {
+            this.charts.subscribeTime.data.labels = hourLabels;
+            this.charts.subscribeTime.data.datasets[0].data = stats.subscriptions;
+            this.charts.subscribeTime.update();
+        }
+
+        // Purchase time chart
+        if (this.charts.purchaseTime) {
+            this.charts.purchaseTime.data.labels = hourLabels;
+            this.charts.purchaseTime.data.datasets[0].data = stats.firstPurchases;
+            this.charts.purchaseTime.update();
+        }
+
+        // Repeat purchase time chart
+        if (this.charts.repeatTime) {
+            this.charts.repeatTime.data.labels = hourLabels;
+            this.charts.repeatTime.data.datasets[0].data = stats.repeatPurchases;
+            this.charts.repeatTime.update();
+        }
+
+        // Update table
+        const table = document.getElementById('timeOfDayTable');
+        if (table) {
+            table.innerHTML = timePeriods.map(period => {
+                const subCount = period.hours.reduce((sum, h) => sum + stats.subscriptions[h], 0);
+                const purchaseCount = period.hours.reduce((sum, h) => sum + stats.firstPurchases[h], 0);
+                const repeatCount = period.hours.reduce((sum, h) => sum + stats.repeatPurchases[h], 0);
+
+                const subPct = stats.totalSubscriptions > 0 ? (subCount / stats.totalSubscriptions * 100).toFixed(1) : 0;
+                const purchasePct = stats.totalFirstPurchases > 0 ? (purchaseCount / stats.totalFirstPurchases * 100).toFixed(1) : 0;
+                const repeatPct = stats.totalRepeatPurchases > 0 ? (repeatCount / stats.totalRepeatPurchases * 100).toFixed(1) : 0;
+
+                return `
+                    <tr class="border-b border-foreground/10 hover:bg-muted/30">
+                        <td class="py-3 font-medium text-foreground">${period.icon} ${period.name}</td>
+                        <td class="py-3 text-right text-foreground">${this.formatNumber(subCount)}</td>
+                        <td class="py-3 text-right text-muted-foreground">${subPct}%</td>
+                        <td class="py-3 text-right text-foreground">${this.formatNumber(purchaseCount)}</td>
+                        <td class="py-3 text-right text-muted-foreground">${purchasePct}%</td>
+                        <td class="py-3 text-right text-foreground">${this.formatNumber(repeatCount)}</td>
+                        <td class="py-3 text-right text-muted-foreground">${repeatPct}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
     }
 
     // ==================== REVENUE TAB ====================
