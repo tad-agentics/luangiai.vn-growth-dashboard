@@ -1715,12 +1715,28 @@ class CRMDashboard {
 
             subscribers.forEach(sub => {
                 if (this.isExcludedEmail(sub.email)) return;
-                const dob = sub.custom_fields?.dob || sub.custom_fields?.date_of_birth ||
-                            sub.date_of_birth || sub.dob || null;
+                const dob = extractDOB(sub);
                 if (!dob) return;
                 try {
-                    const dobDate = new Date(dob);
-                    if (isNaN(dobDate.getTime())) return;
+                    // Parse DD/MM/YYYY format properly
+                    const dobStr = String(dob).trim();
+                    let dobDate = null;
+
+                    // Try DD/MM/YYYY format first (FluentCRM format)
+                    const ddmmyyyy = dobStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+                    if (ddmmyyyy) {
+                        dobDate = new Date(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
+                    } else {
+                        // Try YYYY-MM-DD format
+                        const yyyymmdd = dobStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+                        if (yyyymmdd) {
+                            dobDate = new Date(parseInt(yyyymmdd[1]), parseInt(yyyymmdd[2]) - 1, parseInt(yyyymmdd[3]));
+                        } else {
+                            dobDate = new Date(dob);
+                        }
+                    }
+
+                    if (!dobDate || isNaN(dobDate.getTime())) return;
                     if (start && dobDate < start) return;
                     if (end && dobDate > end) return;
                     matchingEmails.add(sub.email?.toLowerCase());
@@ -1857,17 +1873,9 @@ class CRMDashboard {
             }
 
             // === 2. SOURCE BY PERSONA (with conversion tracking) ===
-            const dob = subscriber.custom_fields?.dob || subscriber.date_of_birth || null;
-            // Extract birth year for generation-based persona assignment
-            let birthYear = null;
-            if (dob) {
-                try {
-                    birthYear = new Date(dob).getFullYear();
-                    if (isNaN(birthYear)) birthYear = null;
-                } catch (e) {
-                    birthYear = null;
-                }
-            }
+            const dob = extractDOB(subscriber);
+            // Extract birth year for generation-based persona assignment using robust parser
+            const birthYear = parseBirthYear(dob);
             const personaKey = assignPersona(birthYear);
 
             if (!analytics.sourcesByPersona[personaKey]) {
@@ -4401,19 +4409,9 @@ class CRMDashboard {
 
         // Process each subscriber
         personaSubs.forEach(sub => {
-            // Get birth year - use _dob set during categorization, or fallback to other fields
-            let birthYear = 'Unknown';
-            const dob = sub._dob || sub.dob || sub.custom_fields?.dob || sub.custom_fields?.date_of_birth || sub.date_of_birth;
-            if (dob) {
-                try {
-                    birthYear = new Date(dob).getFullYear();
-                    if (isNaN(birthYear) || birthYear < 1920 || birthYear > 2010) {
-                        birthYear = 'Unknown';
-                    }
-                } catch (e) {
-                    birthYear = 'Unknown';
-                }
-            }
+            // Get birth year - use _birthYear set during categorization, or parse from DOB
+            let birthYear = sub._birthYear || parseBirthYear(extractDOB(sub));
+            if (!birthYear) birthYear = 'Unknown';
 
             // Initialize year data if not exists
             if (!byBirthYear[birthYear]) {
