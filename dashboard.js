@@ -5473,8 +5473,10 @@ class CRMDashboard {
         // Data completeness
         const stats = categorizationStats || {};
         const completeData = Math.min(stats.withDOB || 0, stats.withDevice || 0);
-        document.getElementById('dataCompleteness').textContent =
-            `${this.formatNumber(completeData)} (${(completeData / (stats.totalProcessed || 1) * 100).toFixed(1)}%)`;
+        const dataCompletenessEl = document.getElementById('dataCompleteness');
+        if (dataCompletenessEl) {
+            dataCompletenessEl.textContent = `${this.formatNumber(completeData)} (${(completeData / (stats.totalProcessed || 1) * 100).toFixed(1)}%)`;
+        }
 
         // Persona table
         const tableBody = document.getElementById('personaTable');
@@ -5486,41 +5488,44 @@ class CRMDashboard {
         const totalConverted = personaArray.reduce((sum, p) => sum + (p.converted || 0), 0);
         const overallCVR = total > 0 ? (totalConverted / total * 100) : 0;
 
-        tableBody.innerHTML = personaArray.map(p => {
-            const pct = (p.count / total * 100).toFixed(1);
-            const cvr = p.count > 0 ? (p.converted / p.count * 100).toFixed(2) : 0;
-            const cvrValue = parseFloat(cvr);
-            const priorityColor = p.priority === 'High' ? 'badge-green' : p.priority === 'Medium' ? 'badge-yellow' : 'badge-gray';
-            const cvrColor = cvrValue > overallCVR ? 'text-success' : cvrValue > 0 ? 'text-yellow-400' : 'text-muted-foreground';
+        if (tableBody) {
+            tableBody.innerHTML = personaArray.map(p => {
+                const pct = (p.count / total * 100).toFixed(1);
+                const cvr = p.count > 0 ? (p.converted / p.count * 100).toFixed(2) : 0;
+                const cvrValue = parseFloat(cvr);
+                const priorityColor = p.priority === 'High' ? 'badge-green' : p.priority === 'Medium' ? 'badge-yellow' : 'badge-gray';
+                const cvrColor = cvrValue > overallCVR ? 'text-success' : cvrValue > 0 ? 'text-yellow-400' : 'text-muted-foreground';
 
-            return `
-                <tr class="border-b border-foreground hover:border border-foreground/50">
-                    <td class="py-3">
-                        <span class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
-                            <span class="font-medium" style="color: ${p.color}">${p.name}</span>
-                        </span>
-                    </td>
-                    <td class="text-right py-3 text-foreground font-medium">${this.formatNumber(p.count)}</td>
-                    <td class="text-right py-3 text-muted-foreground">${pct}%</td>
-                    <td class="py-3">
-                        <div class="h-2 bg-muted rounded-full overflow-hidden">
-                            <div class="h-full rounded-full" style="width: ${pct}%; background: ${p.color}"></div>
-                        </div>
-                    </td>
-                    <td class="text-right py-3 text-foreground">${this.formatNumber(p.converted || 0)}</td>
-                    <td class="text-right py-3 ${cvrColor} font-medium">${cvr}%</td>
-                    <td class="text-center py-3">
-                        <span class="badge ${priorityColor}">${p.priority}</span>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+                return `
+                    <tr class="border-b border-foreground hover:border border-foreground/50">
+                        <td class="py-3">
+                            <span class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
+                                <span class="font-medium" style="color: ${p.color}">${p.name}</span>
+                            </span>
+                        </td>
+                        <td class="text-right py-3 text-foreground font-medium">${this.formatNumber(p.count)}</td>
+                        <td class="text-right py-3 text-muted-foreground">${pct}%</td>
+                        <td class="py-3">
+                            <div class="h-2 bg-muted rounded-full overflow-hidden">
+                                <div class="h-full rounded-full" style="width: ${pct}%; background: ${p.color}"></div>
+                            </div>
+                        </td>
+                        <td class="text-right py-3 text-foreground">${this.formatNumber(p.converted || 0)}</td>
+                        <td class="text-right py-3 ${cvrColor} font-medium">${cvr}%</td>
+                        <td class="text-center py-3">
+                            <span class="badge ${priorityColor}">${p.priority}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
         // Persona cards - with dynamic best channel
         const cardsContainer = document.getElementById('personaCards');
         const bestChannelData = this.data.growthAnalytics?.bestChannelByPersona || {};
 
+        if (cardsContainer) {
         cardsContainer.innerHTML = personaArray.filter(p => p.count > 0).map(p => {
             const pct = (p.count / total * 100).toFixed(1);
             const cvr = p.count > 0 ? (p.converted / p.count * 100).toFixed(2) : 0;
@@ -5576,6 +5581,7 @@ class CRMDashboard {
                 </div>
             `;
         }).join('');
+        }
 
         // Age chart
         if (this.charts.age) {
@@ -5603,56 +5609,58 @@ class CRMDashboard {
         const personaStats = this.data.growthAnalytics?.personaStats || {};
         // Note: overallCVR already defined above
 
-        targetingTable.innerHTML = personaArray.filter(p => p.count > 0).map(p => {
-            const channelInfo = bestChannelData[p.key] || {};
-            const dynamicBestChannel = channelInfo.channel || p.bestChannel;
-            const channelCVR = channelInfo.cvr;
-            const isDataDriven = channelInfo.isDataDriven;
+        if (targetingTable) {
+            targetingTable.innerHTML = personaArray.filter(p => p.count > 0).map(p => {
+                const channelInfo = bestChannelData[p.key] || {};
+                const dynamicBestChannel = channelInfo.channel || p.bestChannel;
+                const channelCVR = channelInfo.cvr;
+                const isDataDriven = channelInfo.isDataDriven;
 
-            // Get persona stats for new columns
-            const stats = personaStats[p.key] || {};
-            const topSourcePct = stats.topSourcePct ? stats.topSourcePct.toFixed(0) : '-';
-            const topSource = stats.topSource || '-';
-            const cvrVsAvg = stats.cvrVsAverage ? stats.cvrVsAverage.toFixed(0) : 0;
-            const cvrVsAvgColor = cvrVsAvg > 0 ? 'text-success' : cvrVsAvg < 0 ? 'text-danger' : 'text-muted-foreground';
-            const cvrVsAvgSign = cvrVsAvg > 0 ? '+' : '';
-            const sampleSize = stats.sampleSize || 0;
+                // Get persona stats for new columns
+                const stats = personaStats[p.key] || {};
+                const topSourcePct = stats.topSourcePct ? stats.topSourcePct.toFixed(0) : '-';
+                const topSource = stats.topSource || '-';
+                const cvrVsAvg = stats.cvrVsAverage ? stats.cvrVsAverage.toFixed(0) : 0;
+                const cvrVsAvgColor = cvrVsAvg > 0 ? 'text-success' : cvrVsAvg < 0 ? 'text-danger' : 'text-muted-foreground';
+                const cvrVsAvgSign = cvrVsAvg > 0 ? '+' : '';
+                const sampleSize = stats.sampleSize || 0;
 
-            // Dynamic nurture strategy
-            const nurture = stats.nurtureStrategy || { priority: p.priority, reason: p.nurturePriority, description: '' };
-            const priorityColor = nurture.priority === 'High' ? 'text-danger' :
-                                  nurture.priority === 'Medium' ? 'text-yellow-400' :
-                                  nurture.priority === 'Low' ? 'text-success' : 'text-muted-foreground';
+                // Dynamic nurture strategy
+                const nurture = stats.nurtureStrategy || { priority: p.priority, reason: p.nurturePriority, description: '' };
+                const priorityColor = nurture.priority === 'High' ? 'text-danger' :
+                                      nurture.priority === 'Medium' ? 'text-yellow-400' :
+                                      nurture.priority === 'Low' ? 'text-success' : 'text-muted-foreground';
 
-            return `
-                <tr class="border-b border-foreground">
-                    <td class="py-3">
-                        <span class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
-                            <span style="color: ${p.color}">${p.name}</span>
-                        </span>
-                    </td>
-                    <td class="py-3 text-foreground">
-                        ${dynamicBestChannel}
-                        ${isDataDriven ? `<span class="text-xs text-success ml-1">(${channelCVR}%)</span>` : ''}
-                    </td>
-                    <td class="py-3 text-foreground">
-                        <span class="text-foreground">${topSourcePct}%</span>
-                        <span class="text-muted-foreground text-xs ml-1">${topSource}</span>
-                    </td>
-                    <td class="py-3 ${cvrVsAvgColor} font-medium">
-                        ${cvrVsAvgSign}${cvrVsAvg}%
-                    </td>
-                    <td class="py-3">
-                        <span class="${priorityColor} font-medium">${nurture.priority}</span>
-                        <span class="text-muted-foreground text-xs ml-1">${nurture.description}</span>
-                    </td>
-                    <td class="py-3 text-muted-foreground text-xs">
-                        ${sampleSize} conv
-                    </td>
-                </tr>
-            `;
-        }).join('');
+                return `
+                    <tr class="border-b border-foreground">
+                        <td class="py-3">
+                            <span class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full" style="background: ${p.color}"></span>
+                                <span style="color: ${p.color}">${p.name}</span>
+                            </span>
+                        </td>
+                        <td class="py-3 text-foreground">
+                            ${dynamicBestChannel}
+                            ${isDataDriven ? `<span class="text-xs text-success ml-1">(${channelCVR}%)</span>` : ''}
+                        </td>
+                        <td class="py-3 text-foreground">
+                            <span class="text-foreground">${topSourcePct}%</span>
+                            <span class="text-muted-foreground text-xs ml-1">${topSource}</span>
+                        </td>
+                        <td class="py-3 ${cvrVsAvgColor} font-medium">
+                            ${cvrVsAvgSign}${cvrVsAvg}%
+                        </td>
+                        <td class="py-3">
+                            <span class="${priorityColor} font-medium">${nurture.priority}</span>
+                            <span class="text-muted-foreground text-xs ml-1">${nurture.description}</span>
+                        </td>
+                        <td class="py-3 text-muted-foreground text-xs">
+                            ${sampleSize} conv
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
         // Update persona growth chart
         this.updatePersonaGrowthChart();
