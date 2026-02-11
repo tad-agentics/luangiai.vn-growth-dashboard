@@ -5846,7 +5846,9 @@ function applyDateFilter() {
 
     setTimeout(() => {
         try {
-            // Recalculate all analytics with new date filter
+            // Recalculate ALL analytics with new date filter
+            dashboard.categorizePersonas();
+            dashboard.calculatePersonaGrowth();
             dashboard.calculateGrowthAnalytics();
             dashboard.calculateWooCommerceMetrics();
             dashboard.updateDashboard();
@@ -5958,7 +5960,9 @@ function applyConditionalFilter() {
 
     dashboard.conditionalFilter = filterConfig;
 
-    // Recalculate and update
+    // Recalculate ALL analytics with new filter
+    dashboard.categorizePersonas();
+    dashboard.calculatePersonaGrowth();
     dashboard.calculateGrowthAnalytics();
     dashboard.calculateWooCommerceMetrics();
     dashboard.updateDashboard();
@@ -6001,7 +6005,9 @@ function clearConditionalFilter() {
     document.getElementById('conditionalFilterInfo')?.classList.add('hidden');
     document.getElementById('tripwireAnalysisPanel')?.classList.add('hidden');
 
-    // Recalculate
+    // Recalculate ALL analytics with cleared filter
+    dashboard.categorizePersonas();
+    dashboard.calculatePersonaGrowth();
     dashboard.calculateGrowthAnalytics();
     dashboard.calculateWooCommerceMetrics();
     dashboard.updateDashboard();
