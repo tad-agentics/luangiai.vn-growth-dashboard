@@ -327,9 +327,10 @@ class CRMDashboard {
         this.testEmailPattern = /test|testing|tester/i;
 
         // Conditional filter state (applied before date filter)
+        // Multi-condition filter with AND/OR support
         this.conditionalFilter = {
-            type: 'all',           // 'all', 'subscriberDateRange', 'firstPurchaseProduct', etc.
-            params: {},            // Filter-specific parameters
+            mode: 'AND',           // 'AND' or 'OR'
+            conditions: [],        // Array of { type, params, label }
             label: 'All Customers' // Display label
         };
 
@@ -1539,8 +1540,9 @@ class CRMDashboard {
     }
 
     // Get customers matching conditional filter criteria (data scope level)
+    // Supports multiple conditions with AND/OR logic
     getConditionallyFilteredCustomers() {
-        const { type, params } = this.conditionalFilter;
+        const { mode, conditions } = this.conditionalFilter;
 
         // Get all orders grouped by customer (with true purchase numbers)
         const allOrders = (this.data.woocommerce?.orders || []).filter(order => {
@@ -1549,120 +1551,32 @@ class CRMDashboard {
         });
         const allTimeCustomerOrders = this.groupOrdersByCustomer(allOrders);
 
-        if (type === 'all') {
-            return { emails: null, customerOrders: allTimeCustomerOrders }; // null = no filter
+        // No conditions = no filter (show all)
+        if (!conditions || conditions.length === 0) {
+            return { emails: null, customerOrders: allTimeCustomerOrders };
         }
 
-        const matchingEmails = new Set();
+        const subscribers = this.data.subscribers || [];
 
-        if (type === 'subscriberDateRange') {
-            // Filter subscribers by their creation date (data scope level)
-            const { startDate, endDate } = params;
-            const start = startDate ? new Date(startDate) : null;
-            const end = endDate ? new Date(endDate) : null;
-            if (end) end.setHours(23, 59, 59, 999);
+        // Get emails matching each condition
+        const conditionResults = conditions.map(condition => {
+            return this.getEmailsMatchingCondition(condition, subscribers, allTimeCustomerOrders);
+        });
 
-            const subscribers = this.data.subscribers || [];
-            subscribers.forEach(sub => {
-                if (this.isExcludedEmail(sub.email)) return;
-                if (!sub.created_at) return;
-
-                const created = new Date(sub.created_at);
-                if (start && created < start) return;
-                if (end && created > end) return;
-
-                matchingEmails.add(sub.email?.toLowerCase());
-            });
-        }
-
-        if (type === 'firstPurchaseProduct') {
-            // Find customers whose FIRST order contained the specified product
-            const productMatcher = params.matcher || (() => false);
-
-            Object.entries(allTimeCustomerOrders).forEach(([email, orders]) => {
-                const firstOrder = orders.find(o => o._purchaseNumber === 1);
-                if (firstOrder?.line_items?.some(productMatcher)) {
-                    matchingEmails.add(email);
-                }
-            });
-        }
-
-        if (type === 'firstPurchaseValue') {
-            // Find customers whose FIRST order total matches the value condition
-            const { matcher } = params;
-
-            Object.entries(allTimeCustomerOrders).forEach(([email, orders]) => {
-                const firstOrder = orders.find(o => o._purchaseNumber === 1);
-                if (firstOrder && matcher(firstOrder.total)) {
-                    matchingEmails.add(email);
-                }
-            });
-        }
-
-        if (type === 'source') {
-            // Filter subscribers by traffic source
-            const { source: targetSource } = params;
-            const subscribers = this.data.subscribers || [];
-
-            subscribers.forEach(sub => {
-                if (this.isExcludedEmail(sub.email)) return;
-                const parsedSource = this.parseSource(sub.source || '');
-                if (parsedSource === targetSource) {
-                    matchingEmails.add(sub.email?.toLowerCase());
-                }
-            });
-        }
-
-        if (type === 'gender') {
-            // Filter subscribers by gender
-            const { gender: targetGender } = params;
-            const subscribers = this.data.subscribers || [];
-
-            subscribers.forEach(sub => {
-                if (this.isExcludedEmail(sub.email)) return;
-                const genderRaw = sub.custom_fields?.gender || sub.gender || null;
-                const gender = parseGender(genderRaw);
-                if (gender === targetGender) {
-                    matchingEmails.add(sub.email?.toLowerCase());
-                }
-            });
-        }
-
-        if (type === 'dobRange') {
-            // Filter subscribers by date of birth range
-            const { startDate, endDate } = params;
-            const start = startDate ? new Date(startDate) : null;
-            const end = endDate ? new Date(endDate) : null;
-            const subscribers = this.data.subscribers || [];
-
-            subscribers.forEach(sub => {
-                if (this.isExcludedEmail(sub.email)) return;
-                const dob = sub.custom_fields?.dob || sub.custom_fields?.date_of_birth ||
-                            sub.date_of_birth || sub.dob || null;
-                if (!dob) return;
-
-                try {
-                    const dobDate = new Date(dob);
-                    if (isNaN(dobDate.getTime())) return;
-                    if (start && dobDate < start) return;
-                    if (end && dobDate > end) return;
-                    matchingEmails.add(sub.email?.toLowerCase());
-                } catch (e) { /* skip invalid dates */ }
-            });
-        }
-
-        if (type === 'device') {
-            // Filter subscribers by device type
-            const { device: targetDevice } = params;
-            const subscribers = this.data.subscribers || [];
-
-            subscribers.forEach(sub => {
-                if (this.isExcludedEmail(sub.email)) return;
-                const device = getDeviceType(sub);
-                if (device === targetDevice) {
-                    matchingEmails.add(sub.email?.toLowerCase());
-                }
-            });
+        // Combine results based on AND/OR mode
+        let matchingEmails;
+        if (mode === 'AND') {
+            // AND: Intersection of all condition results
+            matchingEmails = conditionResults.reduce((result, current, index) => {
+                if (index === 0) return current;
+                return new Set([...result].filter(email => current.has(email)));
+            }, new Set());
+        } else {
+            // OR: Union of all condition results
+            matchingEmails = conditionResults.reduce((result, current) => {
+                current.forEach(email => result.add(email));
+                return result;
+            }, new Set());
         }
 
         // Return filtered customer orders
@@ -1674,6 +1588,104 @@ class CRMDashboard {
         });
 
         return { emails: matchingEmails, customerOrders: filteredCustomerOrders };
+    }
+
+    // Get emails matching a single condition
+    getEmailsMatchingCondition(condition, subscribers, allTimeCustomerOrders) {
+        const { type, params } = condition;
+        const matchingEmails = new Set();
+
+        if (type === 'subscriberDateRange') {
+            const { startDate, endDate } = params;
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+            if (end) end.setHours(23, 59, 59, 999);
+
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                if (!sub.created_at) return;
+                const created = new Date(sub.created_at);
+                if (start && created < start) return;
+                if (end && created > end) return;
+                matchingEmails.add(sub.email?.toLowerCase());
+            });
+        }
+
+        if (type === 'firstPurchaseProduct') {
+            const productMatcher = params.matcher || (() => false);
+            Object.entries(allTimeCustomerOrders).forEach(([email, orders]) => {
+                const firstOrder = orders.find(o => o._purchaseNumber === 1);
+                if (firstOrder?.line_items?.some(productMatcher)) {
+                    matchingEmails.add(email);
+                }
+            });
+        }
+
+        if (type === 'firstPurchaseValue') {
+            const { matcher } = params;
+            Object.entries(allTimeCustomerOrders).forEach(([email, orders]) => {
+                const firstOrder = orders.find(o => o._purchaseNumber === 1);
+                if (firstOrder && matcher(firstOrder.total)) {
+                    matchingEmails.add(email);
+                }
+            });
+        }
+
+        if (type === 'source') {
+            const { source: targetSource } = params;
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const parsedSource = this.parseSource(sub.source || '');
+                if (parsedSource === targetSource) {
+                    matchingEmails.add(sub.email?.toLowerCase());
+                }
+            });
+        }
+
+        if (type === 'gender') {
+            const { gender: targetGender } = params;
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const genderRaw = sub.custom_fields?.gender || sub.gender || null;
+                const gender = parseGender(genderRaw);
+                if (gender === targetGender) {
+                    matchingEmails.add(sub.email?.toLowerCase());
+                }
+            });
+        }
+
+        if (type === 'dobRange') {
+            const { startDate, endDate } = params;
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const dob = sub.custom_fields?.dob || sub.custom_fields?.date_of_birth ||
+                            sub.date_of_birth || sub.dob || null;
+                if (!dob) return;
+                try {
+                    const dobDate = new Date(dob);
+                    if (isNaN(dobDate.getTime())) return;
+                    if (start && dobDate < start) return;
+                    if (end && dobDate > end) return;
+                    matchingEmails.add(sub.email?.toLowerCase());
+                } catch (e) { /* skip invalid dates */ }
+            });
+        }
+
+        if (type === 'device') {
+            const { device: targetDevice } = params;
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const device = getDeviceType(sub);
+                if (device === targetDevice) {
+                    matchingEmails.add(sub.email?.toLowerCase());
+                }
+            });
+        }
+
+        return matchingEmails;
     }
 
     // Filter subscribers by email exclusions, conditional filter, and date range
@@ -5958,179 +5970,275 @@ function applyDateFilter() {
     }, 50);
 }
 
-// ==================== CONDITIONAL FILTER FUNCTIONS ====================
+// ==================== CONDITIONAL FILTER FUNCTIONS (Multi-condition AND/OR) ====================
 
-function toggleConditionalFilterInputs() {
-    const filterType = document.getElementById('conditionalFilterType')?.value;
-    const productInputs = document.getElementById('productFilterInputs');
-    const subscriberDateInputs = document.getElementById('subscriberDateInputs');
-    const purchaseValueInputs = document.getElementById('purchaseValueInputs');
-    const sourceFilterInputs = document.getElementById('sourceFilterInputs');
-    const genderFilterInputs = document.getElementById('genderFilterInputs');
-    const dobRangeInputs = document.getElementById('dobRangeInputs');
-    const deviceFilterInputs = document.getElementById('deviceFilterInputs');
-    const applyBtn = document.getElementById('conditionalApplyBtn');
+let conditionCounter = 0;
 
-    // Hide all input groups first
-    productInputs?.classList.add('hidden');
-    subscriberDateInputs?.classList.add('hidden');
-    purchaseValueInputs?.classList.add('hidden');
-    sourceFilterInputs?.classList.add('hidden');
-    genderFilterInputs?.classList.add('hidden');
-    dobRangeInputs?.classList.add('hidden');
-    deviceFilterInputs?.classList.add('hidden');
-    applyBtn?.classList.add('hidden');
+function setFilterMode(mode) {
+    if (!dashboard) return;
+    dashboard.conditionalFilter.mode = mode;
 
-    // Show relevant input based on filter type
-    if (['firstPurchaseProduct', 'hasProduct'].includes(filterType)) {
-        productInputs?.classList.remove('hidden');
-        applyBtn?.classList.remove('hidden');
-    } else if (filterType === 'subscriberDateRange') {
-        subscriberDateInputs?.classList.remove('hidden');
-        applyBtn?.classList.remove('hidden');
-    } else if (filterType === 'firstPurchaseValue') {
-        purchaseValueInputs?.classList.remove('hidden');
-        applyBtn?.classList.remove('hidden');
-    } else if (filterType === 'source') {
-        sourceFilterInputs?.classList.remove('hidden');
-        applyBtn?.classList.remove('hidden');
-    } else if (filterType === 'gender') {
-        genderFilterInputs?.classList.remove('hidden');
-        applyBtn?.classList.remove('hidden');
-    } else if (filterType === 'dobRange') {
-        dobRangeInputs?.classList.remove('hidden');
-        applyBtn?.classList.remove('hidden');
-    } else if (filterType === 'device') {
-        deviceFilterInputs?.classList.remove('hidden');
-        applyBtn?.classList.remove('hidden');
+    // Update UI buttons
+    const andBtn = document.getElementById('filterModeAnd');
+    const orBtn = document.getElementById('filterModeOr');
+
+    if (mode === 'AND') {
+        andBtn?.classList.add('bg-primary', 'text-white');
+        andBtn?.classList.remove('text-muted-foreground');
+        orBtn?.classList.remove('bg-primary', 'text-white');
+        orBtn?.classList.add('text-muted-foreground');
+    } else {
+        orBtn?.classList.add('bg-primary', 'text-white');
+        orBtn?.classList.remove('text-muted-foreground');
+        andBtn?.classList.remove('bg-primary', 'text-white');
+        andBtn?.classList.add('text-muted-foreground');
     }
 
-    // If switching to "all", clear the filter immediately
-    if (filterType === 'all') {
+    // Update connector labels
+    document.querySelectorAll('.condition-connector').forEach(el => {
+        el.textContent = mode;
+    });
+
+    // Re-apply filter if conditions exist
+    if (dashboard.conditionalFilter.conditions.length > 0) {
+        applyConditionalFilter();
+    }
+}
+
+function addFilterCondition() {
+    const container = document.getElementById('filterConditionsContainer');
+    const template = document.getElementById('filterConditionTemplate');
+    if (!container || !template) return;
+
+    const conditionId = `condition-${++conditionCounter}`;
+    const clone = template.content.cloneNode(true);
+    const conditionEl = clone.querySelector('.filter-condition');
+    conditionEl.dataset.conditionId = conditionId;
+
+    // Show connector for non-first conditions
+    if (container.children.length > 0) {
+        const connector = conditionEl.querySelector('.condition-connector');
+        connector?.classList.remove('hidden');
+        connector.textContent = dashboard?.conditionalFilter?.mode || 'AND';
+    }
+
+    container.appendChild(clone);
+
+    // Show Apply button
+    document.getElementById('conditionalApplyBtn')?.classList.remove('hidden');
+}
+
+function removeFilterCondition(btn) {
+    const conditionEl = btn.closest('.filter-condition');
+    if (!conditionEl) return;
+
+    conditionEl.remove();
+
+    // Update connectors - hide first condition's connector
+    const container = document.getElementById('filterConditionsContainer');
+    const conditions = container?.querySelectorAll('.filter-condition');
+    if (conditions && conditions.length > 0) {
+        conditions[0].querySelector('.condition-connector')?.classList.add('hidden');
+    }
+
+    // Hide Apply button if no conditions
+    if (!conditions || conditions.length === 0) {
+        document.getElementById('conditionalApplyBtn')?.classList.add('hidden');
         clearConditionalFilter();
+    } else {
+        applyConditionalFilter();
     }
+}
+
+function toggleConditionInputs(selectEl) {
+    const conditionEl = selectEl.closest('.filter-condition');
+    const inputsContainer = conditionEl?.querySelector('.condition-inputs');
+    if (!inputsContainer) return;
+
+    const filterType = selectEl.value;
+    inputsContainer.innerHTML = '';
+
+    if (!filterType) return;
+
+    // Create inputs based on filter type
+    const inputClass = 'px-3 py-1.5 bg-background rounded text-sm border border-foreground/20 focus:border-primary outline-none';
+
+    if (filterType === 'subscriberDateRange') {
+        inputsContainer.innerHTML = `
+            <input type="date" class="condition-start-date ${inputClass}">
+            <span class="text-muted-foreground text-sm">to</span>
+            <input type="date" class="condition-end-date ${inputClass}">
+        `;
+    } else if (filterType === 'firstPurchaseProduct') {
+        inputsContainer.innerHTML = `
+            <select class="condition-product-match-type ${inputClass}">
+                <option value="name">Name</option>
+                <option value="id">ID</option>
+            </select>
+            <input type="text" class="condition-product-value ${inputClass} w-40" placeholder="Product name or ID...">
+        `;
+    } else if (filterType === 'firstPurchaseValue') {
+        inputsContainer.innerHTML = `
+            <select class="condition-operator ${inputClass}">
+                <option value="gte">>=</option>
+                <option value="lte"><=</option>
+                <option value="eq">=</option>
+                <option value="gt">></option>
+                <option value="lt"><</option>
+            </select>
+            <input type="number" class="condition-amount ${inputClass} w-28" placeholder="Amount">
+        `;
+    } else if (filterType === 'source') {
+        inputsContainer.innerHTML = `
+            <select class="condition-source ${inputClass}">
+                <option value="">Select...</option>
+                <option value="Facebook Ads">Facebook Ads</option>
+                <option value="Google Ads">Google Ads</option>
+                <option value="Facebook">Facebook</option>
+                <option value="Google">Google</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Zalo">Zalo</option>
+                <option value="YouTube">YouTube</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Email">Email</option>
+                <option value="Organic">Organic</option>
+                <option value="UTM Tagged">UTM Tagged</option>
+                <option value="Other Referral">Other Referral</option>
+                <option value="Unknown">Unknown</option>
+            </select>
+        `;
+    } else if (filterType === 'gender') {
+        inputsContainer.innerHTML = `
+            <select class="condition-gender ${inputClass}">
+                <option value="">Select...</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Unknown">Unknown</option>
+            </select>
+        `;
+    } else if (filterType === 'dobRange') {
+        inputsContainer.innerHTML = `
+            <input type="date" class="condition-dob-start ${inputClass}">
+            <span class="text-muted-foreground text-sm">to</span>
+            <input type="date" class="condition-dob-end ${inputClass}">
+        `;
+    } else if (filterType === 'device') {
+        inputsContainer.innerHTML = `
+            <select class="condition-device ${inputClass}">
+                <option value="">Select...</option>
+                <option value="Mobile">Mobile</option>
+                <option value="Desktop">Desktop</option>
+                <option value="Tablet">Tablet</option>
+                <option value="Unknown">Unknown</option>
+            </select>
+        `;
+    }
+}
+
+function buildConditionConfig(conditionEl) {
+    const filterType = conditionEl.querySelector('.condition-type')?.value;
+    if (!filterType) return null;
+
+    let config = { type: filterType, params: {}, label: '' };
+
+    if (filterType === 'subscriberDateRange') {
+        const startDate = conditionEl.querySelector('.condition-start-date')?.value || null;
+        const endDate = conditionEl.querySelector('.condition-end-date')?.value || null;
+        if (!startDate && !endDate) return null;
+        config.params = { startDate, endDate };
+        config.label = `Created: ${startDate || 'any'} - ${endDate || 'any'}`;
+    } else if (filterType === 'firstPurchaseProduct') {
+        const matchType = conditionEl.querySelector('.condition-product-match-type')?.value || 'name';
+        const productValue = conditionEl.querySelector('.condition-product-value')?.value?.trim();
+        if (!productValue) return null;
+
+        if (matchType === 'id') {
+            const productIds = productValue.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            config.params = {
+                matchType: 'id',
+                productIds,
+                matcher: (item) => productIds.includes(item.product_id)
+            };
+            config.label = `1st Purchase = ID: ${productValue}`;
+        } else {
+            config.params = {
+                matchType: 'name',
+                productName: productValue,
+                matcher: (item) => (item.name || item.sku || '').toLowerCase().includes(productValue.toLowerCase())
+            };
+            config.label = `1st Purchase = "${productValue}"`;
+        }
+    } else if (filterType === 'firstPurchaseValue') {
+        const operator = conditionEl.querySelector('.condition-operator')?.value || 'gte';
+        const amount = parseFloat(conditionEl.querySelector('.condition-amount')?.value);
+        if (isNaN(amount)) return null;
+
+        const operatorLabels = { eq: '=', gte: '>=', lte: '<=', gt: '>', lt: '<' };
+        config.params = {
+            operator,
+            amount,
+            matcher: (orderTotal) => {
+                const total = parseFloat(orderTotal);
+                if (operator === 'eq') return total === amount;
+                if (operator === 'gte') return total >= amount;
+                if (operator === 'lte') return total <= amount;
+                if (operator === 'gt') return total > amount;
+                if (operator === 'lt') return total < amount;
+                return false;
+            }
+        };
+        config.label = `1st Purchase ${operatorLabels[operator]} ${amount.toLocaleString()}`;
+    } else if (filterType === 'source') {
+        const source = conditionEl.querySelector('.condition-source')?.value;
+        if (!source) return null;
+        config.params = { source };
+        config.label = `Source = ${source}`;
+    } else if (filterType === 'gender') {
+        const gender = conditionEl.querySelector('.condition-gender')?.value;
+        if (!gender) return null;
+        config.params = { gender };
+        config.label = `Gender = ${gender}`;
+    } else if (filterType === 'dobRange') {
+        const startDate = conditionEl.querySelector('.condition-dob-start')?.value || null;
+        const endDate = conditionEl.querySelector('.condition-dob-end')?.value || null;
+        if (!startDate && !endDate) return null;
+        config.params = { startDate, endDate };
+        config.label = `DOB: ${startDate || 'any'} - ${endDate || 'any'}`;
+    } else if (filterType === 'device') {
+        const device = conditionEl.querySelector('.condition-device')?.value;
+        if (!device) return null;
+        config.params = { device };
+        config.label = `Device = ${device}`;
+    }
+
+    return config;
 }
 
 function applyConditionalFilter() {
     if (!dashboard) return;
 
-    const filterType = document.getElementById('conditionalFilterType')?.value;
-    const productMatchType = document.getElementById('productMatchType')?.value || 'name';
-    const productValue = document.getElementById('tripwireProductValue')?.value?.trim();
-    const subStartDate = document.getElementById('subscriberStartDate')?.value;
-    const subEndDate = document.getElementById('subscriberEndDate')?.value;
+    const container = document.getElementById('filterConditionsContainer');
+    const conditionEls = container?.querySelectorAll('.filter-condition') || [];
 
-    // New filter inputs
-    const purchaseValueOperator = document.getElementById('purchaseValueOperator')?.value;
-    const purchaseValueAmount = document.getElementById('purchaseValueAmount')?.value;
-    const sourceValue = document.getElementById('sourceFilterValue')?.value;
-    const genderValue = document.getElementById('genderFilterValue')?.value;
-    const dobStartDate = document.getElementById('dobStartDate')?.value;
-    const dobEndDate = document.getElementById('dobEndDate')?.value;
-    const deviceValue = document.getElementById('deviceFilterValue')?.value;
+    // Build conditions array from UI
+    const conditions = [];
+    conditionEls.forEach(el => {
+        const config = buildConditionConfig(el);
+        if (config) conditions.push(config);
+    });
 
-    // Validation
-    if (filterType === 'firstPurchaseProduct' && !productValue) {
-        alert('Please enter a product name or ID');
-        return;
-    }
-    if (filterType === 'subscriberDateRange' && !subStartDate && !subEndDate) {
-        alert('Please select at least one date');
-        return;
-    }
-    if (filterType === 'firstPurchaseValue' && (!purchaseValueAmount || isNaN(parseFloat(purchaseValueAmount)))) {
-        alert('Please enter a valid amount');
-        return;
-    }
-    if (filterType === 'source' && !sourceValue) {
-        alert('Please select a source');
-        return;
-    }
-    if (filterType === 'gender' && !genderValue) {
-        alert('Please select a gender');
-        return;
-    }
-    if (filterType === 'dobRange' && !dobStartDate && !dobEndDate) {
-        alert('Please select at least one date');
-        return;
-    }
-    if (filterType === 'device' && !deviceValue) {
-        alert('Please select a device type');
-        return;
-    }
+    // Update dashboard filter state
+    dashboard.conditionalFilter.conditions = conditions;
 
-    // Build filter config based on type
-    let filterConfig = { type: filterType, params: {}, label: 'All Customers' };
-
-    if (filterType === 'subscriberDateRange') {
-        filterConfig.params = {
-            startDate: subStartDate || null,
-            endDate: subEndDate || null
-        };
-        const startLabel = subStartDate ? new Date(subStartDate).toLocaleDateString() : 'Beginning';
-        const endLabel = subEndDate ? new Date(subEndDate).toLocaleDateString() : 'Now';
-        filterConfig.label = `Subscribers: ${startLabel} - ${endLabel}`;
-    } else if (filterType === 'firstPurchaseProduct') {
-        if (productMatchType === 'id') {
-            // Match by product ID (exact match or comma-separated list)
-            const productIds = productValue.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-            filterConfig.params = {
-                matchType: 'id',
-                productIds: productIds,
-                matcher: (item) => {
-                    return productIds.includes(item.product_id);
-                }
-            };
-            filterConfig.label = `1st Purchase = Product ID: ${productValue}`;
-        } else {
-            // Match by product name (partial match, case-insensitive)
-            filterConfig.params = {
-                matchType: 'name',
-                productName: productValue,
-                matcher: (item) => {
-                    const itemName = (item.name || item.sku || '').toLowerCase();
-                    return itemName.includes(productValue.toLowerCase());
-                }
-            };
-            filterConfig.label = `1st Purchase = "${productValue}"`;
-        }
-    } else if (filterType === 'firstPurchaseValue') {
-        const amount = parseFloat(purchaseValueAmount);
-        const operatorLabels = { eq: '=', gte: '>=', lte: '<=', gt: '>', lt: '<' };
-        filterConfig.params = {
-            operator: purchaseValueOperator,
-            amount: amount,
-            matcher: (orderTotal) => {
-                const total = parseFloat(orderTotal);
-                if (purchaseValueOperator === 'eq') return total === amount;
-                if (purchaseValueOperator === 'gte') return total >= amount;
-                if (purchaseValueOperator === 'lte') return total <= amount;
-                if (purchaseValueOperator === 'gt') return total > amount;
-                if (purchaseValueOperator === 'lt') return total < amount;
-                return false;
-            }
-        };
-        filterConfig.label = `1st Purchase ${operatorLabels[purchaseValueOperator]} ${amount.toLocaleString()} VND`;
-    } else if (filterType === 'source') {
-        filterConfig.params = { source: sourceValue };
-        filterConfig.label = `Source = ${sourceValue}`;
-    } else if (filterType === 'gender') {
-        filterConfig.params = { gender: genderValue };
-        filterConfig.label = `Gender = ${genderValue}`;
-    } else if (filterType === 'dobRange') {
-        filterConfig.params = {
-            startDate: dobStartDate || null,
-            endDate: dobEndDate || null
-        };
-        const startLabel = dobStartDate || 'any';
-        const endLabel = dobEndDate || 'any';
-        filterConfig.label = `DOB: ${startLabel} - ${endLabel}`;
-    } else if (filterType === 'device') {
-        filterConfig.params = { device: deviceValue };
-        filterConfig.label = `Device = ${deviceValue}`;
+    // Build combined label
+    const mode = dashboard.conditionalFilter.mode;
+    if (conditions.length === 0) {
+        dashboard.conditionalFilter.label = 'All Customers';
+    } else if (conditions.length === 1) {
+        dashboard.conditionalFilter.label = conditions[0].label;
+    } else {
+        dashboard.conditionalFilter.label = conditions.map(c => c.label).join(` ${mode} `);
     }
-
-    dashboard.conditionalFilter = filterConfig;
 
     // Recalculate ALL analytics with new filter
     dashboard.categorizePersonas();
@@ -6139,10 +6247,9 @@ function applyConditionalFilter() {
     dashboard.calculateWooCommerceMetrics();
     dashboard.updateDashboard();
 
-    // Update UI indicator
+    // Update UI
     updateConditionalFilterInfo();
-
-    // Update tripwire analysis panel if applicable
+    updateActiveFiltersDisplay();
     updateTripwireAnalysisPanel();
 }
 
@@ -6150,59 +6257,22 @@ function clearConditionalFilter() {
     if (!dashboard) return;
 
     dashboard.conditionalFilter = {
-        type: 'all',
-        params: {},
+        mode: 'AND',
+        conditions: [],
         label: 'All Customers'
     };
 
-    // Reset UI
-    const filterType = document.getElementById('conditionalFilterType');
-    if (filterType) filterType.value = 'all';
+    // Clear UI
+    const container = document.getElementById('filterConditionsContainer');
+    if (container) container.innerHTML = '';
 
-    const productValue = document.getElementById('tripwireProductValue');
-    if (productValue) productValue.value = '';
+    // Reset mode buttons
+    setFilterMode('AND');
 
-    const productMatchType = document.getElementById('productMatchType');
-    if (productMatchType) productMatchType.value = 'name';
-
-    const subStart = document.getElementById('subscriberStartDate');
-    if (subStart) subStart.value = '';
-
-    const subEnd = document.getElementById('subscriberEndDate');
-    if (subEnd) subEnd.value = '';
-
-    // Reset new filter inputs
-    const purchaseValueAmount = document.getElementById('purchaseValueAmount');
-    if (purchaseValueAmount) purchaseValueAmount.value = '';
-
-    const purchaseValueOperator = document.getElementById('purchaseValueOperator');
-    if (purchaseValueOperator) purchaseValueOperator.value = 'gte';
-
-    const sourceFilterValue = document.getElementById('sourceFilterValue');
-    if (sourceFilterValue) sourceFilterValue.value = '';
-
-    const genderFilterValue = document.getElementById('genderFilterValue');
-    if (genderFilterValue) genderFilterValue.value = '';
-
-    const dobStartDate = document.getElementById('dobStartDate');
-    if (dobStartDate) dobStartDate.value = '';
-
-    const dobEndDate = document.getElementById('dobEndDate');
-    if (dobEndDate) dobEndDate.value = '';
-
-    const deviceFilterValue = document.getElementById('deviceFilterValue');
-    if (deviceFilterValue) deviceFilterValue.value = '';
-
-    // Hide all filter input groups
-    document.getElementById('productFilterInputs')?.classList.add('hidden');
-    document.getElementById('subscriberDateInputs')?.classList.add('hidden');
-    document.getElementById('purchaseValueInputs')?.classList.add('hidden');
-    document.getElementById('sourceFilterInputs')?.classList.add('hidden');
-    document.getElementById('genderFilterInputs')?.classList.add('hidden');
-    document.getElementById('dobRangeInputs')?.classList.add('hidden');
-    document.getElementById('deviceFilterInputs')?.classList.add('hidden');
+    // Hide UI elements
     document.getElementById('conditionalApplyBtn')?.classList.add('hidden');
     document.getElementById('conditionalFilterInfo')?.classList.add('hidden');
+    document.getElementById('activeFiltersDisplay')?.classList.add('hidden');
     document.getElementById('tripwireAnalysisPanel')?.classList.add('hidden');
 
     // Recalculate ALL analytics with cleared filter
@@ -6229,14 +6299,33 @@ function updateConditionalFilterInfo() {
     }
 }
 
+function updateActiveFiltersDisplay() {
+    const display = document.getElementById('activeFiltersDisplay');
+    if (!display || !dashboard) return;
+
+    const { conditions, mode } = dashboard.conditionalFilter;
+
+    if (conditions.length === 0) {
+        display.classList.add('hidden');
+        return;
+    }
+
+    display.innerHTML = conditions.map((c, i) => `
+        ${i > 0 ? `<span class="text-xs text-muted-foreground font-medium">${mode}</span>` : ''}
+        <span class="px-2 py-1 bg-primary/20 text-primary text-xs rounded-full">${c.label}</span>
+    `).join('');
+    display.classList.remove('hidden');
+}
+
 function updateTripwireAnalysisPanel() {
     const panel = document.getElementById('tripwireAnalysisPanel');
     if (!panel || !dashboard) return;
 
-    const { type } = dashboard.conditionalFilter;
+    const { conditions } = dashboard.conditionalFilter;
 
     // Only show panel for product-based filters
-    if (type !== 'firstPurchaseProduct') {
+    const hasProductFilter = conditions.some(c => c.type === 'firstPurchaseProduct');
+    if (!hasProductFilter) {
         panel.classList.add('hidden');
         return;
     }

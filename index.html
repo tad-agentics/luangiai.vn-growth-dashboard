@@ -267,112 +267,25 @@
             </div>
         </div>
 
-        <!-- Conditional Filter (Data Scope) -->
+        <!-- Conditional Filter (Data Scope) - Multi-condition with AND/OR -->
         <div class="card p-4 mb-4">
-            <div class="flex flex-wrap gap-3 items-center">
+            <div class="flex flex-wrap gap-3 items-center mb-3">
                 <span class="text-muted-foreground text-sm font-medium">
                     <i class="fas fa-filter mr-1"></i>Customer Segment:
                 </span>
 
-                <select id="conditionalFilterType" onchange="toggleConditionalFilterInputs()"
-                        class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                    <option value="all">All Customers</option>
-                    <option value="subscriberDateRange">Subscribers Created Between...</option>
-                    <option value="firstPurchaseProduct">1st Purchase = Product</option>
-                    <option value="firstPurchaseValue">1st Purchase Value...</option>
-                    <option value="source">Traffic Source</option>
-                    <option value="gender">Gender</option>
-                    <option value="dobRange">Date of Birth Range</option>
-                    <option value="device">Device Type</option>
-                </select>
-
-                <!-- Subscriber Date Range Inputs -->
-                <div id="subscriberDateInputs" class="flex items-center gap-2 hidden">
-                    <input type="date" id="subscriberStartDate"
-                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                    <span class="text-muted-foreground">to</span>
-                    <input type="date" id="subscriberEndDate"
-                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                <!-- AND/OR Toggle -->
+                <div class="flex bg-muted p-1 rounded-lg">
+                    <button id="filterModeAnd" onclick="setFilterMode('AND')" class="px-3 py-1 rounded text-xs font-medium bg-primary text-white">AND</button>
+                    <button id="filterModeOr" onclick="setFilterMode('OR')" class="px-3 py-1 rounded text-xs font-medium text-muted-foreground hover:text-foreground">OR</button>
                 </div>
 
-                <!-- Product Name/SKU/ID Input -->
-                <div id="productFilterInputs" class="flex items-center gap-2 hidden">
-                    <select id="productMatchType" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                        <option value="name">Product Name</option>
-                        <option value="id">Product ID</option>
-                    </select>
-                    <input type="text" id="tripwireProductValue"
-                           placeholder="Enter product name or ID..."
-                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none w-48"
-                           onkeydown="if(event.key==='Enter') applyConditionalFilter()">
-                </div>
+                <!-- Add Condition Button -->
+                <button onclick="addFilterCondition()" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 hover:bg-muted/80 transition-colors">
+                    <i class="fas fa-plus mr-1"></i>Add Condition
+                </button>
 
-                <!-- First Purchase Value Inputs -->
-                <div id="purchaseValueInputs" class="flex items-center gap-2 hidden">
-                    <select id="purchaseValueOperator" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                        <option value="gte">>=</option>
-                        <option value="lte"><=</option>
-                        <option value="eq">=</option>
-                        <option value="gt">></option>
-                        <option value="lt"><</option>
-                    </select>
-                    <input type="number" id="purchaseValueAmount"
-                           placeholder="Amount (VND)"
-                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none w-32"
-                           onkeydown="if(event.key==='Enter') applyConditionalFilter()">
-                </div>
-
-                <!-- Source Filter (Dropdown) -->
-                <div id="sourceFilterInputs" class="flex items-center gap-2 hidden">
-                    <select id="sourceFilterValue" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                        <option value="">Select Source...</option>
-                        <option value="Facebook Ads">Facebook Ads</option>
-                        <option value="Google Ads">Google Ads</option>
-                        <option value="Facebook">Facebook</option>
-                        <option value="Google">Google</option>
-                        <option value="TikTok">TikTok</option>
-                        <option value="Zalo">Zalo</option>
-                        <option value="YouTube">YouTube</option>
-                        <option value="Instagram">Instagram</option>
-                        <option value="Email">Email</option>
-                        <option value="Organic">Organic</option>
-                        <option value="UTM Tagged">UTM Tagged</option>
-                        <option value="Other Referral">Other Referral</option>
-                        <option value="Unknown">Unknown</option>
-                    </select>
-                </div>
-
-                <!-- Gender Filter (Dropdown) -->
-                <div id="genderFilterInputs" class="flex items-center gap-2 hidden">
-                    <select id="genderFilterValue" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                        <option value="">Select Gender...</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Unknown">Unknown</option>
-                    </select>
-                </div>
-
-                <!-- DOB Range Inputs -->
-                <div id="dobRangeInputs" class="flex items-center gap-2 hidden">
-                    <input type="date" id="dobStartDate"
-                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                    <span class="text-muted-foreground">to</span>
-                    <input type="date" id="dobEndDate"
-                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                </div>
-
-                <!-- Device Filter (Dropdown) -->
-                <div id="deviceFilterInputs" class="flex items-center gap-2 hidden">
-                    <select id="deviceFilterValue" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
-                        <option value="">Select Device...</option>
-                        <option value="Mobile">Mobile</option>
-                        <option value="Desktop">Desktop</option>
-                        <option value="Tablet">Tablet</option>
-                        <option value="Unknown">Unknown</option>
-                    </select>
-                </div>
-
-                <!-- Apply Button (for conditional filters that need it) -->
+                <!-- Apply Button -->
                 <button id="conditionalApplyBtn" onclick="applyConditionalFilter()"
                         class="px-4 py-1.5 bg-primary text-white rounded text-sm font-medium hover:bg-primary/90 transition-colors hidden">
                     <i class="fas fa-search mr-1"></i>Apply
@@ -382,11 +295,52 @@
                 <span id="conditionalFilterInfo" class="text-xs text-muted-foreground ml-2 hidden">
                     Showing: <span id="conditionalFilterCount" class="font-medium text-primary">0</span> customers
                     <button onclick="clearConditionalFilter()" class="ml-2 text-red-500 hover:text-red-700">
-                        <i class="fas fa-times"></i> Clear
+                        <i class="fas fa-times"></i> Clear All
                     </button>
                 </span>
             </div>
+
+            <!-- Filter Conditions Container -->
+            <div id="filterConditionsContainer" class="space-y-2">
+                <!-- Conditions will be added here dynamically -->
+            </div>
+
+            <!-- Active Filters Display -->
+            <div id="activeFiltersDisplay" class="flex flex-wrap gap-2 mt-3 hidden">
+                <!-- Active filter badges will appear here -->
+            </div>
         </div>
+
+        <!-- Filter Condition Template (hidden) -->
+        <template id="filterConditionTemplate">
+            <div class="filter-condition flex flex-wrap items-center gap-2 p-2 bg-muted/50 rounded-lg" data-condition-id="">
+                <!-- Condition connector (AND/OR badge) - hidden for first condition -->
+                <span class="condition-connector text-xs font-medium px-2 py-1 rounded bg-primary/20 text-primary hidden">AND</span>
+
+                <!-- Filter Type Selector -->
+                <select class="condition-type px-3 py-1.5 bg-background rounded text-sm border border-foreground/20 focus:border-primary outline-none"
+                        onchange="toggleConditionInputs(this)">
+                    <option value="">Select filter...</option>
+                    <option value="subscriberDateRange">Subscribers Created Between</option>
+                    <option value="firstPurchaseProduct">1st Purchase = Product</option>
+                    <option value="firstPurchaseValue">1st Purchase Value</option>
+                    <option value="source">Traffic Source</option>
+                    <option value="gender">Gender</option>
+                    <option value="dobRange">Date of Birth Range</option>
+                    <option value="device">Device Type</option>
+                </select>
+
+                <!-- Dynamic inputs container -->
+                <div class="condition-inputs flex items-center gap-2">
+                    <!-- Inputs will be shown/hidden based on filter type -->
+                </div>
+
+                <!-- Remove condition button -->
+                <button onclick="removeFilterCondition(this)" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
 
         <!-- Global Date Filter -->
         <div class="card p-4 mb-6">
