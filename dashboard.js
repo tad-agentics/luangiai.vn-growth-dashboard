@@ -5880,13 +5880,14 @@ function applyConditionalFilter() {
     if (!dashboard) return;
 
     const filterType = document.getElementById('conditionalFilterType')?.value;
-    const productName = document.getElementById('tripwireProductName')?.value?.trim();
+    const productMatchType = document.getElementById('productMatchType')?.value || 'name';
+    const productValue = document.getElementById('tripwireProductValue')?.value?.trim();
     const subStartDate = document.getElementById('subscriberStartDate')?.value;
     const subEndDate = document.getElementById('subscriberEndDate')?.value;
 
     // Validation
-    if (filterType === 'firstPurchaseProduct' && !productName) {
-        alert('Please enter a product name or SKU');
+    if (filterType === 'firstPurchaseProduct' && !productValue) {
+        alert('Please enter a product name or ID');
         return;
     }
     if (filterType === 'subscriberDateRange' && !subStartDate && !subEndDate) {
@@ -5906,14 +5907,29 @@ function applyConditionalFilter() {
         const endLabel = subEndDate ? new Date(subEndDate).toLocaleDateString() : 'Now';
         filterConfig.label = `Subscribers: ${startLabel} - ${endLabel}`;
     } else if (filterType === 'firstPurchaseProduct') {
-        filterConfig.params = {
-            productName: productName,
-            matcher: (item) => {
-                const itemName = (item.name || item.sku || '').toLowerCase();
-                return itemName.includes(productName.toLowerCase());
-            }
-        };
-        filterConfig.label = `1st Purchase = "${productName}"`;
+        if (productMatchType === 'id') {
+            // Match by product ID (exact match or comma-separated list)
+            const productIds = productValue.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            filterConfig.params = {
+                matchType: 'id',
+                productIds: productIds,
+                matcher: (item) => {
+                    return productIds.includes(item.product_id);
+                }
+            };
+            filterConfig.label = `1st Purchase = Product ID: ${productValue}`;
+        } else {
+            // Match by product name (partial match, case-insensitive)
+            filterConfig.params = {
+                matchType: 'name',
+                productName: productValue,
+                matcher: (item) => {
+                    const itemName = (item.name || item.sku || '').toLowerCase();
+                    return itemName.includes(productValue.toLowerCase());
+                }
+            };
+            filterConfig.label = `1st Purchase = "${productValue}"`;
+        }
     }
 
     dashboard.conditionalFilter = filterConfig;
@@ -5943,8 +5959,11 @@ function clearConditionalFilter() {
     const filterType = document.getElementById('conditionalFilterType');
     if (filterType) filterType.value = 'all';
 
-    const productInput = document.getElementById('tripwireProductName');
-    if (productInput) productInput.value = '';
+    const productValue = document.getElementById('tripwireProductValue');
+    if (productValue) productValue.value = '';
+
+    const productMatchType = document.getElementById('productMatchType');
+    if (productMatchType) productMatchType.value = 'name';
 
     const subStart = document.getElementById('subscriberStartDate');
     if (subStart) subStart.value = '';

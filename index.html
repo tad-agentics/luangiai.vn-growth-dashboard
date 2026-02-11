@@ -290,11 +290,15 @@
                            class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
                 </div>
 
-                <!-- Product Name/SKU Input -->
+                <!-- Product Name/SKU/ID Input -->
                 <div id="productFilterInputs" class="flex items-center gap-2 hidden">
-                    <input type="text" id="tripwireProductName"
-                           placeholder="Enter product name or SKU..."
-                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none w-64"
+                    <select id="productMatchType" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                        <option value="name">Product Name</option>
+                        <option value="id">Product ID</option>
+                    </select>
+                    <input type="text" id="tripwireProductValue"
+                           placeholder="Enter product name or ID..."
+                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none w-48"
                            onkeydown="if(event.key==='Enter') applyConditionalFilter()">
                 </div>
 
