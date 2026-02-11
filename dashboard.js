@@ -515,6 +515,8 @@ class CRMDashboard {
                     subscribers = data.subscribers.map(sub => ({
                         id: sub.id,
                         email: sub.e,  // Email for order matching
+                        first_name: sub.fn || '',  // FluentCRM source of truth
+                        last_name: sub.ln || '',   // FluentCRM source of truth
                         status: statusMap[sub.s] || sub.s || 'subscribed',
                         contact_type: typeMap[sub.t] || sub.t || 'lead',
                         created_at: sub.c,
@@ -545,6 +547,8 @@ class CRMDashboard {
                     ...sub,
                     // Core fields
                     email: sub.email || sub.e,
+                    first_name: sub.first_name || sub.fn || '',  // FluentCRM source of truth
+                    last_name: sub.last_name || sub.ln || '',    // FluentCRM source of truth
                     created_at: sub.created_at || sub.c,
                     updated_at: sub.updated_at || sub.u,
                     source: sub.source || sub.src,
@@ -641,6 +645,8 @@ class CRMDashboard {
                 return {
                     id: sub.id,
                     e: sub.email?.toLowerCase(),  // email (for order matching)
+                    fn: sub.first_name || '',     // first name (FluentCRM source of truth)
+                    ln: sub.last_name || '',      // last name (FluentCRM source of truth)
                     s: sub.status?.charAt(0), // 's'=subscribed, 'p'=pending, etc (1 char)
                     t: sub.contact_type?.charAt(0), // 'l'=lead, 'c'=customer (1 char)
                     c: sub.created_at,
@@ -739,12 +745,12 @@ class CRMDashboard {
                 console.log(`Loaded ${data.order_count} orders from Supabase cache (${cacheAgeHours}h old)`);
 
                 // Expand cached flat format to expected nested structure
+                // Note: Names removed from order cache - use FluentCRM as single source of truth
                 const orders = data.orders.map(order => ({
                     ...order,
                     billing: {
-                        email: order.billing_email,
-                        first_name: order.billing_first_name,
-                        last_name: order.billing_last_name
+                        email: order.billing_email
+                        // first_name and last_name now come from FluentCRM, not WooCommerce orders
                     }
                 }));
 
@@ -776,6 +782,7 @@ class CRMDashboard {
             console.log(`Preparing ${orders.length} orders for Supabase cache...`);
 
             // Trim orders to essential fields only
+            // Note: Billing names removed - use FluentCRM as single source of truth for customer names
             const ordersToCache = orders.map(order => ({
                 id: order.id,
                 status: order.status,
@@ -783,8 +790,7 @@ class CRMDashboard {
                 total: order.total,
                 currency: order.currency,
                 billing_email: order.billing?.email?.toLowerCase(),
-                billing_first_name: order.billing?.first_name,
-                billing_last_name: order.billing?.last_name,
+                // billing_first_name and billing_last_name removed - names come from FluentCRM
                 line_items: (order.line_items || []).map(item => ({
                     product_id: item.product_id,
                     name: item.name,
@@ -2722,7 +2728,108 @@ class CRMDashboard {
         return customers;
     }
 
+    // Build efficient lookup maps for subscriber matching
+    buildSubscriberLookups() {
+        const byEmail = new Map();
+        const byId = new Map();
+
+        this.data.subscribers.forEach(sub => {
+            if (sub.email) byEmail.set(sub.email.toLowerCase(), sub);
+            if (sub.id) byId.set(sub.id, sub);
+        });
+
+        return { byEmail, byId };
+    }
+
+    // Create UnifiedCustomer from FluentCRM subscriber (single source of truth)
+    createUnifiedCustomer(subscriber) {
+        const dob = extractDOB(subscriber);
+        const birthYear = parseBirthYear(dob);
+
+        return {
+            // Primary Key
+            subscriber_id: subscriber.id,
+
+            // Core Identity (FluentCRM ONLY - NOT from WooCommerce)
+            email: subscriber.email?.toLowerCase(),
+            first_name: subscriber.first_name || '',
+            last_name: subscriber.last_name || '',
+            full_name: [subscriber.first_name, subscriber.last_name].filter(Boolean).join(' ') || subscriber.email,
+
+            // FluentCRM Profile
+            status: subscriber.status,
+            contact_type: subscriber.contact_type,
+            created_at: subscriber.created_at,
+            source: subscriber.source,
+
+            // Custom Fields
+            dob: dob,
+            gender: parseGender(subscriber.custom_fields?.gender || subscriber.gender),
+            device: getDeviceType(subscriber),
+
+            // Computed
+            _persona: assignPersona(birthYear),
+            _birthYear: birthYear,
+            _ageGroup: getAgeBucket(parseAge(dob)),
+
+            // WooCommerce data (populated later by linkOrdersToSubscribers)
+            orders: [],
+            orderCount: 0,
+            totalLTV: 0,
+            firstPurchaseDate: null,
+            lastPurchaseDate: null,
+            avgOrderValue: 0,
+
+            // Tags
+            tags: subscriber.tags || [],
+            isConverted: this.checkConversion(subscriber)
+        };
+    }
+
+    // Link WooCommerce orders to FluentCRM subscribers
+    linkOrdersToSubscribers() {
+        const { byEmail, byId } = this.buildSubscriberLookups();
+        const customerMap = new Map(); // subscriber_id -> UnifiedCustomer
+
+        // Group orders by email first
+        const ordersByEmail = this.groupOrdersByCustomer(this.data.woocommerce.orders);
+
+        // Link each customer's orders to their FluentCRM subscriber
+        Object.entries(ordersByEmail).forEach(([email, orders]) => {
+            const subscriber = byEmail.get(email);
+
+            if (subscriber) {
+                const subscriberId = subscriber.id;
+
+                if (!customerMap.has(subscriberId)) {
+                    customerMap.set(subscriberId, this.createUnifiedCustomer(subscriber));
+                }
+
+                const customer = customerMap.get(subscriberId);
+                customer.orders = orders;
+                customer.orderCount = orders.length;
+                customer.totalLTV = orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+                customer.firstPurchaseDate = orders[0]?.date_created || null;
+                customer.lastPurchaseDate = orders[orders.length - 1]?.date_created || null;
+                customer.avgOrderValue = customer.orderCount > 0 ? customer.totalLTV / customer.orderCount : 0;
+            }
+        });
+
+        // Add subscribers without orders (leads)
+        this.data.subscribers.forEach(sub => {
+            if (!customerMap.has(sub.id)) {
+                customerMap.set(sub.id, this.createUnifiedCustomer(sub));
+            }
+        });
+
+        return customerMap;
+    }
+
     calculateWooCommerceMetrics() {
+        // Build unified customer map once, store for reuse across all metrics
+        // FluentCRM is the single source of truth for customer profile data
+        this.data.unifiedCustomers = this.linkOrdersToSubscribers();
+
         // Get conditional filter results (includes all-time customer orders with TRUE purchase numbers)
         const { emails: conditionalEmails, customerOrders: conditionalCustomerOrders } = this.getConditionallyFilteredCustomers();
 
@@ -3003,25 +3110,41 @@ class CRMDashboard {
     }
 
     wcCalcTopCustomers(customerOrders) {
-        const subscribers = this.getFilteredSubscribers();
+        // Use unified customer model with FluentCRM as source of truth for names
+        const { byEmail } = this.buildSubscriberLookups();
         const customers = [];
 
         Object.entries(customerOrders).forEach(([email, orders]) => {
             const ltv = orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
             const aov = ltv / orders.length;
 
-            // Find days to first purchase
-            const subscriber = subscribers.find(s => s.email?.toLowerCase() === email);
+            // Get customer data from FluentCRM (single source of truth)
+            const subscriber = byEmail.get(email);
             let daysToFirst = null;
-            if (subscriber && orders[0]) {
-                const subDate = new Date(subscriber.created_at);
-                const orderDate = new Date(orders[0].date_created);
-                daysToFirst = (orderDate - subDate) / (1000 * 60 * 60 * 24);
-                if (daysToFirst < 0 || daysToFirst > 365) daysToFirst = null;
+            let firstName = '';
+            let lastName = '';
+            let fullName = email;  // Fallback to email if no FluentCRM data
+
+            if (subscriber) {
+                // Use FluentCRM names (NOT WooCommerce billing names)
+                firstName = subscriber.first_name || '';
+                lastName = subscriber.last_name || '';
+                fullName = [firstName, lastName].filter(Boolean).join(' ') || email;
+
+                // Calculate days to first purchase
+                if (orders[0]) {
+                    const subDate = new Date(subscriber.created_at);
+                    const orderDate = new Date(orders[0].date_created);
+                    daysToFirst = (orderDate - subDate) / (1000 * 60 * 60 * 24);
+                    if (daysToFirst < 0 || daysToFirst > 365) daysToFirst = null;
+                }
             }
 
             customers.push({
                 email,
+                firstName,      // FluentCRM source of truth
+                lastName,       // FluentCRM source of truth
+                fullName,       // FluentCRM source of truth
                 orderCount: orders.length,
                 ltv,
                 aov,
@@ -3036,77 +3159,31 @@ class CRMDashboard {
     // ==================== 2ND PURCHASER PROFILE ====================
     calculate2ndPurchaserProfile() {
         const customerOrders = this.data.woocommerce?.customerOrders || {};
-        const subscribers = this.getFilteredSubscribers();
 
-        // Build email to subscriber lookup
-        const emailToSubscriber = {};
-        subscribers.forEach(s => {
-            if (s.email) {
-                emailToSubscriber[s.email.toLowerCase()] = s;
-            }
-        });
+        // Use unified customer model with FluentCRM as source of truth
+        const { byEmail } = this.buildSubscriberLookups();
 
         // Find all customers with 2+ purchases
         const secondPurchasers = [];
 
         Object.entries(customerOrders).forEach(([email, orders]) => {
             if (orders.length >= 2) {
-                const subscriber = emailToSubscriber[email];
+                // Get subscriber from FluentCRM (single source of truth)
+                const subscriber = byEmail.get(email);
                 const secondOrder = orders.find(o => o._purchaseNumber === 2);
                 const firstOrder = orders.find(o => o._purchaseNumber === 1);
 
                 if (secondOrder) {
-                    // Extract demographics from subscriber
-                    const dob = subscriber?.date_of_birth ||
-                               subscriber?.custom_fields?.dob ||
-                               subscriber?.custom_fields?.date_of_birth ||
-                               subscriber?.dob || null;
+                    // Use helper functions for consistent data extraction (FluentCRM source of truth)
+                    const dob = extractDOB(subscriber);
+                    const birthYear = parseBirthYear(dob);
+                    const age = parseAge(dob);
+                    const ageGroup = getAgeBucket(age);
+                    const deviceType = getDeviceType(subscriber);
+                    const gender = parseGender(subscriber?.custom_fields?.gender || subscriber?.gender);
+                    const persona = assignPersona(birthYear);
 
-                    // Parse age from DOB
-                    let age = null;
-                    let birthYear = null;
-                    if (dob) {
-                        try {
-                            const parts = dob.split(/[\/\-]/);
-                            birthYear = parts.find(p => {
-                                const num = parseInt(p);
-                                return num > 1900 && num < 2100;
-                            });
-                            if (birthYear) {
-                                birthYear = parseInt(birthYear);
-                                age = new Date().getFullYear() - birthYear;
-                            }
-                        } catch(e) {}
-                    }
-
-                    // Get age bucket
-                    let ageGroup = 'Unknown';
-                    if (age !== null) {
-                        if (age < 18) ageGroup = '<18';
-                        else if (age <= 24) ageGroup = '18-24';
-                        else if (age <= 34) ageGroup = '25-34';
-                        else if (age <= 44) ageGroup = '35-44';
-                        else if (age <= 54) ageGroup = '45-54';
-                        else ageGroup = '55+';
-                    }
-
-                    // Get device type
-                    let deviceType = 'Unknown';
-                    const deviceVal = subscriber?.device_type ||
-                                     subscriber?.custom_fields?.device ||
-                                     subscriber?.device || null;
-                    if (deviceVal) {
-                        const dv = deviceVal.toLowerCase();
-                        if (dv.includes('mobile') || dv.includes('phone') || dv.includes('android') || dv.includes('ios')) {
-                            deviceType = 'Mobile';
-                        } else if (dv.includes('desktop') || dv.includes('windows') || dv.includes('mac')) {
-                            deviceType = 'Desktop';
-                        } else if (dv.includes('tablet') || dv.includes('ipad')) {
-                            deviceType = 'Tablet';
-                        }
-                    }
-
-                    // Get source
+                    // Parse source
                     const source = subscriber?.source || 'Unknown';
                     let parsedSource = 'Unknown';
                     if (source) {
@@ -3120,20 +3197,6 @@ class CRMDashboard {
                         else parsedSource = 'Other';
                     }
 
-                    // Get gender
-                    let gender = 'Unknown';
-                    const genderVal = subscriber?.custom_fields?.gender ||
-                                     subscriber?.custom_fields?.gioi_tinh ||
-                                     subscriber?.gender;
-                    if (genderVal) {
-                        const gv = String(genderVal).toLowerCase();
-                        if (gv === '1' || gv === 'male' || gv === 'nam') gender = 'Male';
-                        else if (gv === '-1' || gv === '0' || gv === 'female' || gv === 'nu' || gv === 'nữ') gender = 'Female';
-                    }
-
-                    // Assign persona based on birth year (generation)
-                    const persona = assignPersona(birthYear);
-
                     // Calculate days between 1st and 2nd
                     let daysBetween = null;
                     if (firstOrder && secondOrder) {
@@ -3145,6 +3208,8 @@ class CRMDashboard {
 
                     secondPurchasers.push({
                         email,
+                        firstName: subscriber?.first_name || '',   // FluentCRM source of truth
+                        lastName: subscriber?.last_name || '',     // FluentCRM source of truth
                         persona,
                         ageGroup,
                         age,
