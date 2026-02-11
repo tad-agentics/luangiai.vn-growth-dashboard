@@ -403,5 +403,31 @@ ALTER TABLE order_cache ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow anon all order_cache" ON order_cache FOR ALL USING (true);
 
 -- ============================================
+-- 13. AI SETTINGS
+-- Store AI configuration like business context
+-- ============================================
+CREATE TABLE IF NOT EXISTS ai_settings (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    key TEXT UNIQUE NOT NULL,           -- 'business_context', 'default_prompt', etc.
+    value TEXT NOT NULL,                -- The actual content
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for quick lookup
+CREATE INDEX IF NOT EXISTS idx_ai_settings_key ON ai_settings(key);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS ai_settings_updated_at ON ai_settings;
+CREATE TRIGGER ai_settings_updated_at
+    BEFORE UPDATE ON ai_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- RLS Policy
+ALTER TABLE ai_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon all ai_settings" ON ai_settings FOR ALL USING (true);
+
+-- ============================================
 -- DONE! Your database is ready for Growth Intelligence Platform.
 -- ============================================
