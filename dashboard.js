@@ -326,6 +326,13 @@ class CRMDashboard {
         // Pattern to match test emails
         this.testEmailPattern = /test|testing|tester/i;
 
+        // Conditional filter state (applied before date filter)
+        this.conditionalFilter = {
+            type: 'all',           // 'all', 'subscriberDateRange', 'firstPurchaseProduct', etc.
+            params: {},            // Filter-specific parameters
+            label: 'All Customers' // Display label
+        };
+
         // Sync management to prevent server overload
         this.isSyncing = false;
         this.lastSyncTime = localStorage.getItem('fluentcrm_last_sync') || null;
@@ -1525,14 +1532,80 @@ class CRMDashboard {
         return false;
     }
 
-    // Filter subscribers by email exclusions and date range
+    // Get customers matching conditional filter criteria (data scope level)
+    getConditionallyFilteredCustomers() {
+        const { type, params } = this.conditionalFilter;
+
+        // Get all orders grouped by customer (with true purchase numbers)
+        const allOrders = (this.data.woocommerce?.orders || []).filter(order => {
+            const email = order.billing?.email || order.billing_email;
+            return !this.isExcludedEmail(email);
+        });
+        const allTimeCustomerOrders = this.groupOrdersByCustomer(allOrders);
+
+        if (type === 'all') {
+            return { emails: null, customerOrders: allTimeCustomerOrders }; // null = no filter
+        }
+
+        const matchingEmails = new Set();
+
+        if (type === 'subscriberDateRange') {
+            // Filter subscribers by their creation date (data scope level)
+            const { startDate, endDate } = params;
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+            if (end) end.setHours(23, 59, 59, 999);
+
+            const subscribers = this.data.subscribers || [];
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                if (!sub.created_at) return;
+
+                const created = new Date(sub.created_at);
+                if (start && created < start) return;
+                if (end && created > end) return;
+
+                matchingEmails.add(sub.email?.toLowerCase());
+            });
+        }
+
+        if (type === 'firstPurchaseProduct') {
+            // Find customers whose FIRST order contained the specified product
+            const productMatcher = params.matcher || (() => false);
+
+            Object.entries(allTimeCustomerOrders).forEach(([email, orders]) => {
+                const firstOrder = orders.find(o => o._purchaseNumber === 1);
+                if (firstOrder?.line_items?.some(productMatcher)) {
+                    matchingEmails.add(email);
+                }
+            });
+        }
+
+        // Return filtered customer orders
+        const filteredCustomerOrders = {};
+        matchingEmails.forEach(email => {
+            if (allTimeCustomerOrders[email]) {
+                filteredCustomerOrders[email] = allTimeCustomerOrders[email];
+            }
+        });
+
+        return { emails: matchingEmails, customerOrders: filteredCustomerOrders };
+    }
+
+    // Filter subscribers by email exclusions, conditional filter, and date range
     getFilteredSubscribers() {
         const subscribers = this.data.subscribers || [];
         const { startDate, endDate } = this.dateFilter;
+        const { emails: conditionalEmails } = this.getConditionallyFilteredCustomers();
 
         return subscribers.filter(sub => {
             // Exclude internal team & test emails
             if (this.isExcludedEmail(sub.email)) return false;
+
+            // Conditional filter (if active)
+            if (conditionalEmails !== null) {
+                if (!conditionalEmails.has(sub.email?.toLowerCase())) return false;
+            }
 
             // Date filter (if active)
             if (startDate || endDate) {
@@ -2617,6 +2690,73 @@ class CRMDashboard {
             thirdPurchase,    // How many TRUE 3rd purchases happened in date range
             fourPlus          // How many TRUE 4th+ purchases happened in date range
         };
+    }
+
+    // Calculate tripwire cohort analysis (monthly cohorts with retention tracking)
+    calculateTripwireCohortAnalysis() {
+        const { emails, customerOrders } = this.getConditionallyFilteredCustomers();
+        if (!emails || emails.size === 0) return null;
+
+        // Monthly cohorts based on first purchase date
+        const cohorts = {}; // { '2025-01': { total: X, returned: Y, ... } }
+
+        Object.entries(customerOrders).forEach(([email, orders]) => {
+            const firstOrder = orders.find(o => o._purchaseNumber === 1);
+            if (!firstOrder) return;
+
+            const cohortKey = firstOrder.date_created?.substring(0, 7) || 'Unknown'; // YYYY-MM
+            if (!cohorts[cohortKey]) {
+                cohorts[cohortKey] = {
+                    total: 0,
+                    returned: 0,
+                    thirdPurchase: 0,
+                    revenue1st: 0,
+                    revenue2nd: 0,
+                    revenueTotal: 0,
+                    secondPurchaseProducts: {},
+                    avgDaysTo2nd: []
+                };
+            }
+
+            const cohort = cohorts[cohortKey];
+            cohort.total++;
+            cohort.revenue1st += parseFloat(firstOrder.total) || 0;
+
+            const secondOrder = orders.find(o => o._purchaseNumber === 2);
+            if (secondOrder) {
+                cohort.returned++;
+                cohort.revenue2nd += parseFloat(secondOrder.total) || 0;
+
+                // Track what they bought
+                secondOrder.line_items?.forEach(item => {
+                    const name = item.name || 'Unknown';
+                    cohort.secondPurchaseProducts[name] = (cohort.secondPurchaseProducts[name] || 0) + 1;
+                });
+
+                // Time to 2nd purchase
+                const days = (new Date(secondOrder.date_created) - new Date(firstOrder.date_created)) / (1000*60*60*24);
+                if (days >= 0) cohort.avgDaysTo2nd.push(days);
+            }
+
+            if (orders.find(o => o._purchaseNumber === 3)) {
+                cohort.thirdPurchase++;
+            }
+
+            cohort.revenueTotal += orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+        });
+
+        // Calculate averages and format
+        Object.values(cohorts).forEach(c => {
+            c.returnRate = c.total > 0 ? (c.returned / c.total * 100).toFixed(1) : 0;
+            c.avgDaysTo2nd = c.avgDaysTo2nd.length > 0
+                ? (c.avgDaysTo2nd.reduce((a,b) => a+b, 0) / c.avgDaysTo2nd.length).toFixed(1)
+                : '-';
+            c.topSecondProducts = Object.entries(c.secondPurchaseProducts)
+                .sort((a,b) => b[1] - a[1])
+                .slice(0, 5);
+        });
+
+        return cohorts;
     }
 
     wcCalcTopCustomers(customerOrders) {
@@ -5706,6 +5846,199 @@ function applyDateFilter() {
             }
         }
     }, 50);
+}
+
+// ==================== CONDITIONAL FILTER FUNCTIONS ====================
+
+function toggleConditionalFilterInputs() {
+    const filterType = document.getElementById('conditionalFilterType')?.value;
+    const productInputs = document.getElementById('productFilterInputs');
+    const subscriberDateInputs = document.getElementById('subscriberDateInputs');
+    const applyBtn = document.getElementById('conditionalApplyBtn');
+
+    // Hide all input groups first
+    productInputs?.classList.add('hidden');
+    subscriberDateInputs?.classList.add('hidden');
+    applyBtn?.classList.add('hidden');
+
+    // Show relevant input based on filter type
+    if (['firstPurchaseProduct', 'hasProduct'].includes(filterType)) {
+        productInputs?.classList.remove('hidden');
+        applyBtn?.classList.remove('hidden');
+    } else if (filterType === 'subscriberDateRange') {
+        subscriberDateInputs?.classList.remove('hidden');
+        applyBtn?.classList.remove('hidden');
+    }
+
+    // If switching to "all", clear the filter immediately
+    if (filterType === 'all') {
+        clearConditionalFilter();
+    }
+}
+
+function applyConditionalFilter() {
+    if (!dashboard) return;
+
+    const filterType = document.getElementById('conditionalFilterType')?.value;
+    const productName = document.getElementById('tripwireProductName')?.value?.trim();
+    const subStartDate = document.getElementById('subscriberStartDate')?.value;
+    const subEndDate = document.getElementById('subscriberEndDate')?.value;
+
+    // Validation
+    if (filterType === 'firstPurchaseProduct' && !productName) {
+        alert('Please enter a product name or SKU');
+        return;
+    }
+    if (filterType === 'subscriberDateRange' && !subStartDate && !subEndDate) {
+        alert('Please select at least one date');
+        return;
+    }
+
+    // Build filter config based on type
+    let filterConfig = { type: filterType, params: {}, label: 'All Customers' };
+
+    if (filterType === 'subscriberDateRange') {
+        filterConfig.params = {
+            startDate: subStartDate || null,
+            endDate: subEndDate || null
+        };
+        const startLabel = subStartDate ? new Date(subStartDate).toLocaleDateString() : 'Beginning';
+        const endLabel = subEndDate ? new Date(subEndDate).toLocaleDateString() : 'Now';
+        filterConfig.label = `Subscribers: ${startLabel} - ${endLabel}`;
+    } else if (filterType === 'firstPurchaseProduct') {
+        filterConfig.params = {
+            productName: productName,
+            matcher: (item) => {
+                const itemName = (item.name || item.sku || '').toLowerCase();
+                return itemName.includes(productName.toLowerCase());
+            }
+        };
+        filterConfig.label = `1st Purchase = "${productName}"`;
+    }
+
+    dashboard.conditionalFilter = filterConfig;
+
+    // Recalculate and update
+    dashboard.calculateGrowthAnalytics();
+    dashboard.calculateWooCommerceMetrics();
+    dashboard.updateDashboard();
+
+    // Update UI indicator
+    updateConditionalFilterInfo();
+
+    // Update tripwire analysis panel if applicable
+    updateTripwireAnalysisPanel();
+}
+
+function clearConditionalFilter() {
+    if (!dashboard) return;
+
+    dashboard.conditionalFilter = {
+        type: 'all',
+        params: {},
+        label: 'All Customers'
+    };
+
+    // Reset UI
+    const filterType = document.getElementById('conditionalFilterType');
+    if (filterType) filterType.value = 'all';
+
+    const productInput = document.getElementById('tripwireProductName');
+    if (productInput) productInput.value = '';
+
+    const subStart = document.getElementById('subscriberStartDate');
+    if (subStart) subStart.value = '';
+
+    const subEnd = document.getElementById('subscriberEndDate');
+    if (subEnd) subEnd.value = '';
+
+    document.getElementById('productFilterInputs')?.classList.add('hidden');
+    document.getElementById('subscriberDateInputs')?.classList.add('hidden');
+    document.getElementById('conditionalApplyBtn')?.classList.add('hidden');
+    document.getElementById('conditionalFilterInfo')?.classList.add('hidden');
+    document.getElementById('tripwireAnalysisPanel')?.classList.add('hidden');
+
+    // Recalculate
+    dashboard.calculateGrowthAnalytics();
+    dashboard.calculateWooCommerceMetrics();
+    dashboard.updateDashboard();
+}
+
+function updateConditionalFilterInfo() {
+    const info = document.getElementById('conditionalFilterInfo');
+    const count = document.getElementById('conditionalFilterCount');
+
+    if (!dashboard || !info || !count) return;
+
+    const { emails } = dashboard.getConditionallyFilteredCustomers();
+
+    if (emails !== null) {
+        count.textContent = emails.size;
+        info.classList.remove('hidden');
+    } else {
+        info.classList.add('hidden');
+    }
+}
+
+function updateTripwireAnalysisPanel() {
+    const panel = document.getElementById('tripwireAnalysisPanel');
+    if (!panel || !dashboard) return;
+
+    const { type } = dashboard.conditionalFilter;
+
+    // Only show panel for product-based filters
+    if (type !== 'firstPurchaseProduct') {
+        panel.classList.add('hidden');
+        return;
+    }
+
+    const cohorts = dashboard.calculateTripwireCohortAnalysis();
+    if (!cohorts) {
+        panel.classList.add('hidden');
+        return;
+    }
+
+    panel.classList.remove('hidden');
+
+    // Calculate totals
+    let totalBuyers = 0, totalReturned = 0, allDays = [];
+    Object.values(cohorts).forEach(c => {
+        totalBuyers += c.total;
+        totalReturned += c.returned;
+        if (c.avgDaysTo2nd !== '-') {
+            allDays.push(parseFloat(c.avgDaysTo2nd) * c.returned);
+        }
+    });
+
+    // Update summary cards
+    document.getElementById('tripwireTotal').textContent = totalBuyers;
+    document.getElementById('tripwireReturned').textContent = totalReturned;
+    document.getElementById('tripwireReturnRate').textContent =
+        totalBuyers > 0 ? (totalReturned / totalBuyers * 100).toFixed(1) + '%' : '0%';
+    document.getElementById('tripwireAvgDays').textContent =
+        totalReturned > 0 ? (allDays.reduce((a,b) => a+b, 0) / totalReturned).toFixed(0) + ' days' : '-';
+
+    // Build cohort table
+    const tbody = document.getElementById('tripwireCohortTable');
+    if (!tbody) return;
+
+    const sortedCohorts = Object.entries(cohorts).sort((a, b) => b[0].localeCompare(a[0]));
+
+    tbody.innerHTML = sortedCohorts.map(([month, c]) => `
+        <tr class="border-b border-foreground/10 hover:bg-muted/50">
+            <td class="py-2 font-medium">${month}</td>
+            <td class="text-right">${c.total}</td>
+            <td class="text-right text-green-500">${c.returned}</td>
+            <td class="text-right">${c.returnRate}%</td>
+            <td class="text-right">${c.thirdPurchase}</td>
+            <td class="text-right">${c.avgDaysTo2nd}</td>
+            <td class="text-left text-xs text-muted-foreground">
+                ${c.topSecondProducts.slice(0, 2).map(([name]) =>
+                    name.length > 25 ? name.substring(0, 25) + '...' : name
+                ).join(', ') || '-'}
+            </td>
+        </tr>
+    `).join('');
 }
 
 function updateDateFilterIndicator(preset, startDate, endDate) {

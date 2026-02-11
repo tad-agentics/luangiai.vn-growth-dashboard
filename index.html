@@ -267,6 +267,53 @@
             </div>
         </div>
 
+        <!-- Conditional Filter (Data Scope) -->
+        <div class="card p-4 mb-4">
+            <div class="flex flex-wrap gap-3 items-center">
+                <span class="text-muted-foreground text-sm font-medium">
+                    <i class="fas fa-filter mr-1"></i>Customer Segment:
+                </span>
+
+                <select id="conditionalFilterType" onchange="toggleConditionalFilterInputs()"
+                        class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                    <option value="all">All Customers</option>
+                    <option value="subscriberDateRange">Subscribers Created Between...</option>
+                    <option value="firstPurchaseProduct">1st Purchase = Product</option>
+                </select>
+
+                <!-- Subscriber Date Range Inputs -->
+                <div id="subscriberDateInputs" class="flex items-center gap-2 hidden">
+                    <input type="date" id="subscriberStartDate"
+                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                    <span class="text-muted-foreground">to</span>
+                    <input type="date" id="subscriberEndDate"
+                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                </div>
+
+                <!-- Product Name/SKU Input -->
+                <div id="productFilterInputs" class="flex items-center gap-2 hidden">
+                    <input type="text" id="tripwireProductName"
+                           placeholder="Enter product name or SKU..."
+                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none w-64"
+                           onkeydown="if(event.key==='Enter') applyConditionalFilter()">
+                </div>
+
+                <!-- Apply Button (for conditional filters that need it) -->
+                <button id="conditionalApplyBtn" onclick="applyConditionalFilter()"
+                        class="px-4 py-1.5 bg-primary text-white rounded text-sm font-medium hover:bg-primary/90 transition-colors hidden">
+                    <i class="fas fa-search mr-1"></i>Apply
+                </button>
+
+                <!-- Filter Info -->
+                <span id="conditionalFilterInfo" class="text-xs text-muted-foreground ml-2 hidden">
+                    Showing: <span id="conditionalFilterCount" class="font-medium text-primary">0</span> customers
+                    <button onclick="clearConditionalFilter()" class="ml-2 text-red-500 hover:text-red-700">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </span>
+            </div>
+        </div>
+
         <!-- Global Date Filter -->
         <div class="card p-4 mb-6">
             <div class="flex flex-wrap gap-3 items-center">
@@ -693,6 +740,55 @@
 
         <!-- ==================== REVENUE TAB ==================== -->
         <div id="tab-revenue" class="tab-content space-y-6 hidden">
+            <!-- Tripwire/Cohort Analysis Panel (shown when conditional filter is active) -->
+            <div id="tripwireAnalysisPanel" class="card p-6 hidden">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <i class="fas fa-funnel-dollar text-primary"></i>
+                    <span>Tripwire Funnel Analysis</span>
+                    <span class="text-xs text-muted-foreground font-normal ml-2" id="tripwireFilterLabel"></span>
+                </h3>
+
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="text-center p-4 bg-muted/30 rounded-lg">
+                        <div class="text-2xl font-bold text-primary" id="tripwireTotal">0</div>
+                        <div class="text-xs text-muted-foreground">Tripwire Buyers</div>
+                    </div>
+                    <div class="text-center p-4 bg-muted/30 rounded-lg">
+                        <div class="text-2xl font-bold text-green-500" id="tripwireReturned">0</div>
+                        <div class="text-xs text-muted-foreground">Returned (2nd Purchase)</div>
+                    </div>
+                    <div class="text-center p-4 bg-muted/30 rounded-lg">
+                        <div class="text-2xl font-bold text-foreground" id="tripwireReturnRate">0%</div>
+                        <div class="text-xs text-muted-foreground">Return Rate</div>
+                    </div>
+                    <div class="text-center p-4 bg-muted/30 rounded-lg">
+                        <div class="text-2xl font-bold text-foreground" id="tripwireAvgDays">-</div>
+                        <div class="text-xs text-muted-foreground">Avg Days to 2nd</div>
+                    </div>
+                </div>
+
+                <!-- Monthly Cohort Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-foreground/20">
+                                <th class="text-left py-2 px-2">Cohort</th>
+                                <th class="text-right px-2">Buyers</th>
+                                <th class="text-right px-2">Returned</th>
+                                <th class="text-right px-2">Return %</th>
+                                <th class="text-right px-2">3rd Purchase</th>
+                                <th class="text-right px-2">Avg Days</th>
+                                <th class="text-left px-2">Top 2nd Products</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tripwireCohortTable">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Revenue Metrics -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="card metric-card warning p-4 relative">
