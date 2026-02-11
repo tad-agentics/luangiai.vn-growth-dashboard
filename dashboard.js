@@ -1587,6 +1587,84 @@ class CRMDashboard {
             });
         }
 
+        if (type === 'firstPurchaseValue') {
+            // Find customers whose FIRST order total matches the value condition
+            const { matcher } = params;
+
+            Object.entries(allTimeCustomerOrders).forEach(([email, orders]) => {
+                const firstOrder = orders.find(o => o._purchaseNumber === 1);
+                if (firstOrder && matcher(firstOrder.total)) {
+                    matchingEmails.add(email);
+                }
+            });
+        }
+
+        if (type === 'source') {
+            // Filter subscribers by traffic source
+            const { source: targetSource } = params;
+            const subscribers = this.data.subscribers || [];
+
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const parsedSource = this.parseSource(sub.source || '');
+                if (parsedSource === targetSource) {
+                    matchingEmails.add(sub.email?.toLowerCase());
+                }
+            });
+        }
+
+        if (type === 'gender') {
+            // Filter subscribers by gender
+            const { gender: targetGender } = params;
+            const subscribers = this.data.subscribers || [];
+
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const genderRaw = sub.custom_fields?.gender || sub.gender || null;
+                const gender = parseGender(genderRaw);
+                if (gender === targetGender) {
+                    matchingEmails.add(sub.email?.toLowerCase());
+                }
+            });
+        }
+
+        if (type === 'dobRange') {
+            // Filter subscribers by date of birth range
+            const { startDate, endDate } = params;
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+            const subscribers = this.data.subscribers || [];
+
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const dob = sub.custom_fields?.dob || sub.custom_fields?.date_of_birth ||
+                            sub.date_of_birth || sub.dob || null;
+                if (!dob) return;
+
+                try {
+                    const dobDate = new Date(dob);
+                    if (isNaN(dobDate.getTime())) return;
+                    if (start && dobDate < start) return;
+                    if (end && dobDate > end) return;
+                    matchingEmails.add(sub.email?.toLowerCase());
+                } catch (e) { /* skip invalid dates */ }
+            });
+        }
+
+        if (type === 'device') {
+            // Filter subscribers by device type
+            const { device: targetDevice } = params;
+            const subscribers = this.data.subscribers || [];
+
+            subscribers.forEach(sub => {
+                if (this.isExcludedEmail(sub.email)) return;
+                const device = getDeviceType(sub);
+                if (device === targetDevice) {
+                    matchingEmails.add(sub.email?.toLowerCase());
+                }
+            });
+        }
+
         // Return filtered customer orders
         const filteredCustomerOrders = {};
         matchingEmails.forEach(email => {
@@ -5886,11 +5964,21 @@ function toggleConditionalFilterInputs() {
     const filterType = document.getElementById('conditionalFilterType')?.value;
     const productInputs = document.getElementById('productFilterInputs');
     const subscriberDateInputs = document.getElementById('subscriberDateInputs');
+    const purchaseValueInputs = document.getElementById('purchaseValueInputs');
+    const sourceFilterInputs = document.getElementById('sourceFilterInputs');
+    const genderFilterInputs = document.getElementById('genderFilterInputs');
+    const dobRangeInputs = document.getElementById('dobRangeInputs');
+    const deviceFilterInputs = document.getElementById('deviceFilterInputs');
     const applyBtn = document.getElementById('conditionalApplyBtn');
 
     // Hide all input groups first
     productInputs?.classList.add('hidden');
     subscriberDateInputs?.classList.add('hidden');
+    purchaseValueInputs?.classList.add('hidden');
+    sourceFilterInputs?.classList.add('hidden');
+    genderFilterInputs?.classList.add('hidden');
+    dobRangeInputs?.classList.add('hidden');
+    deviceFilterInputs?.classList.add('hidden');
     applyBtn?.classList.add('hidden');
 
     // Show relevant input based on filter type
@@ -5899,6 +5987,21 @@ function toggleConditionalFilterInputs() {
         applyBtn?.classList.remove('hidden');
     } else if (filterType === 'subscriberDateRange') {
         subscriberDateInputs?.classList.remove('hidden');
+        applyBtn?.classList.remove('hidden');
+    } else if (filterType === 'firstPurchaseValue') {
+        purchaseValueInputs?.classList.remove('hidden');
+        applyBtn?.classList.remove('hidden');
+    } else if (filterType === 'source') {
+        sourceFilterInputs?.classList.remove('hidden');
+        applyBtn?.classList.remove('hidden');
+    } else if (filterType === 'gender') {
+        genderFilterInputs?.classList.remove('hidden');
+        applyBtn?.classList.remove('hidden');
+    } else if (filterType === 'dobRange') {
+        dobRangeInputs?.classList.remove('hidden');
+        applyBtn?.classList.remove('hidden');
+    } else if (filterType === 'device') {
+        deviceFilterInputs?.classList.remove('hidden');
         applyBtn?.classList.remove('hidden');
     }
 
@@ -5917,6 +6020,15 @@ function applyConditionalFilter() {
     const subStartDate = document.getElementById('subscriberStartDate')?.value;
     const subEndDate = document.getElementById('subscriberEndDate')?.value;
 
+    // New filter inputs
+    const purchaseValueOperator = document.getElementById('purchaseValueOperator')?.value;
+    const purchaseValueAmount = document.getElementById('purchaseValueAmount')?.value;
+    const sourceValue = document.getElementById('sourceFilterValue')?.value;
+    const genderValue = document.getElementById('genderFilterValue')?.value;
+    const dobStartDate = document.getElementById('dobStartDate')?.value;
+    const dobEndDate = document.getElementById('dobEndDate')?.value;
+    const deviceValue = document.getElementById('deviceFilterValue')?.value;
+
     // Validation
     if (filterType === 'firstPurchaseProduct' && !productValue) {
         alert('Please enter a product name or ID');
@@ -5924,6 +6036,26 @@ function applyConditionalFilter() {
     }
     if (filterType === 'subscriberDateRange' && !subStartDate && !subEndDate) {
         alert('Please select at least one date');
+        return;
+    }
+    if (filterType === 'firstPurchaseValue' && (!purchaseValueAmount || isNaN(parseFloat(purchaseValueAmount)))) {
+        alert('Please enter a valid amount');
+        return;
+    }
+    if (filterType === 'source' && !sourceValue) {
+        alert('Please select a source');
+        return;
+    }
+    if (filterType === 'gender' && !genderValue) {
+        alert('Please select a gender');
+        return;
+    }
+    if (filterType === 'dobRange' && !dobStartDate && !dobEndDate) {
+        alert('Please select at least one date');
+        return;
+    }
+    if (filterType === 'device' && !deviceValue) {
+        alert('Please select a device type');
         return;
     }
 
@@ -5962,6 +6094,40 @@ function applyConditionalFilter() {
             };
             filterConfig.label = `1st Purchase = "${productValue}"`;
         }
+    } else if (filterType === 'firstPurchaseValue') {
+        const amount = parseFloat(purchaseValueAmount);
+        const operatorLabels = { eq: '=', gte: '>=', lte: '<=', gt: '>', lt: '<' };
+        filterConfig.params = {
+            operator: purchaseValueOperator,
+            amount: amount,
+            matcher: (orderTotal) => {
+                const total = parseFloat(orderTotal);
+                if (purchaseValueOperator === 'eq') return total === amount;
+                if (purchaseValueOperator === 'gte') return total >= amount;
+                if (purchaseValueOperator === 'lte') return total <= amount;
+                if (purchaseValueOperator === 'gt') return total > amount;
+                if (purchaseValueOperator === 'lt') return total < amount;
+                return false;
+            }
+        };
+        filterConfig.label = `1st Purchase ${operatorLabels[purchaseValueOperator]} ${amount.toLocaleString()} VND`;
+    } else if (filterType === 'source') {
+        filterConfig.params = { source: sourceValue };
+        filterConfig.label = `Source = ${sourceValue}`;
+    } else if (filterType === 'gender') {
+        filterConfig.params = { gender: genderValue };
+        filterConfig.label = `Gender = ${genderValue}`;
+    } else if (filterType === 'dobRange') {
+        filterConfig.params = {
+            startDate: dobStartDate || null,
+            endDate: dobEndDate || null
+        };
+        const startLabel = dobStartDate || 'any';
+        const endLabel = dobEndDate || 'any';
+        filterConfig.label = `DOB: ${startLabel} - ${endLabel}`;
+    } else if (filterType === 'device') {
+        filterConfig.params = { device: deviceValue };
+        filterConfig.label = `Device = ${deviceValue}`;
     }
 
     dashboard.conditionalFilter = filterConfig;
@@ -6005,8 +6171,36 @@ function clearConditionalFilter() {
     const subEnd = document.getElementById('subscriberEndDate');
     if (subEnd) subEnd.value = '';
 
+    // Reset new filter inputs
+    const purchaseValueAmount = document.getElementById('purchaseValueAmount');
+    if (purchaseValueAmount) purchaseValueAmount.value = '';
+
+    const purchaseValueOperator = document.getElementById('purchaseValueOperator');
+    if (purchaseValueOperator) purchaseValueOperator.value = 'gte';
+
+    const sourceFilterValue = document.getElementById('sourceFilterValue');
+    if (sourceFilterValue) sourceFilterValue.value = '';
+
+    const genderFilterValue = document.getElementById('genderFilterValue');
+    if (genderFilterValue) genderFilterValue.value = '';
+
+    const dobStartDate = document.getElementById('dobStartDate');
+    if (dobStartDate) dobStartDate.value = '';
+
+    const dobEndDate = document.getElementById('dobEndDate');
+    if (dobEndDate) dobEndDate.value = '';
+
+    const deviceFilterValue = document.getElementById('deviceFilterValue');
+    if (deviceFilterValue) deviceFilterValue.value = '';
+
+    // Hide all filter input groups
     document.getElementById('productFilterInputs')?.classList.add('hidden');
     document.getElementById('subscriberDateInputs')?.classList.add('hidden');
+    document.getElementById('purchaseValueInputs')?.classList.add('hidden');
+    document.getElementById('sourceFilterInputs')?.classList.add('hidden');
+    document.getElementById('genderFilterInputs')?.classList.add('hidden');
+    document.getElementById('dobRangeInputs')?.classList.add('hidden');
+    document.getElementById('deviceFilterInputs')?.classList.add('hidden');
     document.getElementById('conditionalApplyBtn')?.classList.add('hidden');
     document.getElementById('conditionalFilterInfo')?.classList.add('hidden');
     document.getElementById('tripwireAnalysisPanel')?.classList.add('hidden');

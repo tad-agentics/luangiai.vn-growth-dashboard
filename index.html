@@ -279,6 +279,11 @@
                     <option value="all">All Customers</option>
                     <option value="subscriberDateRange">Subscribers Created Between...</option>
                     <option value="firstPurchaseProduct">1st Purchase = Product</option>
+                    <option value="firstPurchaseValue">1st Purchase Value...</option>
+                    <option value="source">Traffic Source</option>
+                    <option value="gender">Gender</option>
+                    <option value="dobRange">Date of Birth Range</option>
+                    <option value="device">Device Type</option>
                 </select>
 
                 <!-- Subscriber Date Range Inputs -->
@@ -300,6 +305,71 @@
                            placeholder="Enter product name or ID..."
                            class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none w-48"
                            onkeydown="if(event.key==='Enter') applyConditionalFilter()">
+                </div>
+
+                <!-- First Purchase Value Inputs -->
+                <div id="purchaseValueInputs" class="flex items-center gap-2 hidden">
+                    <select id="purchaseValueOperator" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                        <option value="gte">>=</option>
+                        <option value="lte"><=</option>
+                        <option value="eq">=</option>
+                        <option value="gt">></option>
+                        <option value="lt"><</option>
+                    </select>
+                    <input type="number" id="purchaseValueAmount"
+                           placeholder="Amount (VND)"
+                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none w-32"
+                           onkeydown="if(event.key==='Enter') applyConditionalFilter()">
+                </div>
+
+                <!-- Source Filter (Dropdown) -->
+                <div id="sourceFilterInputs" class="flex items-center gap-2 hidden">
+                    <select id="sourceFilterValue" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                        <option value="">Select Source...</option>
+                        <option value="Facebook Ads">Facebook Ads</option>
+                        <option value="Google Ads">Google Ads</option>
+                        <option value="Facebook">Facebook</option>
+                        <option value="Google">Google</option>
+                        <option value="TikTok">TikTok</option>
+                        <option value="Zalo">Zalo</option>
+                        <option value="YouTube">YouTube</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="Email">Email</option>
+                        <option value="Organic">Organic</option>
+                        <option value="UTM Tagged">UTM Tagged</option>
+                        <option value="Other Referral">Other Referral</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <!-- Gender Filter (Dropdown) -->
+                <div id="genderFilterInputs" class="flex items-center gap-2 hidden">
+                    <select id="genderFilterValue" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                        <option value="">Select Gender...</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <!-- DOB Range Inputs -->
+                <div id="dobRangeInputs" class="flex items-center gap-2 hidden">
+                    <input type="date" id="dobStartDate"
+                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                    <span class="text-muted-foreground">to</span>
+                    <input type="date" id="dobEndDate"
+                           class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                </div>
+
+                <!-- Device Filter (Dropdown) -->
+                <div id="deviceFilterInputs" class="flex items-center gap-2 hidden">
+                    <select id="deviceFilterValue" class="px-3 py-1.5 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none">
+                        <option value="">Select Device...</option>
+                        <option value="Mobile">Mobile</option>
+                        <option value="Desktop">Desktop</option>
+                        <option value="Tablet">Tablet</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
                 </div>
 
                 <!-- Apply Button (for conditional filters that need it) -->
