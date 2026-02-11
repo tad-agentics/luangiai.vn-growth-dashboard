@@ -2430,7 +2430,7 @@ class CRMDashboard {
     // Calculate time of day statistics for subscriptions, purchases, and repeat purchases
     calculateTimeOfDayStats() {
         const subscribers = this.getFilteredSubscribers();
-        const orders = this.getDateFilteredOrders();
+        const orders = this.getFilteredOrders();
 
         // Initialize hourly buckets (0-23)
         const stats = {
