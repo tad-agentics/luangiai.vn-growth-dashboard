@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
     UNIQUE(provider, account_id)
 );
 
+-- Indexes for oauth_tokens (token refresh and cleanup queries)
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens_provider ON oauth_tokens(provider);
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens_expires ON oauth_tokens(expires_at DESC);
+
 -- ============================================
 -- 3. DAILY METRICS SNAPSHOT
 -- Historical data for trend analysis
@@ -151,6 +155,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- Index for audit queries
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_identifier);
 
 -- ============================================
 -- HELPER FUNCTIONS
