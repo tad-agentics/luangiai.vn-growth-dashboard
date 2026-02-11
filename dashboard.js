@@ -2412,13 +2412,45 @@ class CRMDashboard {
     }
 
     calculateWooCommerceMetrics() {
-        const orders = this.getFilteredOrders();
-        if (!orders || orders.length === 0) {
-            console.log('No WooCommerce orders to analyze');
+        // Get ALL orders (excluding internal emails only, NOT date filtered)
+        // This is needed to determine TRUE purchase sequence numbers
+        const allOrders = (this.data.woocommerce?.orders || []).filter(order => {
+            const email = order.billing?.email || order.billing_email;
+            return !this.isExcludedEmail(email);
+        });
+
+        // Group ALL orders to get TRUE purchase sequence numbers
+        const allTimeCustomerOrders = this.groupOrdersByCustomer(allOrders);
+
+        // Get date-filtered orders
+        const filteredOrders = this.getFilteredOrders();
+        if (!filteredOrders || filteredOrders.length === 0) {
+            console.log('No WooCommerce orders in selected date range');
             return;
         }
 
-        const customerOrders = this.groupOrdersByCustomer(orders);
+        // Build filtered customerOrders but PRESERVE true _purchaseNumber from all-time grouping
+        const customerOrders = {};
+        filteredOrders.forEach(order => {
+            const email = (order.billing?.email || order.billing_email)?.toLowerCase();
+            if (!email) return;
+
+            // Find the TRUE _purchaseNumber from all-time data
+            const allTimeOrders = allTimeCustomerOrders[email] || [];
+            const matchingOrder = allTimeOrders.find(o => o.id === order.id);
+            if (matchingOrder) {
+                order._purchaseNumber = matchingOrder._purchaseNumber;
+            }
+
+            if (!customerOrders[email]) customerOrders[email] = [];
+            customerOrders[email].push(order);
+        });
+
+        // Sort each customer's filtered orders by their TRUE purchase number
+        Object.values(customerOrders).forEach(orders => {
+            orders.sort((a, b) => a._purchaseNumber - b._purchaseNumber);
+        });
+
         this.data.woocommerce.customerOrders = customerOrders;
 
         const metrics = {
@@ -2433,8 +2465,10 @@ class CRMDashboard {
             sku2nd: this.wcCalcSKUBreakdown(customerOrders, 2),
             sku3rd: this.wcCalcSKUBreakdown(customerOrders, 3),
             totalCustomers: Object.keys(customerOrders).length,
-            totalOrders: orders.length,
-            repeatCustomers: Object.values(customerOrders).filter(o => o.length > 1).length,
+            totalOrders: filteredOrders.length,
+            repeatCustomers: Object.values(customerOrders).filter(orders =>
+                orders.some(o => o._purchaseNumber > 1)
+            ).length,
             funnel: this.wcCalcPurchaseFunnel(customerOrders),
             topCustomers: this.wcCalcTopCustomers(customerOrders)
         };
@@ -2562,17 +2596,26 @@ class CRMDashboard {
 
     wcCalcPurchaseFunnel(customerOrders) {
         const totalSubscribers = this.getFilteredSubscribers().length;
-        const firstPurchase = Object.keys(customerOrders).length;
-        const secondPurchase = Object.values(customerOrders).filter(o => o.length >= 2).length;
-        const thirdPurchase = Object.values(customerOrders).filter(o => o.length >= 3).length;
-        const fourPlus = Object.values(customerOrders).filter(o => o.length >= 4).length;
+
+        // Count orders by their TRUE purchase number within the filtered date range
+        // This answers: "How many 1st/2nd/3rd purchases happened in this period?"
+        let firstPurchase = 0, secondPurchase = 0, thirdPurchase = 0, fourPlus = 0;
+
+        Object.values(customerOrders).forEach(orders => {
+            orders.forEach(order => {
+                if (order._purchaseNumber === 1) firstPurchase++;
+                else if (order._purchaseNumber === 2) secondPurchase++;
+                else if (order._purchaseNumber === 3) thirdPurchase++;
+                else if (order._purchaseNumber >= 4) fourPlus++;
+            });
+        });
 
         return {
             subscribers: totalSubscribers,
-            firstPurchase,
-            secondPurchase,
-            thirdPurchase,
-            fourPlus
+            firstPurchase,    // How many TRUE 1st purchases happened in date range
+            secondPurchase,   // How many TRUE 2nd purchases happened in date range
+            thirdPurchase,    // How many TRUE 3rd purchases happened in date range
+            fourPlus          // How many TRUE 4th+ purchases happened in date range
         };
     }
 
