@@ -2039,7 +2039,7 @@ class CRMDashboard {
     }
 
     calculateAstrologyStats() {
-        const subscribers = this.data.subscribers;
+        const subscribers = this.getFilteredSubscribers();
         const stats = {
             withDOB: 0,
             withBirthtime: 0,
@@ -2389,7 +2389,7 @@ class CRMDashboard {
 
     wcCalcTimeToFirstPurchase(customerOrders) {
         const times = [];
-        const subscribers = this.data.subscribers;
+        const subscribers = this.getFilteredSubscribers();
 
         Object.entries(customerOrders).forEach(([email, orders]) => {
             const subscriber = subscribers.find(s => s.email?.toLowerCase() === email);
@@ -2505,7 +2505,7 @@ class CRMDashboard {
     }
 
     wcCalcPurchaseFunnel(customerOrders) {
-        const totalSubscribers = this.data.subscribers.length;
+        const totalSubscribers = this.getFilteredSubscribers().length;
         const firstPurchase = Object.keys(customerOrders).length;
         const secondPurchase = Object.values(customerOrders).filter(o => o.length >= 2).length;
         const thirdPurchase = Object.values(customerOrders).filter(o => o.length >= 3).length;
@@ -2521,7 +2521,7 @@ class CRMDashboard {
     }
 
     wcCalcTopCustomers(customerOrders) {
-        const subscribers = this.data.subscribers;
+        const subscribers = this.getFilteredSubscribers();
         const customers = [];
 
         Object.entries(customerOrders).forEach(([email, orders]) => {
@@ -2554,7 +2554,7 @@ class CRMDashboard {
     // ==================== 2ND PURCHASER PROFILE ====================
     calculate2ndPurchaserProfile() {
         const customerOrders = this.data.woocommerce?.customerOrders || {};
-        const subscribers = this.data.subscribers || [];
+        const subscribers = this.getFilteredSubscribers();
 
         // Build email to subscriber lookup
         const emailToSubscriber = {};
@@ -3304,7 +3304,7 @@ class CRMDashboard {
         const activeToday = document.getElementById('summaryActiveToday');
         if (activeToday) {
             const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            const active = (this.data.subscribers || []).filter(s =>
+            const active = filteredSubscribers.filter(s =>
                 s.last_activity && new Date(s.last_activity) > dayAgo
             ).length;
             activeToday.textContent = this.formatNumber(active);
@@ -3313,8 +3313,8 @@ class CRMDashboard {
         // Data quality
         const dataQuality = document.getElementById('summaryDataQuality');
         if (dataQuality) {
-            const complete = (this.data.subscribers || []).filter(s => s.dob && s.device_type).length;
-            const total = this.data.subscribers?.length || 1;
+            const complete = filteredSubscribers.filter(s => s.dob && s.device_type).length;
+            const total = filteredSubscribers.length || 1;
             dataQuality.textContent = `${((complete / total) * 100).toFixed(0)}%`;
         }
 
@@ -3433,7 +3433,7 @@ class CRMDashboard {
     generateActions() {
         const actions = [];
         const wc = this.data.woocommerce || {};
-        const subscribers = this.data.subscribers || [];
+        const subscribers = this.getFilteredSubscribers();
 
         // Incomplete profiles
         const incomplete = subscribers.filter(s => !s.dob || !s.device_type).length;
@@ -3709,11 +3709,12 @@ class CRMDashboard {
             `;
         }).join('');
 
-        // Update data completeness
+        // Update data completeness (use filtered subscribers)
         const completeEl = document.getElementById('dataCompleteness');
         if (completeEl) {
-            const complete = (this.data.subscribers || []).filter(s => s.dob && s.device_type).length;
-            completeEl.textContent = `${this.formatNumber(complete)} / ${this.formatNumber(total)}`;
+            const filteredSubs = this.getFilteredSubscribers();
+            const complete = filteredSubs.filter(s => s.dob && s.device_type).length;
+            completeEl.textContent = `${this.formatNumber(complete)} / ${this.formatNumber(filteredSubs.length)}`;
         }
     }
 
@@ -3751,7 +3752,7 @@ class CRMDashboard {
     }
 
     getTopSourceForPersona(personaName) {
-        const subscribers = this.data.subscribers || [];
+        const subscribers = this.getFilteredSubscribers();
         const sources = {};
 
         subscribers.forEach(s => {
@@ -3767,7 +3768,7 @@ class CRMDashboard {
     }
 
     calculatePersonaDetails(personaName) {
-        const subscribers = this.data.subscribers || [];
+        const subscribers = this.getFilteredSubscribers();
         const customerOrders = this.data.woocommerce?.customerOrders || {};
 
         // Filter subscribers for this persona
@@ -4136,16 +4137,17 @@ class CRMDashboard {
     updateAstrologyData() {
         // Populate zodiac chart and table for the collapsible section
         const astroData = this.data.astrology || {};
+        const filteredSubs = this.getFilteredSubscribers();
 
         // Update zodiac metrics
-        const withDOB = (this.data.subscribers || []).filter(s => s.dob || s.date_of_birth).length;
-        const total = this.data.subscribers?.length || 1;
+        const withDOB = filteredSubs.filter(s => s.dob || s.date_of_birth).length;
+        const total = filteredSubs.length || 1;
         const withDOBEl = document.getElementById('astroWithDOB');
         if (withDOBEl) withDOBEl.textContent = this.formatNumber(withDOB);
         const withDOBPctEl = document.getElementById('astroWithDOBPct');
         if (withDOBPctEl) withDOBPctEl.textContent = `${((withDOB / total) * 100).toFixed(0)}%`;
 
-        const withBirthtime = (this.data.subscribers || []).filter(s => s.birthtime || s.custom_fields?.birth_time).length;
+        const withBirthtime = filteredSubs.filter(s => s.birthtime || s.custom_fields?.birth_time).length;
         const withBirthtimeEl = document.getElementById('astroWithBirthtime');
         if (withBirthtimeEl) withBirthtimeEl.textContent = this.formatNumber(withBirthtime);
         const withBirthtimePctEl = document.getElementById('astroWithBirthtimePct');
@@ -4688,9 +4690,10 @@ class CRMDashboard {
         const totalConverted = categorizationStats?.totalConverted || 0;
         const overallCVR = contacts.total > 0 ? (totalConverted / contacts.total * 100).toFixed(2) : 0;
 
-        // Key metrics
+        // Key metrics (use filtered subscribers for loaded count)
+        const filteredSubsCount = this.getFilteredSubscribers().length;
         document.getElementById('metricTotal').textContent = this.formatNumber(contacts.total);
-        document.getElementById('metricTotalTrend').textContent = `${this.formatNumber(this.data.subscribers.length)} loaded`;
+        document.getElementById('metricTotalTrend').textContent = `${this.formatNumber(filteredSubsCount)} in range`;
         document.getElementById('metricConverted').textContent = this.formatNumber(totalConverted);
         document.getElementById('metricCVR').textContent = `${overallCVR}% CVR`;
         document.getElementById('metricSubscribed').textContent = this.formatNumber(contacts.subscribed);
@@ -5200,7 +5203,7 @@ class CRMDashboard {
 
     updateAstrologyTab() {
         const stats = this.data.astrologyStats || {};
-        const total = this.data.subscribers.length || 1;
+        const total = this.getFilteredSubscribers().length || 1;
 
         // Summary cards
         document.getElementById('astroWithDOB').textContent = this.formatNumber(stats.withDOB || 0);
