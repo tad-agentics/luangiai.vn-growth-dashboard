@@ -3206,8 +3206,8 @@ class CRMDashboard {
 
         const summaryRepeatRate = document.getElementById('summaryRepeatRate');
         if (summaryRepeatRate) {
-            const repeatRate = (wc.totalCustomers > 0 && wc.customersWithRepeat != null) ?
-                ((wc.customersWithRepeat / wc.totalCustomers) * 100).toFixed(1) : '0';
+            const repeatRate = (wc.totalCustomers > 0 && wc.repeatCustomers != null) ?
+                ((wc.repeatCustomers / wc.totalCustomers) * 100).toFixed(1) : '0';
             summaryRepeatRate.textContent = `${repeatRate}%`;
         }
 
@@ -3324,7 +3324,7 @@ class CRMDashboard {
 
         // Repeat rate insight
         if (wc.totalCustomers > 0) {
-            const repeatRate = (wc.customersWithRepeat / wc.totalCustomers) * 100;
+            const repeatRate = (wc.repeatCustomers / wc.totalCustomers) * 100;
             if (repeatRate < 20) {
                 insights.push({
                     type: 'warning',
@@ -4018,8 +4018,8 @@ class CRMDashboard {
         // Repeat rate in revenue tab
         const revRepeatRate = document.getElementById('revRepeatRate');
         if (revRepeatRate) {
-            const rate = (wc.totalCustomers > 0 && wc.customersWithRepeat != null) ?
-                ((wc.customersWithRepeat / wc.totalCustomers) * 100).toFixed(1) : '0';
+            const rate = (wc.totalCustomers > 0 && wc.repeatCustomers != null) ?
+                ((wc.repeatCustomers / wc.totalCustomers) * 100).toFixed(1) : '0';
             revRepeatRate.textContent = `${rate}%`;
         }
 
