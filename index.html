@@ -357,6 +357,9 @@
             <button onclick="setTab('revenue')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="revenue">
                 💰 Revenue
             </button>
+            <button onclick="setTab('ai-cgo')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium" data-tab="ai-cgo">
+                🤖 AI Co-CGO
+            </button>
         </div>
 
         <!-- ==================== EXECUTIVE SUMMARY TAB ==================== -->
@@ -1029,6 +1032,140 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <!-- ==================== AI CO-CGO TAB ==================== -->
+        <div id="tab-ai-cgo" class="tab-content space-y-6 hidden">
+            <!-- API Key Configuration -->
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-foreground font-bold flex items-center gap-2">
+                        <i class="fas fa-key text-primary"></i>
+                        API Configuration
+                    </h3>
+                    <span id="aiApiStatus" class="text-xs px-2 py-1 rounded bg-muted text-muted-foreground">
+                        Not configured
+                    </span>
+                </div>
+                <div class="flex gap-3 items-end">
+                    <div class="flex-1">
+                        <label class="block text-xs text-muted-foreground mb-1">Anthropic API Key</label>
+                        <input type="password" id="anthropicApiKey"
+                               class="w-full px-3 py-2 bg-muted rounded text-sm border border-foreground/20 focus:border-primary outline-none text-foreground"
+                               placeholder="sk-ant-api...">
+                    </div>
+                    <button onclick="AICGOManager.saveApiKey()"
+                            class="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/80 transition-colors">
+                        <i class="fas fa-save mr-1"></i>Save
+                    </button>
+                </div>
+                <p class="text-xs text-muted-foreground mt-2">
+                    Your API key is stored locally in browser storage and never sent to our servers.
+                </p>
+            </div>
+
+            <!-- Analysis Control Panel -->
+            <div class="card p-6 border-l-4 border-primary">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-brain text-primary text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-foreground font-bold text-lg mb-2">AI Growth Analysis</h3>
+                        <p class="text-muted-foreground text-sm mb-4">
+                            Click "Analyse" to have Claude analyze your current data and generate strategic recommendations.
+                            The analysis includes all data matching your current filters.
+                        </p>
+
+                        <!-- Current Filter Summary -->
+                        <div id="aiFilterSummary" class="bg-muted/50 rounded-lg p-3 mb-4">
+                            <div class="text-xs text-muted-foreground mb-1">Current Data Scope:</div>
+                            <div id="aiFilterDetails" class="text-sm text-foreground">
+                                Loading filter status...
+                            </div>
+                        </div>
+
+                        <!-- Analysis Button -->
+                        <div class="flex items-center gap-4">
+                            <button onclick="AICGOManager.runAnalysis()" id="aiAnalyseBtn"
+                                    class="px-6 py-3 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-magic mr-2"></i>Analyse
+                            </button>
+                            <div id="aiAnalysisStatus" class="text-sm text-muted-foreground hidden">
+                                <i class="fas fa-spinner fa-spin mr-1"></i>
+                                <span id="aiStatusText">Analyzing...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Results -->
+            <div id="aiAnalysisResults" class="space-y-6 hidden">
+                <!-- Executive Summary -->
+                <div class="card p-6">
+                    <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-success"></i>
+                        Executive Summary
+                    </h3>
+                    <div id="aiExecSummary" class="prose prose-sm max-w-none text-foreground">
+                        <!-- Populated by AI -->
+                    </div>
+                </div>
+
+                <!-- Key Insights -->
+                <div class="card p-6">
+                    <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-lightbulb text-warning"></i>
+                        Key Insights
+                    </h3>
+                    <div id="aiKeyInsights" class="space-y-3">
+                        <!-- Populated by AI -->
+                    </div>
+                </div>
+
+                <!-- Recommended Actions -->
+                <div class="card p-6 border-l-4 border-success">
+                    <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-bullseye text-success"></i>
+                        Recommended Actions
+                    </h3>
+                    <div id="aiRecommendedActions" class="space-y-4">
+                        <!-- Populated by AI -->
+                    </div>
+                </div>
+
+                <!-- Risks & Concerns -->
+                <div class="card p-6 border-l-4 border-danger">
+                    <h3 class="text-foreground font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-exclamation-triangle text-danger"></i>
+                        Risks & Areas of Concern
+                    </h3>
+                    <div id="aiRisks" class="space-y-3">
+                        <!-- Populated by AI -->
+                    </div>
+                </div>
+
+                <!-- Analysis Metadata -->
+                <div class="text-xs text-muted-foreground text-center py-2">
+                    <span id="aiAnalysisTimestamp"></span> |
+                    <span id="aiAnalysisModel">Claude</span> |
+                    <button onclick="AICGOManager.copyAnalysis()" class="text-primary hover:underline">
+                        <i class="fas fa-copy mr-1"></i>Copy Full Report
+                    </button>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="aiEmptyState" class="card p-12 text-center">
+                <div class="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-robot text-muted-foreground text-2xl"></i>
+                </div>
+                <h3 class="text-foreground font-bold mb-2">No Analysis Yet</h3>
+                <p class="text-muted-foreground text-sm mb-4">
+                    Configure your API key and click "Analyse" to generate AI-powered insights.
+                </p>
             </div>
         </div>
 
@@ -1731,6 +1868,522 @@
     window.addEventListener('DOMContentLoaded', () => {
         AIReportsManager.init();
     });
+    </script>
+
+    <!-- AI Co-CGO Tab Functionality -->
+    <script>
+    const AICGOManager = {
+        apiKey: null,
+        lastAnalysis: null,
+
+        init() {
+            // Load API key from localStorage
+            this.apiKey = localStorage.getItem('anthropic_api_key');
+            this.updateApiStatus();
+        },
+
+        saveApiKey() {
+            const input = document.getElementById('anthropicApiKey');
+            const key = input.value.trim();
+
+            if (!key) {
+                this.showNotification('Please enter an API key', 'error');
+                return;
+            }
+
+            if (!key.startsWith('sk-ant-')) {
+                this.showNotification('Invalid API key format. Should start with sk-ant-', 'error');
+                return;
+            }
+
+            localStorage.setItem('anthropic_api_key', key);
+            this.apiKey = key;
+            input.value = '';
+            this.updateApiStatus();
+            this.showNotification('API key saved successfully', 'success');
+        },
+
+        updateApiStatus() {
+            const statusEl = document.getElementById('aiApiStatus');
+            if (!statusEl) return;
+
+            if (this.apiKey) {
+                statusEl.textContent = 'Configured';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-success/20 text-success';
+            } else {
+                statusEl.textContent = 'Not configured';
+                statusEl.className = 'text-xs px-2 py-1 rounded bg-muted text-muted-foreground';
+            }
+        },
+
+        updateFilterSummary() {
+            const detailsEl = document.getElementById('aiFilterDetails');
+            if (!detailsEl || !dashboard) {
+                if (detailsEl) detailsEl.textContent = 'Dashboard not initialized';
+                return;
+            }
+
+            const subscribers = dashboard.getFilteredSubscribers();
+            const orders = dashboard.getFilteredOrders();
+            const dateFilter = dashboard.dateFilter || {};
+            const conditionalFilter = dashboard.conditionalFilter || {};
+
+            let summary = [];
+
+            // Date filter
+            if (dateFilter.startDate || dateFilter.endDate) {
+                const start = dateFilter.startDate || 'All time';
+                const end = dateFilter.endDate || 'Today';
+                summary.push(`📅 ${start} to ${end}`);
+            } else {
+                summary.push('📅 All time');
+            }
+
+            // Conditional filter
+            if (conditionalFilter.conditions && conditionalFilter.conditions.length > 0) {
+                summary.push(`🎯 ${conditionalFilter.label || 'Custom filter'}`);
+            }
+
+            // Data counts
+            summary.push(`👥 ${subscribers.length.toLocaleString()} subscribers`);
+            summary.push(`🛒 ${orders.length.toLocaleString()} orders`);
+
+            detailsEl.innerHTML = summary.join(' | ');
+        },
+
+        collectAnalysisData() {
+            const subscribers = dashboard.getFilteredSubscribers();
+            const orders = dashboard.getFilteredOrders();
+            const metrics = dashboard.data.woocommerce?.metrics || {};
+            const growthAnalytics = dashboard.data.growthAnalytics || {};
+            const personas = dashboard.data.personas || {};
+
+            // Calculate summary statistics
+            const customerCount = subscribers.filter(s => s.contact_type === 'customer').length;
+            const leadCount = subscribers.length - customerCount;
+
+            // Source breakdown
+            const sourceBreakdown = {};
+            subscribers.forEach(sub => {
+                const source = this.parseSource(sub.source || '');
+                sourceBreakdown[source] = (sourceBreakdown[source] || 0) + 1;
+            });
+
+            // Persona breakdown
+            const personaBreakdown = {};
+            Object.entries(personas).forEach(([key, data]) => {
+                personaBreakdown[key] = {
+                    count: data.count || 0,
+                    cvr: data.cvr?.toFixed(2) || 0,
+                    percentage: ((data.count / subscribers.length) * 100).toFixed(1) || 0
+                };
+            });
+
+            // Revenue calculations
+            const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+            const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
+
+            // Time-based trends (last 7 days vs previous 7 days)
+            const now = new Date();
+            const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+            const twoWeeksAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
+
+            const thisWeekSubs = subscribers.filter(s => new Date(s.created_at) >= weekAgo).length;
+            const lastWeekSubs = subscribers.filter(s => {
+                const created = new Date(s.created_at);
+                return created >= twoWeeksAgo && created < weekAgo;
+            }).length;
+
+            return {
+                dateRange: {
+                    start: dashboard.dateFilter?.startDate || 'All time',
+                    end: dashboard.dateFilter?.endDate || new Date().toISOString().split('T')[0],
+                    preset: dashboard.dateFilter?.preset
+                },
+                conditionalFilter: dashboard.conditionalFilter?.label || 'None',
+                subscribers: {
+                    total: subscribers.length,
+                    leads: leadCount,
+                    customers: customerCount,
+                    cvr: subscribers.length > 0 ? ((customerCount / subscribers.length) * 100).toFixed(2) : 0
+                },
+                trends: {
+                    thisWeekNewSubscribers: thisWeekSubs,
+                    lastWeekNewSubscribers: lastWeekSubs,
+                    weekOverWeekChange: lastWeekSubs > 0
+                        ? (((thisWeekSubs - lastWeekSubs) / lastWeekSubs) * 100).toFixed(1)
+                        : 'N/A'
+                },
+                revenue: {
+                    totalRevenue: Math.round(totalRevenue),
+                    orderCount: orders.length,
+                    avgOrderValue: Math.round(avgOrderValue),
+                    currency: 'VND'
+                },
+                woocommerce: {
+                    avgLTV: Math.round(metrics.ltv?.avg || 0),
+                    repeatRate: metrics.totalCustomers > 0
+                        ? ((metrics.repeatCustomers / metrics.totalCustomers) * 100).toFixed(1)
+                        : 0,
+                    timeToFirstPurchase: Math.round(metrics.timeToFirstPurchase?.avg || 0),
+                    timeFirstToSecond: Math.round(metrics.timeFirstToSecond?.avg || 0),
+                    funnel: metrics.funnel || {},
+                    top1stPurchaseProducts: (metrics.sku1st || []).slice(0, 5),
+                    top2ndPurchaseProducts: (metrics.sku2nd || []).slice(0, 5)
+                },
+                sources: Object.entries(sourceBreakdown)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10)
+                    .map(([source, count]) => ({
+                        source,
+                        count,
+                        percentage: ((count / subscribers.length) * 100).toFixed(1)
+                    })),
+                personas: personaBreakdown,
+                growthAnalytics: {
+                    engagement: growthAnalytics.engagement || {},
+                    leads: growthAnalytics.leads || 0,
+                    customers: growthAnalytics.customers || 0
+                }
+            };
+        },
+
+        parseSource(sourceUrl) {
+            if (!sourceUrl) return 'Direct';
+            const s = sourceUrl.toLowerCase();
+            if (s.includes('facebook') || s.includes('fbclid')) return 'Facebook';
+            if (s.includes('google') || s.includes('gclid')) return 'Google';
+            if (s.includes('tiktok') || s.includes('ttclid')) return 'TikTok';
+            if (s.includes('zalo')) return 'Zalo';
+            if (s.includes('youtube')) return 'YouTube';
+            if (s.includes('instagram')) return 'Instagram';
+            if (s.includes('utm_')) return 'UTM Tagged';
+            return 'Organic/Direct';
+        },
+
+        buildPrompt(data) {
+            return `You are an AI Chief Growth Officer (CGO) analyzing customer data for Luangiai.vn, a Vietnamese astrology/fortune-telling service.
+Your role is to provide strategic insights and actionable recommendations based on the data provided.
+
+## CURRENT DATA SNAPSHOT (${data.dateRange.start} to ${data.dateRange.end})
+Filter Applied: ${data.conditionalFilter}
+
+### SUBSCRIBER METRICS
+- Total Subscribers: ${data.subscribers.total.toLocaleString()}
+- Leads (not converted): ${data.subscribers.leads.toLocaleString()}
+- Customers (converted): ${data.subscribers.customers.toLocaleString()}
+- Conversion Rate: ${data.subscribers.cvr}%
+
+### GROWTH TRENDS
+- New subscribers this week: ${data.trends.thisWeekNewSubscribers}
+- New subscribers last week: ${data.trends.lastWeekNewSubscribers}
+- Week-over-Week Change: ${data.trends.weekOverWeekChange}%
+
+### REVENUE METRICS (VND)
+- Total Revenue: ${data.revenue.totalRevenue.toLocaleString()} VND
+- Total Orders: ${data.revenue.orderCount}
+- Average Order Value: ${data.revenue.avgOrderValue.toLocaleString()} VND
+
+### CUSTOMER LIFETIME VALUE
+- Average LTV: ${data.woocommerce.avgLTV.toLocaleString()} VND
+- Repeat Purchase Rate: ${data.woocommerce.repeatRate}%
+- Avg Days to First Purchase: ${data.woocommerce.timeToFirstPurchase} days
+- Avg Days from 1st to 2nd Purchase: ${data.woocommerce.timeFirstToSecond} days
+
+### PURCHASE FUNNEL
+- Subscribers: ${data.woocommerce.funnel.subscribers || 'N/A'}
+- 1st Purchases: ${data.woocommerce.funnel.firstPurchase || 'N/A'}
+- 2nd Purchases: ${data.woocommerce.funnel.secondPurchase || 'N/A'}
+- 3rd Purchases: ${data.woocommerce.funnel.thirdPurchase || 'N/A'}
+- 4+ Purchases: ${data.woocommerce.funnel.fourPlus || 'N/A'}
+
+### TOP TRAFFIC SOURCES
+${data.sources.map((s, i) => `${i + 1}. ${s.source}: ${s.count} (${s.percentage}%)`).join('\n')}
+
+### TOP 1ST PURCHASE PRODUCTS
+${data.woocommerce.top1stPurchaseProducts.map((p, i) => `${i + 1}. ${p.name}: ${p.count} purchases`).join('\n') || 'No data'}
+
+### TOP 2ND PURCHASE PRODUCTS
+${data.woocommerce.top2ndPurchaseProducts.map((p, i) => `${i + 1}. ${p.name}: ${p.count} purchases`).join('\n') || 'No data'}
+
+### PERSONA BREAKDOWN
+${Object.entries(data.personas).map(([key, p]) => `- ${key}: ${p.count} subscribers (CVR: ${p.cvr}%)`).join('\n')}
+
+### ENGAGEMENT STATUS
+- Active: ${data.growthAnalytics.engagement?.active || 0}
+- Recent: ${data.growthAnalytics.engagement?.recent || 0}
+- Dormant: ${data.growthAnalytics.engagement?.dormant || 0}
+- Inactive: ${data.growthAnalytics.engagement?.inactive || 0}
+
+---
+
+## YOUR TASK
+
+Based on this data, provide a strategic growth analysis with the following sections:
+
+1. **EXECUTIVE SUMMARY** (2-3 sentences)
+   - Overall health assessment of the business
+   - Most critical metric to watch
+
+2. **KEY INSIGHTS** (3-5 bullet points)
+   - Data-driven observations
+   - Notable patterns or anomalies
+   - Comparisons and benchmarks
+
+3. **RECOMMENDED ACTIONS** (3-5 prioritized actions)
+   - Each action should be specific and actionable
+   - Include expected impact
+   - Note urgency (immediate/this week/this month)
+
+4. **RISKS & CONCERNS** (2-3 items)
+   - Potential issues based on the data
+   - Areas needing attention
+
+Format your response in clean Markdown with clear headers. Be specific with numbers and percentages.
+Focus on actionable insights for a Vietnamese e-commerce business in the astrology/spiritual services niche.
+All monetary values are in VND (Vietnamese Dong).`;
+        },
+
+        async runAnalysis() {
+            if (!this.apiKey) {
+                this.showNotification('Please configure your API key first', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('aiAnalyseBtn');
+            const statusEl = document.getElementById('aiAnalysisStatus');
+            const statusText = document.getElementById('aiStatusText');
+            const resultsEl = document.getElementById('aiAnalysisResults');
+            const emptyEl = document.getElementById('aiEmptyState');
+
+            // Update UI to loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Analysing...';
+            statusEl.classList.remove('hidden');
+            statusText.textContent = 'Collecting data...';
+
+            try {
+                // Collect data
+                statusText.textContent = 'Collecting filtered data...';
+                const analysisData = this.collectAnalysisData();
+
+                // Build prompt
+                statusText.textContent = 'Building analysis prompt...';
+                const prompt = this.buildPrompt(analysisData);
+
+                // Call Claude API
+                statusText.textContent = 'Calling Claude API...';
+                const response = await this.callClaudeAPI(prompt);
+
+                // Parse and display results
+                statusText.textContent = 'Processing results...';
+                this.displayResults(response, analysisData);
+
+                // Show results, hide empty state
+                resultsEl.classList.remove('hidden');
+                emptyEl.classList.add('hidden');
+
+                this.showNotification('Analysis complete!', 'success');
+
+            } catch (error) {
+                console.error('Analysis failed:', error);
+                this.showNotification(`Analysis failed: ${error.message}`, 'error');
+            } finally {
+                // Reset UI
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic mr-2"></i>Analyse';
+                statusEl.classList.add('hidden');
+            }
+        },
+
+        async callClaudeAPI(prompt) {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': this.apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-20250514',
+                    max_tokens: 4096,
+                    messages: [{
+                        role: 'user',
+                        content: prompt
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'API request failed');
+            }
+
+            const result = await response.json();
+            return result.content[0].text;
+        },
+
+        displayResults(markdown, rawData) {
+            this.lastAnalysis = { markdown, rawData, timestamp: new Date().toISOString() };
+
+            // Parse markdown sections
+            const sections = this.parseMarkdownSections(markdown);
+
+            // Executive Summary
+            const execEl = document.getElementById('aiExecSummary');
+            execEl.innerHTML = this.markdownToHtml(sections.executiveSummary || 'No summary generated.');
+
+            // Key Insights
+            const insightsEl = document.getElementById('aiKeyInsights');
+            insightsEl.innerHTML = this.formatInsights(sections.keyInsights || '');
+
+            // Recommended Actions
+            const actionsEl = document.getElementById('aiRecommendedActions');
+            actionsEl.innerHTML = this.formatActions(sections.recommendedActions || '');
+
+            // Risks
+            const risksEl = document.getElementById('aiRisks');
+            risksEl.innerHTML = this.formatRisks(sections.risks || '');
+
+            // Timestamp
+            document.getElementById('aiAnalysisTimestamp').textContent =
+                `Generated: ${new Date().toLocaleString()}`;
+            document.getElementById('aiAnalysisModel').textContent = 'Claude Sonnet 4';
+        },
+
+        parseMarkdownSections(markdown) {
+            const sections = {
+                executiveSummary: '',
+                keyInsights: '',
+                recommendedActions: '',
+                risks: ''
+            };
+
+            // Simple section parsing
+            const execMatch = markdown.match(/##?\s*(?:1\.\s*)?EXECUTIVE SUMMARY[^#]*([\s\S]*?)(?=##?\s*(?:2\.\s*)?KEY|$)/i);
+            const insightsMatch = markdown.match(/##?\s*(?:2\.\s*)?KEY INSIGHTS[^#]*([\s\S]*?)(?=##?\s*(?:3\.\s*)?RECOMMENDED|$)/i);
+            const actionsMatch = markdown.match(/##?\s*(?:3\.\s*)?RECOMMENDED ACTIONS[^#]*([\s\S]*?)(?=##?\s*(?:4\.\s*)?RISKS|$)/i);
+            const risksMatch = markdown.match(/##?\s*(?:4\.\s*)?RISKS[^#]*([\s\S]*?)$/i);
+
+            if (execMatch) sections.executiveSummary = execMatch[1].trim();
+            if (insightsMatch) sections.keyInsights = insightsMatch[1].trim();
+            if (actionsMatch) sections.recommendedActions = actionsMatch[1].trim();
+            if (risksMatch) sections.risks = risksMatch[1].trim();
+
+            return sections;
+        },
+
+        markdownToHtml(md) {
+            return md
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        },
+
+        formatInsights(md) {
+            const items = md.split(/\n[-*]\s+/).filter(Boolean);
+            if (items.length === 0) return '<p class="text-muted-foreground">No insights generated.</p>';
+
+            return items.map(item => `
+                <div class="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                    <div class="w-6 h-6 bg-warning/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <i class="fas fa-lightbulb text-warning text-xs"></i>
+                    </div>
+                    <div class="text-sm text-foreground">${this.markdownToHtml(item.trim())}</div>
+                </div>
+            `).join('');
+        },
+
+        formatActions(md) {
+            const items = md.split(/\n\d+\.\s+|\n[-*]\s+/).filter(Boolean);
+            if (items.length === 0) return '<p class="text-muted-foreground">No actions generated.</p>';
+
+            return items.map((item, i) => {
+                const urgencyClass = item.toLowerCase().includes('immediate') ? 'border-danger bg-danger/10' :
+                               item.toLowerCase().includes('this week') ? 'border-warning bg-warning/10' : 'border-success bg-success/10';
+                const numClass = item.toLowerCase().includes('immediate') ? 'bg-danger/20 text-danger' :
+                               item.toLowerCase().includes('this week') ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success';
+                return `
+                    <div class="flex items-start gap-3 p-4 ${urgencyClass} border-l-4 rounded-r-lg">
+                        <div class="w-8 h-8 ${numClass} rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="font-bold text-sm">${i + 1}</span>
+                        </div>
+                        <div class="text-sm text-foreground">${this.markdownToHtml(item.trim())}</div>
+                    </div>
+                `;
+            }).join('');
+        },
+
+        formatRisks(md) {
+            const items = md.split(/\n[-*]\s+|\n\d+\.\s+/).filter(Boolean);
+            if (items.length === 0) return '<p class="text-muted-foreground">No risks identified.</p>';
+
+            return items.map(item => `
+                <div class="flex items-start gap-3 p-3 bg-danger/10 rounded-lg">
+                    <div class="w-6 h-6 bg-danger/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <i class="fas fa-exclamation text-danger text-xs"></i>
+                    </div>
+                    <div class="text-sm text-foreground">${this.markdownToHtml(item.trim())}</div>
+                </div>
+            `).join('');
+        },
+
+        copyAnalysis() {
+            if (!this.lastAnalysis) {
+                this.showNotification('No analysis to copy', 'error');
+                return;
+            }
+
+            const text = `# AI Co-CGO Analysis Report
+Generated: ${this.lastAnalysis.timestamp}
+
+${this.lastAnalysis.markdown}
+
+---
+Data Summary:
+- Subscribers: ${this.lastAnalysis.rawData.subscribers.total}
+- Orders: ${this.lastAnalysis.rawData.revenue.orderCount}
+- Date Range: ${this.lastAnalysis.rawData.dateRange.start} to ${this.lastAnalysis.rawData.dateRange.end}
+`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                this.showNotification('Analysis copied to clipboard', 'success');
+            });
+        },
+
+        showNotification(message, type = 'info') {
+            const colors = {
+                success: 'bg-success',
+                error: 'bg-danger',
+                info: 'bg-primary'
+            };
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+    };
+
+    // Initialize when DOM loads
+    window.addEventListener('DOMContentLoaded', () => {
+        AICGOManager.init();
+    });
+
+    // Update filter summary when tab is shown
+    const originalSetTab = window.setTab;
+    if (originalSetTab) {
+        window.setTab = function(tabId) {
+            originalSetTab(tabId);
+            if (tabId === 'ai-cgo') {
+                AICGOManager.updateFilterSummary();
+            }
+        };
+    }
     </script>
 
     <!-- Filter Condition Template (must be outside other elements) -->
